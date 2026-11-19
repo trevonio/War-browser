@@ -8,6 +8,7 @@ jobs:
   checks:
     name: ${{ matrix.browser }}
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     strategy:
       fail-fast: false
       matrix:
@@ -21,7 +22,12 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Install the test browser
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: 25000
+        run: |
+          timeout 120s npx playwright install --with-deps ${{ matrix.browser }} ||
+            timeout 120s npx playwright install --with-deps ${{ matrix.browser }}
       - name: Start a virtual audio output
         run: |
           sudo apt-get install -y pulseaudio

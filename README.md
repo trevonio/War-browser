@@ -1,7 +1,6 @@
 # War Browser · Fighting Falcon
 
-A single-player, desktop browser flight simulator. Stage 1 includes a coastal
-range with an airborne F-16C start, a runway start for takeoff and landing
+A single-player, desktop browser flight simulator. The coastal range comes with an airborne F-16C start, a runway start for takeoff and landing
 practice, and a cannon range with aerial drones.
 
 ## Run locally
@@ -119,9 +118,7 @@ point and a simplified runway surface.
 
 The aircraft-specific data and visual adapter live in `src/aircraft/`.
 `src/sim/` owns flight state and terrain queries. `src/view/` owns scene
-rendering and the camera. At this stage the external stores only affect
-appearance, mass, and drag. The next milestone is a small single-player
-intercept scenario with one AI aircraft and game-tuned combat systems.
+rendering and the camera. The external stores affect appearance, mass, and drag.
 
 
 ## Cannon range

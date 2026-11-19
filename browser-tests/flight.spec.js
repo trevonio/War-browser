@@ -283,8 +283,20 @@ test('mouse-only turns lead the aircraft with the view and sustain positive G', 
 test('cannon range fires under Pointer Lock, hits a drone, exhausts ammunition, and restarts', async ({ page }, testInfo) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.location().url + ' ' + message.text());
+  });
   await page.addInitScript(() => {
     window.gunAudio = { starts: 0, stops: 0 };
+    const resume = AudioContext.prototype.resume;
+    AudioContext.prototype.resume = function () {
+      return resume.call(this).then(() => {
+        window.gunAudio.context = this.state;
+      }, (error) => {
+        window.gunAudio.context = error.name + ' ' + error.message;
+        throw error;
+      });
+    };
     const prototype = AudioBufferSourceNode.prototype;
     const start = prototype.start;
     const stop = prototype.stop;
@@ -310,7 +322,7 @@ test('cannon range fires under Pointer Lock, hits a drone, exhausts ammunition, 
   await expect.poll(async () => Number(await page.locator('#cannon-ammo').innerText())).toBeLessThan(505);
   await page.screenshot({ path: testInfo.outputPath('cannon-firing.png') });
   await expect(page.locator('#targets-remaining')).toHaveText('2', { timeout: 10000 });
-  await expect.poll(() => page.evaluate(() => window.gunAudio.starts)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.gunAudio)).toMatchObject({ starts: 1 });
   await page.mouse.up({ button: 'left' });
   await expect(page.locator('#cannon-state')).toHaveText('READY');
   await expect.poll(() => page.evaluate(() => window.gunAudio.stops)).toBe(1);
