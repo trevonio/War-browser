@@ -1,10 +1,10 @@
 import * as T from 'three';
-import { runway, shoreAt, terrainHeight } from '../sim/range.js';
+import { landMinimumX, runway, shoreAt, terrainHeight } from '../sim/range.js';
 
 export const presets = {
-  low: { pixels: 0.8, terrain: 24, cloudCount: 20 },
-  medium: { pixels: 1.0, terrain: 36, cloudCount: 48 },
-  high: { pixels: 1.45, terrain: 48, cloudCount: 76 },
+  low: { pixels: 0.8, terrain: 24, cloudCount: 20, waterDetail: 0 },
+  medium: { pixels: 1.0, terrain: 36, cloudCount: 48, waterDetail: 1 },
+  high: { pixels: 1.45, terrain: 48, cloudCount: 76, waterDetail: 1 },
 };
 
 const tileSize = 4000;
@@ -18,8 +18,8 @@ function makeSky() {
     side: T.BackSide, depthWrite: false, fog: false,
     uniforms: {
       sunDirection: { value: sunDirection },
-      zenith: { value: new T.Color(0x5281ac) },
-      horizon: { value: new T.Color(0xc6d3d4) },
+      zenith: { value: new T.Color(0x4077ad) },
+      horizon: { value: new T.Color(0xc1d6df) },
       warmth: { value: new T.Color(0xf0c895) },
     },
     vertexShader: `
@@ -36,7 +36,7 @@ function makeSky() {
         vec3 ray = normalize(direction);
         float horizonBelt = exp(-abs(ray.y) * 6.0);
         float sunAngle = max(dot(ray, sunDirection), 0.0);
-        vec3 color = mix(horizon, zenith, smoothstep(0.0, 0.67, ray.y));
+        vec3 color = mix(horizon, zenith, smoothstep(-0.035, 0.49, ray.y));
         color = mix(color, warmth, 0.48 * pow(sunAngle, 4.0) * horizonBelt);
         color += warmth * (0.26 * pow(sunAngle, 24.0) + 2.3 * smoothstep(0.99965, 0.99985, sunAngle));
         gl_FragColor = vec4(color, 1.0);
@@ -77,7 +77,10 @@ function makeTerrainGeometry(tx, tz, steps) {
 
 function makeOcean() {
   const material = new T.ShaderMaterial({
-    uniforms: { tint: { value: oceanColor }, haze: { value: haze }, sunDirection: { value: sunDirection } },
+    uniforms: {
+      tint: { value: oceanColor }, haze: { value: haze }, sunDirection: { value: sunDirection },
+      waterDetail: { value: 1 },
+    },
     vertexShader: `
       varying vec3 world;
       void main() {
@@ -89,17 +92,21 @@ function makeOcean() {
     fragmentShader: `
       varying vec3 world;
       uniform vec3 tint, haze, sunDirection;
+      uniform float waterDetail;
       void main() {
         vec3 sight = world - cameraPosition;
         float distanceToCamera = length(sight);
         vec3 ray = normalize(sight);
-        float waves = sin(world.x * .082 + world.z * .036) * cos(world.z * .073 - world.x * .014);
-        waves += sin(world.x * .021 - world.z * .045) * .60;
+        float waves = 0.0;
+        if (waterDetail > 0.5 && distanceToCamera < 8500.0) {
+          waves = sin(world.x * .082 + world.z * .036) * cos(world.z * .073 - world.x * .014);
+          waves += sin(world.x * .021 - world.z * .045) * .60;
+          waves *= 1.0 - smoothstep(900.0, 8500.0, distanceToCamera);
+        }
         float swells = cos(world.x * .0055 + world.z * .008) * sin(world.z * .004 - world.x * .003);
-        float detail = 1.0 - smoothstep(900.0, 8500.0, distanceToCamera);
-        vec3 color = tint * (0.81 + 0.10 * swells + 0.03 * waves * detail);
+        vec3 color = tint * (0.81 + 0.10 * swells + 0.03 * waves);
         float sun = max(0.0, dot(reflect(ray, vec3(0.0, 1.0, 0.0)), sunDirection));
-        color += vec3(1.0, 0.66, 0.31) * pow(sun, 34.0) * (0.11 + 0.045 * waves * detail);
+        color += vec3(1.0, 0.66, 0.31) * pow(sun, 34.0) * (0.11 + 0.045 * waves);
         float fog = 1.0 - exp(-distanceToCamera * 0.000050);
         color = mix(color, haze, max(fog, pow(1.0 - abs(ray.y), 9.0) * .52));
         gl_FragColor = vec4(color, 1.0);
@@ -114,11 +121,17 @@ function makeOcean() {
 }
 
 function makeRunway(scene) {
-  const pavement = new T.MeshStandardMaterial({ color: 0x454a50, roughness: 0.97 });
-  const markings = new T.MeshBasicMaterial({ color: 0xc3c3ad, polygonOffset: true, polygonOffsetFactor: -2 });
+  const pavement = new T.MeshStandardMaterial({
+    color: 0x454a50, roughness: 0.97, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -24,
+  });
+  const markings = new T.MeshBasicMaterial({
+    color: 0xc3c3ad, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -36,
+  });
   const roof = new T.MeshStandardMaterial({ color: 0x687881, roughness: 0.83 });
   const wall = new T.MeshStandardMaterial({ color: 0x9a9a83, roughness: 0.91 });
-  const concrete = new T.MeshStandardMaterial({ color: 0x77776a, roughness: 0.96 });
+  const concrete = new T.MeshStandardMaterial({
+    color: 0x77776a, roughness: 0.96, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -12,
+  });
   const ground = (width, length, x, y, z, material) => {
     const plane = new T.Mesh(new T.PlaneGeometry(width, length).rotateX(-Math.PI / 2), material);
     plane.position.set(x, y, z);
@@ -233,6 +246,7 @@ export class WorldView {
 
   setPreset(preset) {
     this.steps = preset.terrain;
+    this.ocean.material.uniforms.waterDetail.value = preset.waterDetail;
     this.clouds.forEach((cloud, index) => { cloud.visible = index < preset.cloudCount; });
     for (const tile of this.tiles.values()) {
       this.scene.remove(tile);
@@ -260,6 +274,7 @@ export class WorldView {
       }
     }
     for (let x = tx - tileRadius; x <= tx + tileRadius; x++) {
+      if ((x + 0.5) * tileSize < landMinimumX) continue;
       for (let z = tz - tileRadius; z <= tz + tileRadius; z++) {
         const key = `${x},${z}`;
         if (this.tiles.has(key)) continue;

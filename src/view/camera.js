@@ -5,7 +5,7 @@ const vertical = new Vector3(0, 1, 0);
 export class FlightCamera {
   constructor(world) {
     this.world = world;
-    this.camera = new PerspectiveCamera(51, 1, 0.25, 125000);
+    this.camera = new PerspectiveCamera(51, 1, 1.5, 125000);
     this.mode = 'chase';
     this.distance = 31;
     this.azimuth = 0;
@@ -53,10 +53,10 @@ export class FlightCamera {
     camera.up.copy(vertical).lerp(bodyRoll, this.mode === 'hud' && !briefing ? 1 : 0.13);
     if (briefing) {
       const portrait = this.camera.aspect < 0.9;
-      this.destination.copy(position).addScaledVector(this.level, portrait ? -50 : -38)
-        .addScaledVector(this.right, portrait ? 25 : 31).addScaledVector(vertical, portrait ? 13 : 11);
-      this.target.copy(position).addScaledVector(this.right, portrait ? -1 : -12)
-        .addScaledVector(this.level, portrait ? 7 : 16).addScaledVector(vertical, portrait ? -13 : 0.4);
+      this.destination.copy(position).addScaledVector(this.level, portrait ? -44 : -24)
+        .addScaledVector(this.right, portrait ? 25 : 27).addScaledVector(vertical, portrait ? 13 : 8);
+      this.target.copy(position).addScaledVector(this.right, portrait ? -1 : -22)
+        .addScaledVector(this.level, portrait ? 7 : 1).addScaledVector(vertical, portrait ? -13 : 0.4);
     } else if (this.mode === 'hud') {
       this.destination.copy(position).addScaledVector(this.forward, 8.5).addScaledVector(bodyRoll, 0.95);
       this.offset.copy(this.forward).applyAxisAngle(vertical, this.azimuth);

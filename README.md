@@ -79,7 +79,7 @@ user-supplied geometry and materials. The flight scene uses image-based
 reflections and direct lighting with no per-frame aircraft shadow map. Terrain
 tiles use bounded memory and are regenerated as the aircraft moves. The
 graphics presets adjust render resolution, terrain subdivisions, and visible
-cloud count.
+cloud count and water detail.
 
 ## Flight model
 

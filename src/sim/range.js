@@ -12,6 +12,9 @@ function smooth(low, high, value) {
   return t * t * (3 - 2 * t);
 }
 
+// Includes the furthest possible shoreline and its underwater transition.
+export const landMinimumX = -3760;
+
 export function shoreAt(z) {
   return -1950 + 690 * sin((z + 1150) / 2400) + 390 * sin(z / 970) - 430 * cos(z / 6100);
 }

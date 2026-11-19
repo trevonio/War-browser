@@ -39,7 +39,7 @@ function unavailable(message) {
 
 function boot() {
   const settings = loadSettings();
-  const renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  const renderer = new T.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
   renderer.toneMapping = T.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   ui.viewport.append(renderer.domElement);
@@ -353,7 +353,7 @@ function boot() {
     aircraft.quaternion.copy(flight.previousOrientation).slerp(flight.orientation, blend);
     aircraft.renderMovement.copy(aircraft.position).sub(previousRenderPosition);
     previousRenderPosition.copy(aircraft.position);
-    visual.update(flight, flight.elapsed);
+    visual.update(flight, time / 1000);
     aircraft.visible = view.mode === 'chase' || screen === 'ready';
     view.update(aircraft, dt, screen, controls.looking);
     world.update(aircraft.position, view.camera);
