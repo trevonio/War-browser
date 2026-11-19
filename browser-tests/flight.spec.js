@@ -155,6 +155,7 @@ test('captures relative input, pauses on Escape or lost focus, and recaptures', 
   await startFlight(page);
   const reticle = page.locator('#aim-cursor');
   const heading = () => page.locator('#heading').innerText();
+  await expect(reticle).toHaveAttribute('style', /translate/);
   const initial = await reticle.getAttribute('style');
   await page.mouse.move(900, 370, { steps: 5 });
   await expect(reticle).not.toHaveAttribute('style', initial);
@@ -205,6 +206,8 @@ test('captures relative input, pauses on Escape or lost focus, and recaptures', 
   async function yawDisplacement() {
     await page.keyboard.press('r');
     await expect(page.locator('#heading')).toHaveText('000');
+    await expect.poll(markerX).toBeGreaterThan(580);
+    await expect.poll(markerX).toBeLessThan(685);
     const initialX = await markerX();
     await page.evaluate(() => document.pointerLockElement.dispatchEvent(new MouseEvent('mousemove', {
       bubbles: true, movementX: 55,
