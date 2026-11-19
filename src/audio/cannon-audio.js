@@ -2,6 +2,7 @@ export class CannonAudio {
   constructor(rpm) {
     this.rate = rpm / 60;
     this.firing = false;
+    this.lastPulse = -Infinity;
   }
 
   unlock() {
@@ -51,21 +52,37 @@ export class CannonAudio {
 
   start() {
     if (!this.firing || this.source || this.context?.state !== 'running' || !this.buffer) return;
-    const source = this.context.createBufferSource();
-    const gain = this.context.createGain();
-    gain.gain.value = 0;
-    source.buffer = this.buffer;
+    const { source, gain } = this.voice();
     source.loop = true;
-    source.connect(gain).connect(this.context.destination);
-    source.onended = () => {
-      source.disconnect();
-      gain.disconnect();
-    };
     this.gain = gain;
     this.source = source;
     const time = this.context.currentTime;
     gain.gain.setTargetAtTime(0.33, time, 0.004);
     source.start(time);
+  }
+
+  pulse() {
+    if (this.source || this.context?.state !== 'running' || !this.buffer) return;
+    const time = this.context.currentTime;
+    if (time - this.lastPulse < 0.04) return;
+    this.lastPulse = time;
+    const { source, gain } = this.voice();
+    gain.gain.value = 0.24;
+    gain.gain.setTargetAtTime(0, time + 0.009, 0.003);
+    source.start(time, 0, 0.02);
+  }
+
+  voice() {
+    const source = this.context.createBufferSource();
+    const gain = this.context.createGain();
+    gain.gain.value = 0;
+    source.buffer = this.buffer;
+    source.connect(gain).connect(this.context.destination);
+    source.onended = () => {
+      source.disconnect();
+      gain.disconnect();
+    };
+    return { source, gain };
   }
 
   dispose() {

@@ -85,7 +85,8 @@ function boot() {
   });
   const weaponEffects = new CannonEffects(scene, visual.muzzle, ballistics, practice);
   const cannon = new Cannon(f16.cannon, visual.muzzle, ballistics, (position, direction, time, count) => {
-    audio.setFiring(true);
+    if (trigger.held) audio.setFiring(true);
+    else audio.pulse();
     weaponEffects.shot(position, direction, time, count);
   });
   const trigger = new CannonTrigger(ui.viewport, {
@@ -168,6 +169,7 @@ function boot() {
   function requestFlight() {
     if (stopped || ui.settings.open) return;
     keyboardFlight = false;
+    audio.unlock();
     capture.request();
   }
 
@@ -298,6 +300,7 @@ function boot() {
   ui.restart.addEventListener('click', restartFlight);
   ui['keyboard-flight'].addEventListener('click', () => {
     keyboardFlight = true;
+    audio.unlock();
     capture.release();
     changeScreen('flying');
   });
@@ -496,6 +499,7 @@ function boot() {
       // Allow slow frames to catch up while bounding work after a browser stall.
       accumulator += Math.min(0.50, realDt);
       while (accumulator >= STEP) {
+        const tickStart = time / 1000 - accumulator;
         flight.step(command);
         accumulator -= STEP;
         if (flight.failure) {
@@ -505,7 +509,7 @@ function boot() {
           break;
         }
         practice.step(flight.elapsed);
-        cannon.step(STEP, trigger.held, flight);
+        cannon.step(STEP, trigger.sample(tickStart, tickStart + STEP), flight);
         if (ballistics.count) ballistics.step(STEP, colliders);
       }
       if (cannon.ammo === 0) audio.setFiring(false);

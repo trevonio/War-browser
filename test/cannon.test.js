@@ -155,3 +155,15 @@ test('stationary practice drone is hittable from the air start and reset restore
   assert.equal(practice.remaining, 3);
   assert.ok(practice.targets.every((target) => target.active && target.health === target.durability));
 });
+
+test('a press and release between renders fires only within that input window', () => {
+  const timestamps = [];
+  const { cannon, flight } = createCannon(ocean, undefined, (_point, _dir, time) => timestamps.push(time));
+  flight.elapsed = STEP;
+  cannon.step(STEP, [0.004, 0.007], flight);
+  assert.deepEqual(timestamps, [0.004]);
+  assert.equal(cannon.ammo, 509);
+  flight.elapsed += STEP;
+  cannon.step(STEP, [], flight);
+  assert.equal(cannon.ammo, 509);
+});

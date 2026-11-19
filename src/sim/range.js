@@ -1,11 +1,12 @@
 export const runway = { start: -3200, end: 400, halfWidth: 33, elevation: 24 };
 
+const airStart = { x: -1170, y: 900, z: -5950, speed: 192, pitch: 0.052, throttle: 0.52, runway: false };
+
 export const scenarios = {
-  air: { x: -1170, y: 900, z: -5950, speed: 192, pitch: 0.052, throttle: 0.52, runway: false },
+  air: airStart,
+  practice: { ...airStart },
   runway: { x: 0, y: runway.elevation + 1.28, z: runway.start + 170, speed: 0, pitch: 0, throttle: 0.12, runway: true },
 };
-
-scenarios.practice = { ...scenarios.air };
 
 export const hangars = [-2180, -2100, -2020].map((z) => ({ x: 351, z }));
 

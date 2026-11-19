@@ -20,13 +20,17 @@ export class Cannon {
     this.fired = 0;
   }
 
-  step(dt, held, flight) {
-    if (!held || this.ammo === 0) {
-      this.cooldown = Math.max(0, this.cooldown - dt);
-      return;
+  step(dt, trigger, flight) {
+    if (trigger === true) this.fireWindow(0, dt, dt, flight);
+    else if (trigger) {
+      for (let i = 0; i < trigger.length; i += 2) this.fireWindow(trigger[i], trigger[i + 1], dt, flight);
     }
+    this.cooldown = Math.max(0, this.cooldown - dt);
+  }
 
-    while (this.cooldown < dt - 1e-10 && this.ammo > 0) {
+  fireWindow(start, end, dt, flight) {
+    this.cooldown = Math.max(this.cooldown, start);
+    while (this.cooldown < end - 1e-10 && this.ammo > 0) {
       const at = this.cooldown / dt;
       this.rotation.copy(flight.previousOrientation).slerp(flight.orientation, at);
       this.position.copy(this.mount.position).applyQuaternion(this.rotation)
@@ -40,6 +44,5 @@ export class Cannon {
       this.onShot(this.position, this.direction, flight.elapsed - dt + this.cooldown, this.fired);
       this.cooldown += this.period;
     }
-    this.cooldown = Math.max(0, this.cooldown - dt);
   }
 }

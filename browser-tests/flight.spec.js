@@ -342,5 +342,7 @@ test('cannon range fires under Pointer Lock, hits a drone, exhausts ammunition, 
   await resumeFlight(page);
   await expect(page.locator('#cannon-state')).toHaveText('READY');
   await expect(page.locator('#cannon-ammo')).toHaveText(pausedAmmo);
+  await page.mouse.click(640, 360, { button: 'left' });
+  await expect.poll(async () => Number(await page.locator('#cannon-ammo').innerText())).toBeLessThan(Number(pausedAmmo));
   expect(errors).toEqual([]);
 });

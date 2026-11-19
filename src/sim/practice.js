@@ -3,7 +3,7 @@ import { scenarios } from './range.js';
 
 const { x, y, z } = scenarios.air;
 const layouts = [
-  { name: 'Sighting drone', position: [x + 1, y + 20, z + 535], radius: 10, durability: 7, crossing: 0, phase: 0 },
+  { name: 'Sighting drone', position: [x + 1, y + 17, z + 710], radius: 13, durability: 7, crossing: 0, phase: 0 },
   { name: 'Crossing drone', position: [x - 88, y + 40, z + 820], radius: 8, durability: 8, crossing: 165, phase: 0.8 },
   { name: 'High drone', position: [x + 150, y + 104, z + 1090], radius: 9, durability: 9, crossing: 210, phase: 2.6 },
 ];
@@ -26,7 +26,6 @@ export class PracticeRange {
     for (const target of this.targets) {
       target.active = enabled;
       target.health = target.durability;
-      target.hitAt = -Infinity;
     }
     this.step(0);
     for (const target of this.targets) target.previous.copy(target.position);
@@ -49,13 +48,12 @@ export class PracticeRange {
   hit(target, damage, time) {
     if (!target.active) return false;
     target.health = Math.max(0, target.health - damage);
-    target.hitAt = time;
     const destroyed = target.health === 0;
     if (destroyed) {
       target.active = false;
       this.remaining--;
     }
-    this.notice = destroyed ? (this.remaining ? 'DRONE DOWN' : 'RANGE CLEAR') : 'TARGET HIT';
+    this.notice = destroyed ? (this.remaining ? `${target.name.toUpperCase()} DOWN` : 'RANGE CLEAR') : 'TARGET HIT';
     this.noticeUntil = time + (destroyed ? 2.2 : 0.5);
     return destroyed;
   }

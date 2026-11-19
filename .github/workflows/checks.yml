@@ -22,6 +22,12 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Start a virtual audio output
+        run: |
+          sudo apt-get install -y pulseaudio
+          pactl info > /dev/null || pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=flight_deck
+          pactl set-default-sink flight_deck
       - run: xvfb-run -a npx playwright test --project=${{ matrix.browser }}
       - uses: actions/upload-artifact@v4
         if: always()
