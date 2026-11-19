@@ -51,7 +51,9 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   });
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /Fighting\s+Falcon/ })).toBeVisible();
+  // The first context in a software WebGL runner can take longer to start.
+  await expect(page.locator('body')).toHaveAttribute('data-screen', /^(ready|unavailable)$/, { timeout: 20000 });
+  await expect(page.getByRole('heading', { name: /Fighting\s+Falcon/ }), errors.join('\n')).toBeVisible();
   await expect(page.locator('#viewport canvas')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('briefing.png') });
 
