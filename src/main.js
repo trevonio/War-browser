@@ -304,8 +304,8 @@ function boot() {
     capture.release();
     changeScreen('flying');
   });
-  ui.viewport.addEventListener('click', () => {
-    if ((screen === 'ready' || screen === 'paused') && !ui.settings.open) requestFlight();
+  ui.viewport.addEventListener('mousedown', (event) => {
+    if (event.button === 0 && (screen === 'ready' || screen === 'paused')) requestFlight();
   }, { signal });
   ui.return.addEventListener('click', () => reset('ready'));
   ui['open-settings'].addEventListener('click', openSettings);

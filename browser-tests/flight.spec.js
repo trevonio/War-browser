@@ -356,7 +356,9 @@ test('cannon range fires under Pointer Lock, hits a drone, exhausts ammunition, 
   await pauseFlight(page);
   await page.mouse.up({ button: 'left' });
   const pausedAmmo = await page.locator('#cannon-ammo').textContent();
-  await resumeFlight(page);
+  await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
+  await page.mouse.click(1050, 420, { button: 'left' });
+  await expect.poll(() => locked(page)).toBe('viewport');
   await expect(page.locator('#cannon-state')).toHaveText('READY');
   await expect(page.locator('#cannon-ammo')).toHaveText(pausedAmmo);
   await page.mouse.click(640, 360, { button: 'left' });
