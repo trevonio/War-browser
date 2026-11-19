@@ -365,3 +365,46 @@ test('cannon range fires under Pointer Lock, hits a drone, exhausts ammunition, 
   await expect.poll(async () => Number(await page.locator('#cannon-ammo').innerText())).toBeLessThan(Number(pausedAmmo));
   expect(errors).toEqual([]);
 });
+
+test('dogfight briefing selects opponents, scores a cannon win, and restarts', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  const opponent = page.getByLabel('AI opponent');
+  await expect(opponent).toBeHidden();
+  await page.getByRole('button', { name: 'Dogfight' }).click();
+  await expect(opponent).toHaveValue('aggressive');
+
+  await opponent.selectOption('passive');
+  await expect(page.locator('#start-detail')).toContainText('Holds fire');
+  await startFlight(page);
+  await expect(page.locator('#opponent-marker')).toBeVisible();
+  await expect(page.locator('#opponent-status')).toHaveText('PATROL');
+  await page.mouse.down({ button: 'left' });
+  await expect(page.getByRole('heading', { name: 'Dogfight won' })).toBeVisible({ timeout: 12000 });
+  await page.mouse.up({ button: 'left' });
+  await expect.poll(() => locked(page)).toBeNull();
+  await expect(page.getByRole('button', { name: /Resume flight/ })).toBeHidden();
+
+  await page.getByRole('button', { name: /Restart flight/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(page.locator('#opponent-integrity')).toHaveText('100');
+  await expect(page.locator('#player-integrity')).toHaveText('100');
+  await expect(page.locator('#cannon-ammo')).toHaveText('510');
+
+  const backToBriefing = async () => {
+    await pauseFlight(page);
+    await page.getByRole('button', { name: 'Back to briefing' }).click();
+  };
+  await backToBriefing();
+  await opponent.selectOption('defensive');
+  await startFlight(page);
+  await expect(page.locator('#opponent-status')).toHaveText('EVADING');
+
+  await backToBriefing();
+  await opponent.selectOption('aggressive');
+  await startFlight(page);
+  await expect(page.locator('#opponent-status')).toHaveText('INTERCEPT');
+  await expect.poll(async () => Number(await page.locator('#opponent-distance').innerText())).toBeLessThan(1.75);
+  expect(errors).toEqual([]);
+});

@@ -5,6 +5,7 @@ const airStart = { x: -1170, y: 900, z: -5950, speed: 192, pitch: 0.052, throttl
 export const scenarios = {
   air: airStart,
   practice: { ...airStart },
+  dogfight: { ...airStart, x: -4150, y: 1450, z: -6250 },
   runway: { x: 0, y: runway.elevation + 1.28, z: runway.start + 170, speed: 0, pitch: 0, throttle: 0.12, runway: true },
 };
 

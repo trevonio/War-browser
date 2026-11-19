@@ -27,7 +27,7 @@ output { font-variant-numeric: tabular-nums; }
   background: linear-gradient(180deg,#0a152c88,transparent 26%,transparent 65%,#0b192173),
     linear-gradient(90deg,#0c19224a,transparent 26%,transparent 74%,#0c19224a);
 }
-[data-screen="ready"] .vignette, [data-screen="paused"] .vignette, [data-screen="failed"] .vignette {
+[data-screen="ready"] .vignette, [data-screen="paused"] .vignette, [data-screen="failed"] .vignette, [data-screen="complete"] .vignette {
   background: linear-gradient(90deg,#0b151ff0 0%,#0f1b27c2 22%,#0f1b2748 47%,transparent 72%),
     linear-gradient(180deg,#0b1d3269,transparent 24%,transparent 69%,#111d2a91);
 }
@@ -61,6 +61,7 @@ output { font-variant-numeric: tabular-nums; }
 .start-choice button { border: 0; border-radius: 3px; background: transparent; padding: .57rem .85rem; font-weight: 670; }
 .start-choice button[aria-pressed="true"] { color: var(--accent); background: #d7e8c222; box-shadow: inset 0 0 0 1px #ccd8a880; }
 .start-detail { color: #c3cece; font: .77rem var(--mono); letter-spacing: .08em; margin: .64rem 0 1.35rem; }
+#opponent-choice { display: flex; align-items: center; gap: .65rem; margin-top: .64rem; font-size: .87rem; color: #e0e8e5; }
 .primary-button, .secondary-button { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; width: min(16.5rem,100%); margin-block: .65rem; }
 .primary-button { background: var(--accent); color: var(--ink); border: 1px solid transparent; border-radius: 4px; padding: .76rem 1rem; font-weight: 800; }
 .primary-button:hover { background: #f4f5ca; }
@@ -71,9 +72,10 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
 #loading, #briefing, #pause-panel, #flight-hud, #flight-actions, #ready-help { display: none; }
 [data-screen="loading"] #loading, [data-screen="unavailable"] #loading,
 [data-screen="ready"] #briefing, [data-screen="paused"] #pause-panel, [data-screen="failed"] #pause-panel,
+[data-screen="complete"] #pause-panel,
 [data-screen="flying"] #flight-hud { display: block; }
 [data-screen="ready"] #ready-help, [data-screen="flying"] #flight-actions { display: flex; }
-[data-screen="failed"] #resume { display: none; }
+[data-screen="failed"] #resume, [data-screen="complete"] #resume { display: none; }
 #flight-hud { position: absolute; inset: 0; pointer-events: none; --hud: #f0f5d0; color: var(--hud); text-shadow: 0 1px 9px #142424, 0 1px 2px #172427; }
 .heading { position: absolute; top: 5.6rem; left: 50%; transform: translateX(-50%); text-align: center; }
 .heading-tape {
@@ -113,8 +115,13 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
   display: grid; gap: .3rem; padding: .48rem .7rem; text-align: right;
   border-right: 1px solid #eaf0cd91; background: #14222d78; font: .78rem var(--mono);
 }
-#target-feedback { color: #ffdc97; font-weight: 700; }
-#target-feedback:empty { display: none; }
+#target-feedback, #combat-feedback { color: #ffdc97; font-weight: 700; }
+#target-feedback:empty, #combat-feedback:empty { display: none; }
+#opponent-status { color: #ffc4a2; }
+#opponent-marker {
+  position: absolute; top: 0; left: 0; width: 20px; height: 20px;
+  border: 1px solid #ffc4a2ba; box-shadow: 0 0 4px #25181170;
+}
 [data-direct="true"] .aim-cursor, [data-looking="true"] .aim-cursor { display: none; }
 .flight-warning { position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%); color: #ffdc97; font: 700 .93rem var(--mono); letter-spacing: .14em; text-align: center; }
 .flight-warning:empty { display: none; }

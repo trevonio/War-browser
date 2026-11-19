@@ -14,18 +14,21 @@ function dynamicAttribute(array, size) {
 }
 
 export class CannonEffects {
-  constructor(scene, muzzle, ballistics, practice) {
-    this.ballistics = ballistics;
+  constructor(scene, guns, practice) {
     this.practice = practice;
-    this.flash = new T.Sprite(new T.SpriteMaterial({
+    const flashMaterial = new T.SpriteMaterial({
       color: 0xffc879, map: flashTexture(), blending: T.AdditiveBlending,
       transparent: true, depthWrite: false, toneMapped: false,
-    }));
-    this.flash.position.z = 0.24;
-    this.flash.visible = false;
-    muzzle.add(this.flash);
+    });
+    this.guns = guns.map(({ muzzle, ballistics }) => {
+      const flash = new T.Sprite(flashMaterial);
+      flash.position.z = 0.24;
+      flash.visible = false;
+      muzzle.add(flash);
+      return { flash, ballistics, lastShot: -Infinity };
+    });
 
-    const vertices = new Float32Array(ballistics.rounds.length * 6);
+    const vertices = new Float32Array(this.guns.reduce((length, gun) => length + gun.ballistics.rounds.length, 0) * 6);
     const colors = new Float32Array(vertices.length);
     for (let i = 0; i < colors.length; i += 6) colors.set([0.22, 0.06, 0.01, 1, 0.56, 0.20], i);
     this.tracerGeometry = new T.BufferGeometry();
@@ -79,7 +82,7 @@ export class CannonEffects {
   }
 
   clear() {
-    this.lastShot = -Infinity;
+    for (const gun of this.guns) gun.lastShot = -Infinity;
     this.lastImpact = -Infinity;
     this.particleCount = 0;
     this.fullCursor = 0;
@@ -95,8 +98,8 @@ export class CannonEffects {
     this.points.material.uniforms.pixelScale.value = renderer.domElement.height * camera.projectionMatrix.elements[5] * 0.5;
   }
 
-  shot(position, direction, time, count) {
-    this.lastShot = time;
+  shot(gun, position, direction, time, count) {
+    this.guns[gun].lastShot = time;
     if (count % 8 === 1) this.emit('smoke', position, 1, direction);
   }
 
@@ -131,24 +134,25 @@ export class CannonEffects {
   }
 
   render(time, dt, blend, active) {
-    const flashAge = time - this.lastShot;
-    this.flash.visible = active && flashAge < 0.023;
-    if (this.flash.visible) {
-      const size = 0.60 - Math.max(0, flashAge) * 14;
-      this.flash.scale.set(size, size, 1);
-    }
-
     const tracerPosition = this.tracerGeometry.attributes.position;
     let vertices = 0;
-    for (let i = 0; i < this.ballistics.count; i++) {
-      const round = this.ballistics.rounds[i];
-      if (!round.tracer) continue;
-      const x = T.MathUtils.lerp(round.previous.x, round.position.x, blend);
-      const y = T.MathUtils.lerp(round.previous.y, round.position.y, blend);
-      const z = T.MathUtils.lerp(round.previous.z, round.position.z, blend);
-      const tail = Math.min(0.009, round.travel / Math.max(1, round.velocity.length()) * 0.8);
-      tracerPosition.setXYZ(vertices++, x - round.velocity.x * tail, y - round.velocity.y * tail, z - round.velocity.z * tail);
-      tracerPosition.setXYZ(vertices++, x, y, z);
+    for (const { flash, ballistics, lastShot } of this.guns) {
+      const flashAge = time - lastShot;
+      flash.visible = active && flashAge < 0.023;
+      if (flash.visible) {
+        const size = 0.60 - Math.max(0, flashAge) * 14;
+        flash.scale.set(size, size, 1);
+      }
+      for (let i = 0; i < ballistics.count; i++) {
+        const round = ballistics.rounds[i];
+        if (!round.tracer) continue;
+        const x = T.MathUtils.lerp(round.previous.x, round.position.x, blend);
+        const y = T.MathUtils.lerp(round.previous.y, round.position.y, blend);
+        const z = T.MathUtils.lerp(round.previous.z, round.position.z, blend);
+        const tail = Math.min(0.009, round.travel / Math.max(1, round.velocity.length()) * 0.8);
+        tracerPosition.setXYZ(vertices++, x - round.velocity.x * tail, y - round.velocity.y * tail, z - round.velocity.z * tail);
+        tracerPosition.setXYZ(vertices++, x, y, z);
+      }
     }
     this.tracers.visible = vertices > 0;
     this.tracerGeometry.setDrawRange(0, vertices);

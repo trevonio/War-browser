@@ -1,11 +1,13 @@
 import * as T from 'three';
 import { f16 } from './aircraft/f16.js';
-import { createF16Visual } from './aircraft/f16-visual.js';
+import { createF16Visual, createOpponentVisual } from './aircraft/f16-visual.js';
 import { CannonAudio } from './audio/cannon-audio.js';
 import { canBind, Controls, keyDefaults, keyLabels, keyName, loadSettings, saveSettings } from './controls.js';
 import { FlightPointerLock } from './pointer-lock.js';
+import { opponentModes } from './sim/ai-pilot.js';
 import { Ballistics } from './sim/ballistics.js';
 import { Cannon } from './sim/cannon.js';
+import { Dogfight } from './sim/dogfight.js';
 import { Flight, STEP } from './sim/flight.js';
 import { PracticeRange } from './sim/practice.js';
 import { range, scenarios } from './sim/range.js';
@@ -26,6 +28,7 @@ const pressed = (id, value) => {
   if (button.getAttribute('aria-pressed') !== String(value)) button.setAttribute('aria-pressed', value);
 };
 const debug = import.meta.env.DEV && new URLSearchParams(location.search).has('debug');
+const flightLabels = { air: 'FREE FLIGHT', runway: 'FREE FLIGHT', practice: 'CANNON RANGE', dogfight: 'DOGFIGHT' };
 
 requestAnimationFrame(() => {
   try {
@@ -58,6 +61,10 @@ function boot() {
   const aircraft = visual.root;
   aircraft.renderMovement = new T.Vector3();
   scene.add(aircraft);
+  const opponentVisual = createOpponentVisual(visual);
+  const opponentAircraft = opponentVisual.root;
+  opponentAircraft.visible = false;
+  scene.add(opponentAircraft);
   const lifecycle = new AbortController();
   const { signal } = lifecycle;
   const capture = new FlightPointerLock(ui.viewport, {
@@ -79,15 +86,23 @@ function boot() {
   const practice = new PracticeRange();
   const colliders = [...range.structures, ...practice.targets];
   const audio = new CannonAudio(f16.cannon.rpm);
+  const dogfight = new Dogfight(flight, f16, range, {
+    shot: (position, direction, time, count) => weaponEffects.shot(1, position, direction, time, count),
+    impact: (surface, point, time, destroyed) => weaponEffects.impact(surface, point, time, destroyed),
+  });
   const ballistics = new Ballistics(f16.cannon, range, (surface, point, collider) => {
-    const destroyed = collider?.shape === 'sphere' && practice.hit(collider, f16.cannon.damage, flight.elapsed);
+    const destroyed = collider?.hull ? dogfight.hit(collider, f16.cannon.damage)
+      : collider?.shape === 'sphere' && practice.hit(collider, f16.cannon.damage, flight.elapsed);
     weaponEffects.impact(surface, point, flight.elapsed, destroyed);
   });
-  const weaponEffects = new CannonEffects(scene, visual.muzzle, ballistics, practice);
+  const weaponEffects = new CannonEffects(scene, [
+    { muzzle: visual.muzzle, ballistics },
+    { muzzle: opponentVisual.muzzle, ballistics: dogfight.ballistics },
+  ], practice);
   const cannon = new Cannon(f16.cannon, visual.muzzle, ballistics, (position, direction, time, count) => {
     if (trigger.held) audio.setFiring(true);
     else audio.pulse();
-    weaponEffects.shot(position, direction, time, count);
+    weaponEffects.shot(0, position, direction, time, count);
   });
   const trigger = new CannonTrigger(ui.viewport, {
     enabled: () => screen === 'flying' && !ui.settings.open && (capture.locked || keyboardFlight),
@@ -105,6 +120,7 @@ function boot() {
   const directionMarker = new T.Vector3();
   const flightDirection = new T.Vector3();
   const aimDirection = new T.Vector3();
+  const opponentMarker = new T.Vector3();
   let lastEffectsTime = 0;
   let screen = 'loading';
   let startingPosition = 'air';
@@ -139,8 +155,10 @@ function boot() {
     if (next !== 'flying') capture.release();
     screen = next;
     document.body.dataset.screen = next;
-    const flightLabel = startingPosition === 'practice' ? 'CANNON RANGE' : 'FREE FLIGHT';
-    text('phase', { ready: 'PREFLIGHT', flying: flightLabel, paused: 'PAUSED', failed: 'FLIGHT ENDED' }[next]);
+    const flightLabel = flightLabels[startingPosition];
+    text('phase', {
+      ready: 'PREFLIGHT', flying: flightLabel, paused: 'PAUSED', failed: 'FLIGHT ENDED', complete: 'DOGFIGHT ENDED',
+    }[next]);
     text('pause-mode', flightLabel);
     trigger.clear();
     audio.setFiring(false);
@@ -183,10 +201,12 @@ function boot() {
   }
 
   function reset(next) {
-    flight.reset(scenarios[startingPosition]);
+    const start = scenarios[startingPosition];
+    flight.reset(start);
     cannon.reset();
     ballistics.clear();
     practice.reset(startingPosition === 'practice');
+    dogfight.reset(startingPosition === 'dogfight' ? ui['opponent-mode'].value : null, start);
     weaponEffects.clear();
     lastEffectsTime = 0;
     aircraft.position.copy(flight.position);
@@ -205,9 +225,14 @@ function boot() {
     pressed('start-air', next === 'air');
     pressed('start-runway', next === 'runway');
     pressed('start-practice', next === 'practice');
+    pressed('start-dogfight', next === 'dogfight');
+    ui['opponent-choice'].hidden = next !== 'dogfight';
+    text('briefing-mode', flightLabels[next]);
     reset('ready');
     text('start-detail', next === 'runway' ? 'GROUND START · GEAR DOWN'
-      : next === 'practice' ? `3 AERIAL DRONES · ${f16.cannon.capacity} ROUNDS` : `2,950 FT MSL · ${Math.round(flight.airspeed)} KTS`);
+      : next === 'practice' ? `3 AERIAL DRONES · ${f16.cannon.capacity} ROUNDS`
+      : next === 'dogfight' ? opponentModes[ui['opponent-mode'].value].briefing
+      : `2,950 FT MSL · ${Math.round(flight.airspeed)} KTS`);
   }
 
   function resize() {
@@ -295,6 +320,8 @@ function boot() {
   ui['start-air'].addEventListener('click', () => selectStart('air'));
   ui['start-runway'].addEventListener('click', () => selectStart('runway'));
   ui['start-practice'].addEventListener('click', () => selectStart('practice'));
+  ui['start-dogfight'].addEventListener('click', () => selectStart('dogfight'));
+  ui['opponent-mode'].addEventListener('change', () => selectStart('dogfight'));
   ui.launch.addEventListener('click', () => { view.snap = true; requestFlight(); });
   ui.resume.addEventListener('click', requestFlight);
   ui.restart.addEventListener('click', restartFlight);
@@ -360,14 +387,14 @@ function boot() {
       pauseFlight('Mouse capture released. Resume to capture it again.');
       return;
     }
-    if (code === 'Enter' && !(event.target instanceof HTMLButtonElement) && (screen === 'ready' || screen === 'paused')) {
+    if (code === 'Enter' && !event.target.closest?.('button, select') && (screen === 'ready' || screen === 'paused')) {
       event.preventDefault();
       if (!event.repeat) requestFlight();
       return;
     }
     const key = Object.keys(settings.keys).find((action) => settings.keys[action] === code);
     if (!key) return;
-    if (screen === 'paused' || screen === 'failed') {
+    if (screen === 'paused' || screen === 'failed' || screen === 'complete') {
       if (!event.repeat && key === 'restart') {
         event.preventDefault();
         restartFlight();
@@ -437,6 +464,14 @@ function boot() {
       text('targets-remaining', practice.remaining);
       text('target-feedback', flight.elapsed < practice.noticeUntil ? practice.notice : '');
     }
+    ui['dogfight-status'].hidden = !dogfight.enabled;
+    if (dogfight.enabled) {
+      text('opponent-status', dogfight.pilot.status);
+      text('opponent-distance', (dogfight.opponent.position.distanceTo(flight.position) / 1000).toFixed(2));
+      text('opponent-integrity', dogfight.opponentHull.percentage);
+      text('player-integrity', dogfight.playerHull.percentage);
+      text('combat-feedback', flight.elapsed < dogfight.noticeUntil ? dogfight.notice : '');
+    }
   }
 
   function renderFlightMarkers() {
@@ -454,6 +489,34 @@ function boot() {
     ui['g-effect'].style.opacity = Math.max(flight.blackout, flight.redout);
     const looking = String(controls.looking);
     if (document.body.dataset.looking !== looking) document.body.dataset.looking = looking;
+  }
+
+  function renderOpponent(blend, time) {
+    opponentAircraft.visible = dogfight.enabled && !dogfight.opponentHull.incapacitated;
+    const marker = ui['opponent-marker'];
+    marker.hidden = true;
+    if (!opponentAircraft.visible) return;
+    const opponent = dogfight.opponent;
+    opponentAircraft.position.copy(opponent.previousPosition).lerp(opponent.position, blend);
+    opponentAircraft.quaternion.copy(opponent.previousOrientation).slerp(opponent.orientation, blend);
+    opponentVisual.update(opponent, time);
+    if (screen !== 'flying' || opponent.position.distanceToSquared(flight.position) > 3000 ** 2) return;
+    opponentMarker.copy(opponentAircraft.position).project(view.camera);
+    if (Math.abs(opponentMarker.x) > 0.94 || Math.abs(opponentMarker.y) > 0.82 || Math.abs(opponentMarker.z) > 1) return;
+    const x = (opponentMarker.x + 1) * viewportWidth * 0.5;
+    const y = (1 - opponentMarker.y) * viewportHeight * 0.5;
+    marker.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) rotate(45deg)`;
+    marker.hidden = false;
+  }
+
+  function finishDogfight(result) {
+    const won = result === 'win';
+    const draw = result === 'draw';
+    text('pause-title', draw ? 'Mutual loss' : won ? 'Dogfight won' : 'Dogfight lost');
+    text('pause-description', draw ? 'Both aircraft were lost on the same pass.'
+      : won ? (dogfight.opponent.failure ? 'The opponent crashed.' : 'The opponent’s airframe failed.')
+      : flight.failure || 'Your airframe took critical damage.');
+    changeScreen('complete');
   }
 
   function renderAimMarker(width, height) {
@@ -502,15 +565,24 @@ function boot() {
         const tickStart = time / 1000 - accumulator;
         flight.step(command);
         accumulator -= STEP;
+        if (dogfight.enabled) dogfight.update();
+        else practice.step(flight.elapsed);
         if (flight.failure) {
-          text('pause-title', flight.failure);
-          text('pause-description', 'Flight ended. Restart from the selected starting position.');
-          changeScreen('failed');
+          if (!dogfight.enabled) {
+            text('pause-title', flight.failure);
+            text('pause-description', 'Flight ended. Restart from the selected starting position.');
+            changeScreen('failed');
+            break;
+          }
+        } else {
+          cannon.step(STEP, trigger.sample(tickStart, tickStart + STEP), flight);
+        }
+        if (dogfight.enabled) dogfight.fire();
+        if (ballistics.count) ballistics.step(STEP, dogfight.enabled ? dogfight.playerTargets : colliders);
+        if (dogfight.enabled && dogfight.finish()) {
+          finishDogfight(dogfight.result);
           break;
         }
-        practice.step(flight.elapsed);
-        cannon.step(STEP, trigger.sample(tickStart, tickStart + STEP), flight);
-        if (ballistics.count) ballistics.step(STEP, colliders);
       }
       if (cannon.ammo === 0) audio.setFiring(false);
     }
@@ -523,6 +595,7 @@ function boot() {
     aircraft.visible = view.mode === 'chase' || screen === 'ready';
     const aim = !keyboardFlight && settings.controlMode === 'assist' ? controls.aim : null;
     view.update(aircraft, flight.velocity, dt, screen, controls.looking, settings.cameraSmoothing, aim, settings.cameraTurnResponse);
+    renderOpponent(blend, time / 1000);
     world.update(aircraft.position, view.camera);
     const effectStep = Math.max(0, flight.elapsed - lastEffectsTime);
     lastEffectsTime = flight.elapsed;

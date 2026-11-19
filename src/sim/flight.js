@@ -38,10 +38,11 @@ export class Flight {
   }
 
   reset(scenario) {
-    const { x, y, z, speed, pitch, throttle, runway } = scenario;
+    const { x, y, z, speed, pitch, throttle, runway, heading = 0 } = scenario;
     this.position.set(x, y, z);
-    this.orientation.setFromAxisAngle(this.angularStep.set(1, 0, 0), -pitch);
-    this.velocity.set(0, 0, speed);
+    this.rotationStep.setFromAxisAngle(this.angularStep.set(1, 0, 0), -pitch);
+    this.orientation.setFromAxisAngle(UP, -heading).multiply(this.rotationStep);
+    this.velocity.set(-Math.sin(heading) * speed, 0, Math.cos(heading) * speed);
     this.rates.set(0, 0, 0);
     this.instructor.reset();
     this.previousPosition.copy(this.position);

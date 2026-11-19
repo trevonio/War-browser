@@ -1,4 +1,5 @@
 import * as T from 'three';
+import { cannonMount } from '../sim/cannon.js';
 import { f16 } from './f16.js';
 
 // Geometry and materials adapted from the supplied procedural F-16 viewer.
@@ -455,19 +456,39 @@ export function createF16Visual() {
   nav(0xff2020, 5.3, -0.22, -2.6);
   nav(0x20ff40, -5.3, -0.22, -2.6);
   const strobe = nav(0xffffff, 0, 3.45, -7.6);
+  strobe.name = 'Tail strobe';
 
-  const muzzle = new T.Object3D();
-  muzzle.name = 'Port cannon emitter';
-  muzzle.position.fromArray(f16.cannon.muzzle);
-  muzzle.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), new T.Vector3().fromArray(f16.cannon.bore).normalize());
+  const muzzle = cannonMount(f16.cannon);
   root.add(muzzle);
+  return { ...animate(root, muzzle, gear, arm, ab, strobe), stations, paint: [mF, mW, mW2] };
+}
 
+export function createOpponentVisual(source) {
+  const root = source.root.clone();
+  const colors = [0xab7770, 0xbd8a75, 0xe9ab82];
+  const palette = new Map(source.paint.map((material, index) => {
+    const paint = material.clone();
+    paint.color.setHex(colors[index]);
+    return [material, paint];
+  }));
+  root.traverse((object) => {
+    if (palette.has(object.material)) object.material = palette.get(object.material);
+  });
+  const ab = root.getObjectByName(source.ab.name);
+  ab.remove(ab.children[2]);
+  const muzzle = root.getObjectByName(source.muzzle.name);
+  muzzle.clear();
+  return animate(root, muzzle, root.getObjectByName(source.gear.name),
+    root.getObjectByName(source.arm.name), ab, root.getObjectByName(source.strobe.name));
+}
+
+function animate(root, muzzle, gear, arm, ab, strobe) {
+  const [f1, f2, fli] = ab.children;
   // The source switches the whole gear group on and off. Fold it toward the
   // fuselage during transit using the source meshes, with no skeletal rig.
   return {
     root,
     muzzle,
-    stations,
     gear,
     arm,
     ab,
@@ -483,7 +504,7 @@ export function createF16Visual() {
         const flicker = Math.sin(time * 71) * 0.025;
         f1.scale.set(1 + flicker, 1 + flicker, 1 + Math.sin(time * 45) * 0.07);
         f2.scale.z = 1 + Math.sin(time * 60) * 0.1;
-        fli.intensity = 12 + Math.sin(time * 49) * 1.2;
+        if (fli) fli.intensity = 12 + Math.sin(time * 49) * 1.2;
       }
       strobe.visible = time % 1.4 < 0.12;
     },

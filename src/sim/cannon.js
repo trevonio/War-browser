@@ -1,4 +1,12 @@
-import { Quaternion, Vector3 } from 'three';
+import { Object3D, Quaternion, Vector3 } from 'three';
+
+export function cannonMount(config) {
+  const mount = new Object3D();
+  mount.name = 'Port cannon emitter';
+  mount.position.fromArray(config.muzzle);
+  mount.quaternion.setFromUnitVectors(new Vector3(0, 0, 1), new Vector3().fromArray(config.bore).normalize());
+  return mount;
+}
 
 export class Cannon {
   constructor(config, mount, ballistics, onShot) {

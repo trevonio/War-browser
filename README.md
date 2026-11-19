@@ -1,7 +1,8 @@
 # War Browser · Fighting Falcon
 
-A single-player, desktop browser flight simulator. The coastal range comes with an airborne F-16C start, a runway start for takeoff and landing
-practice, and a cannon range with aerial drones.
+A single-player, desktop browser flight simulator. Fly the F-16C from an
+airborne or runway start, practice in the cannon range, or take on an AI
+opponent in a one-on-one dogfight.
 
 ## Run locally
 
@@ -140,3 +141,16 @@ An original synthesized loop provides cannon audio without requiring a download.
 Tracers use one line batch, and muzzle smoke, dust, splashes, and sparks use a
 fixed particle pool sized by the graphics preset. Drone damage is represented
 by durability per target.
+
+## Dogfight
+
+Choose **Dogfight** in the briefing and select an AI opponent. Passive flies
+a patrol, Defensive breaks away if pursued, and Aggressive tries to intercept
+and fire its cannon. The amber diamond marks the other F-16 when it is in
+view. The combat readout shows range and airframe integrity. Restarting
+restores both aircraft, their ammunition, and the selected opponent's spawn.
+
+The opponent uses the same fixed-step flight model, instructor, and cannon
+simulation as the player. Its alternate paint shares the existing F-16
+geometry and texture maps. Aircraft hit volumes follow each airframe through
+the same swept projectile checks used on training targets.

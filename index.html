@@ -27,14 +27,22 @@
     </section>
 
     <section id="briefing" class="briefing" aria-labelledby="aircraft-title">
-      <p class="eyebrow">FREE FLIGHT <span></span> F-16C</p>
+      <p class="eyebrow"><b id="briefing-mode">FREE FLIGHT</b> <span></span> F-16C</p>
       <h1 id="aircraft-title">Fighting<br>Falcon</h1>
       <p class="description">Fly the F-16C over a coastal range. Practice energy management, landings, and cannon fire.</p>
       <div class="start-choice" role="group" aria-label="Starting position">
         <button id="start-air" type="button" aria-pressed="true">Air start</button>
         <button id="start-runway" type="button" aria-pressed="false">Runway 36</button>
         <button id="start-practice" type="button" aria-pressed="false">Cannon range</button>
+        <button id="start-dogfight" type="button" aria-pressed="false">Dogfight</button>
       </div>
+      <label id="opponent-choice" for="opponent-mode" hidden>AI opponent
+        <select id="opponent-mode" aria-describedby="start-detail">
+          <option value="passive">Passive</option>
+          <option value="defensive">Defensive</option>
+          <option value="aggressive" selected>Aggressive</option>
+        </select>
+      </label>
       <div id="start-detail" class="start-detail">2,950 FT MSL · 358 KTS</div>
       <button class="primary-button" id="launch" type="button">Start flight <kbd>Enter</kbd></button>
     </section>
@@ -84,6 +92,13 @@
         <span id="target-feedback" role="status"></span>
         <span><output id="targets-remaining">3</output> DRONES REMAIN</span>
       </div>
+      <div class="range-status" id="dogfight-status" hidden>
+        <span id="combat-feedback" role="status"></span>
+        <span><b id="opponent-status">INTERCEPT</b> · <output id="opponent-distance">0.0</output> KM</span>
+        <span>OPPONENT <output id="opponent-integrity">100</output>%</span>
+        <span>AIRFRAME <output id="player-integrity">100</output>%</span>
+      </div>
+      <span id="opponent-marker" aria-hidden="true" hidden></span>
     </section>
 
     <section id="pause-panel" class="briefing" aria-labelledby="pause-title">
