@@ -326,6 +326,11 @@ test('cannon range fires under Pointer Lock, hits a drone, exhausts ammunition, 
   await page.mouse.up({ button: 'left' });
   await expect(page.locator('#cannon-state')).toHaveText('READY');
   await expect.poll(() => page.evaluate(() => window.gunAudio.stops)).toBe(1);
+  // Allow the fixed steps covering pre-release input to finish before
+  // checking that later steps do not consume ammunition.
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
   const remaining = await page.locator('#cannon-ammo').innerText();
   const elapsed = await page.locator('#elapsed').innerText();
   await expect(page.locator('#elapsed')).not.toHaveText(elapsed);

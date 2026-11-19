@@ -92,7 +92,7 @@ function boot() {
   const trigger = new CannonTrigger(ui.viewport, {
     enabled: () => screen === 'flying' && !ui.settings.open && (capture.locked || keyboardFlight),
     pressed: () => {
-      if (cannon.ammo) audio.unlock();
+      if (cannon.ammo) audio.beginTrigger();
       updateWeaponHud();
     },
     released: () => {

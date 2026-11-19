@@ -36,6 +36,11 @@ export class CannonAudio {
     }
   }
 
+  beginTrigger() {
+    this.voicePlayed = false;
+    this.unlock();
+  }
+
   setFiring(firing) {
     if (firing === this.firing) return;
     this.firing = firing;
@@ -54,6 +59,7 @@ export class CannonAudio {
     if (!this.firing || this.source || this.context?.state !== 'running' || !this.buffer) return;
     const { source, gain } = this.voice();
     source.loop = true;
+    this.voicePlayed = true;
     this.gain = gain;
     this.source = source;
     const time = this.context.currentTime;
@@ -62,10 +68,11 @@ export class CannonAudio {
   }
 
   pulse() {
-    if (this.source || this.context?.state !== 'running' || !this.buffer) return;
+    if (this.voicePlayed || this.source || this.context?.state !== 'running' || !this.buffer) return;
     const time = this.context.currentTime;
     if (time - this.lastPulse < 0.04) return;
     this.lastPulse = time;
+    this.voicePlayed = true;
     const { source, gain } = this.voice();
     gain.gain.value = 0.24;
     gain.gain.setTargetAtTime(0, time + 0.009, 0.003);
