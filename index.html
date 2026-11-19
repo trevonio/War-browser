@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101b22">
+  <meta name="description" content="Fly the F-16C over a coastal training range in a single-player browser flight simulator.">
+  <title>War Browser · Fighting Falcon</title>
+</head>
+<body data-screen="loading">
+  <main id="simulator">
+    <div id="viewport" aria-label="3D flight view"></div>
+    <div class="vignette"></div>
+    <div id="g-effect"></div>
+
+    <header class="topbar">
+      <div class="wordmark"><i aria-hidden="true"></i> WAR<span>BROWSER</span></div>
+      <div class="range-label">COASTAL TRAINING RANGE</div>
+      <button id="open-settings" class="utility-button" type="button"><span aria-hidden="true">⚙</span> Settings</button>
+    </header>
+
+    <section id="loading" class="briefing" aria-label="Loading simulator">
+      <p class="eyebrow">F-16C</p>
+      <h1 id="loading-title">Loading flight deck</h1>
+      <p id="loading-detail" class="description" role="status">Preparing aircraft and terrain.</p>
+    </section>
+
+    <section id="briefing" class="briefing" aria-labelledby="aircraft-title">
+      <p class="eyebrow">FREE FLIGHT <span></span> F-16C</p>
+      <h1 id="aircraft-title">Fighting<br>Falcon</h1>
+      <p class="description">Fly the F-16C over a coastal range. Practice energy management, takeoffs, and runway approaches.</p>
+      <div class="start-choice" role="group" aria-label="Starting position">
+        <button id="start-air" type="button" aria-pressed="true">Air start</button>
+        <button id="start-runway" type="button" aria-pressed="false">Runway 36</button>
+      </div>
+      <div id="start-detail" class="start-detail">2,950 FT MSL · 358 KTS</div>
+      <button class="primary-button" id="launch" type="button">Start flight <kbd>Enter</kbd></button>
+    </section>
+
+    <section id="flight-hud" aria-label="Flight instruments">
+      <div class="heading">
+        <div class="instrument-label">HEADING</div>
+        <div class="heading-tape">
+          <span id="heading-before">345</span>
+          <output id="heading">000</output>
+          <span id="heading-after">015</span>
+        </div>
+      </div>
+      <div class="readout readout-left">
+        <div class="instrument">
+          <div class="instrument-label">AIRSPEED</div>
+          <output id="airspeed">000</output><span class="unit">KTS</span>
+          <div class="instrument-note"><span id="mach">0.00</span> MACH</div>
+        </div>
+        <div class="instrument">
+          <div class="instrument-label">THROTTLE</div>
+          <output id="throttle">00</output><span class="unit">%</span>
+          <div class="instrument-note" id="engine-state">MIL POWER</div>
+        </div>
+      </div>
+      <div class="readout readout-right">
+        <div class="instrument">
+          <div class="instrument-label">ALTITUDE MSL</div>
+          <output id="altitude">0</output><span class="unit">FT</span>
+          <div class="instrument-note"><span id="vertical-speed">+0</span> FT/MIN</div>
+        </div>
+        <div class="instrument">
+          <div class="instrument-label">FUEL</div>
+          <output id="fuel">00</output><span class="unit">%</span>
+          <div class="instrument-note"><span id="g-force">1.0</span> G</div>
+        </div>
+      </div>
+      <div id="boresight" class="boresight" title="Aircraft direction"></div>
+      <div id="aim-cursor" class="aim-cursor" title="Mouse aim"></div>
+      <div id="flight-warning" class="flight-warning" role="status"></div>
+    </section>
+
+    <section id="pause-panel" class="briefing" aria-labelledby="pause-title">
+      <p class="eyebrow">FREE FLIGHT <span></span> F-16C</p>
+      <h1 id="pause-title">Paused</h1>
+      <p id="pause-description" class="description">Your aircraft is holding position.</p>
+      <button id="resume" class="primary-button" type="button">Resume flight <kbd id="resume-key">Esc</kbd></button>
+      <button id="restart" class="secondary-button" type="button">Restart flight <kbd id="restart-key">R</kbd></button>
+      <button id="return" class="text-button" type="button">Back to briefing</button>
+    </section>
+
+    <footer class="flight-deck">
+      <div class="deck-summary">
+        <span class="status-light" aria-hidden="true"></span>
+        <div>
+          <span id="phase" class="deck-title">PREFLIGHT</span>
+          <span id="camera-name" class="deck-value">Chase camera</span>
+        </div>
+      </div>
+      <div id="ready-help" class="ready-help"><span><kbd>Mouse</kbd> Aim</span><span><kbd id="help-maneuver">W A S D</kbd> Maneuver</span><span><kbd id="help-throttle">Shift / Ctrl</kbd> Throttle</span></div>
+      <div id="flight-actions" class="flight-actions" aria-label="Aircraft systems">
+        <button id="toggle-burner" type="button" aria-pressed="false"><kbd id="key-afterburner">B</kbd><span>Afterburner <small id="burner-state">Off</small></span></button>
+        <button id="toggle-gear" type="button" aria-pressed="false"><kbd id="key-gear">G</kbd><span>Gear <small id="gear-state">Up</small></span></button>
+        <button id="toggle-stores" type="button" aria-pressed="true"><kbd id="key-stores">H</kbd><span>Stores <small id="stores-state">On</small></span></button>
+        <button id="toggle-airbrake" type="button" aria-pressed="false"><kbd id="key-airbrake">X</kbd><span>Airbrake <small id="brake-state">Off</small></span></button>
+        <button id="toggle-camera" type="button"><kbd id="key-camera">V</kbd><span>Camera <small id="camera-state">Chase</small></span></button>
+        <button id="toggle-pause" type="button"><kbd id="key-pause">Esc</kbd><span>Pause</span></button>
+      </div>
+      <output id="elapsed" class="elapsed" aria-label="Elapsed flight time">00:00</output>
+    </footer>
+
+    <dialog id="settings" aria-labelledby="settings-title">
+      <header class="dialog-header">
+        <div><p class="eyebrow">FLIGHT DECK</p><h2 id="settings-title">Settings</h2></div>
+        <button id="close-settings" class="utility-button" type="button" aria-label="Close settings">✕</button>
+      </header>
+      <div class="settings-body">
+        <section aria-labelledby="graphics-title">
+          <h3 id="graphics-title">Graphics</h3>
+          <label class="settings-row" for="preset">Quality preset
+            <select id="preset"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+          </label>
+        </section>
+        <section aria-labelledby="controls-title">
+          <h3 id="controls-title">Flight controls</h3>
+          <label class="settings-row" for="control-mode">Control mode
+            <select id="control-mode"><option value="assist">Mouse assist</option><option value="direct">Direct keyboard</option></select>
+          </label>
+          <label class="settings-row" for="mouse-sensitivity">Mouse sensitivity
+            <span><input id="mouse-sensitivity" type="range" min=".4" max="2.2" step=".1"><output id="mouse-value"></output></span>
+          </label>
+          <label class="settings-row" for="camera-sensitivity">Free-look sensitivity
+            <span><input id="camera-sensitivity" type="range" min=".4" max="2.2" step=".1"><output id="camera-value"></output></span>
+          </label>
+          <label class="settings-row" for="invert">Invert vertical mouse aim <input id="invert" type="checkbox"></label>
+          <p class="settings-hint">Hold right mouse or the free-look key to look around. Scroll to adjust chase distance.</p>
+        </section>
+        <section aria-labelledby="keybinds-title">
+          <div class="keybind-header"><h3 id="keybinds-title">Key bindings</h3><button id="reset-keys" class="text-button" type="button">Restore defaults</button></div>
+          <p id="rebind-message" class="settings-hint" aria-live="polite">Select a binding to change it.</p>
+          <div id="bindings"></div>
+        </section>
+      </div>
+    </dialog>
+    <output id="metrics" hidden aria-label="Development performance metrics"></output>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
