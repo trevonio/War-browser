@@ -50,20 +50,6 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   await page.keyboard.press('v');
   await expect(page.locator('#camera-name')).toHaveText('Chase camera');
 
-  const timing = await page.evaluate(async () => {
-    const changes = [];
-    let previous = await new Promise(requestAnimationFrame);
-    for (let i = 0; i < 24; i++) {
-      const time = await new Promise(requestAnimationFrame);
-      changes.push(time - previous);
-      previous = time;
-    }
-    const average = changes.reduce((sum, frame) => sum + frame, 0) / changes.length;
-    return { averageMs: Number(average.toFixed(1)), fps: Number((1000 / average).toFixed(1)),
-      p95Ms: changes.sort((a, b) => a - b)[22], width: innerWidth, height: innerHeight };
-  });
-  console.log('Headless Chromium frame timing (software WebGL)', JSON.stringify(timing));
-
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
   await page.keyboard.press('r');
@@ -95,4 +81,49 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   await expect(page.locator('#gear-state')).toHaveText('Down');
   await expect(page.locator('#toggle-gear')).toBeDisabled();
   expect(errors).toEqual([]);
+});
+
+test('records medium and low frame pacing under software WebGL', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: /Start flight/ })).toBeVisible();
+  await page.getByRole('button', { name: /Start flight/ }).click();
+  await page.locator('#airspeed').waitFor();
+
+  async function measure(preset) {
+    const timing = await page.evaluate(() => new Promise((resolve) => {
+      const samples = [];
+      const start = performance.now();
+      let previous;
+      let handle;
+      function collect(time) {
+        if (previous !== undefined) samples.push(time - previous);
+        previous = time;
+        handle = requestAnimationFrame(collect);
+      }
+      handle = requestAnimationFrame(collect);
+      setTimeout(() => {
+        cancelAnimationFrame(handle);
+        const duration = performance.now() - start;
+        const canvas = document.querySelector('#viewport canvas');
+        samples.sort((a, b) => a - b);
+        resolve({
+          frames: samples.length,
+          medianMs: samples[Math.floor(samples.length * 0.5)]?.toFixed(1),
+          p95Ms: samples[Math.max(0, Math.ceil(samples.length * 0.95) - 1)]?.toFixed(1),
+          fps: Number((samples.length * 1000 / duration).toFixed(1)),
+          viewport: innerWidth + '×' + innerHeight,
+          render: canvas.width + '×' + canvas.height,
+        });
+      }, 4500);
+    }));
+    console.log('Chromium software WebGL ' + preset, JSON.stringify(timing));
+    expect(timing.frames).toBeGreaterThan(0);
+  }
+
+  await measure('medium');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByLabel('Quality preset').selectOption('low');
+  await page.getByRole('button', { name: 'Close settings' }).click();
+  await expect(page.locator('#viewport canvas')).toHaveAttribute('width', '1024');
+  await measure('low');
 });

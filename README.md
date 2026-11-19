@@ -19,6 +19,10 @@ Open the URL Vite prints. Run `npm test` for fixed-step simulation checks and
 check use `npm run preview`. Append `?debug` to the **development** URL for
 frame timing, draw calls, triangles, and angle of attack.
 
+GitHub Actions runs the production build in Chromium. To repeat its browser
+checks locally after building, run `npx playwright install chromium` and
+`npx playwright test`. The frame-pacing check uses software WebGL in CI.
+
 ## Default controls
 
 | Input | Action |
