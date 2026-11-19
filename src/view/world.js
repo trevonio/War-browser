@@ -1,10 +1,10 @@
 import * as T from 'three';
-import { landMinimumX, runway, shoreAt, terrainHeight } from '../sim/range.js';
+import { hangars, landMinimumX, runway, shoreAt, terrainHeight } from '../sim/range.js';
 
 export const presets = {
-  low: { pixels: 0.8, terrain: 24, cloudCount: 20, waterDetail: 0 },
-  medium: { pixels: 1.0, terrain: 36, cloudCount: 48, waterDetail: 1 },
-  high: { pixels: 1.45, terrain: 48, cloudCount: 76, waterDetail: 1 },
+  low: { pixels: 0.8, terrain: 24, cloudCount: 20, waterDetail: 0, effectParticles: 56 },
+  medium: { pixels: 1.0, terrain: 36, cloudCount: 48, waterDetail: 1, effectParticles: 112 },
+  high: { pixels: 1.45, terrain: 48, cloudCount: 76, waterDetail: 1, effectParticles: 192 },
 };
 
 const tileSize = 4000;
@@ -159,14 +159,14 @@ function makeRunway(scene) {
     stripes.setMatrixAt(i, matrix);
   });
   scene.add(stripes);
-  for (const z of [-2180, -2100, -2020]) {
+  for (const { x, z } of hangars) {
     const hangar = new T.Mesh(new T.BoxGeometry(48, 9, 42), wall);
-    hangar.position.set(351, runway.elevation + 4.5, z);
+    hangar.position.set(x, runway.elevation + 4.5, z);
     const top = new T.Mesh(new T.CylinderGeometry(26, 26, 43, 6, 1, false, 0, Math.PI),
       roof);
     top.rotation.x = Math.PI / 2;
     top.scale.z = 0.27;
-    top.position.set(351, runway.elevation + 9, z);
+    top.position.set(x, runway.elevation + 9, z);
     scene.add(hangar, top);
   }
 }

@@ -131,8 +131,8 @@ test('records medium and low frame pacing under software WebGL', async ({ page, 
   await startFlight(page);
   await page.locator('#airspeed').waitFor();
 
-  async function measure(preset) {
-    const timing = await page.evaluate(() => new Promise((resolve) => {
+  async function measure(preset, duration = 4500) {
+    const timing = await page.evaluate((sampleDuration) => new Promise((resolve) => {
       const samples = [];
       const start = performance.now();
       let previous;
@@ -156,20 +156,25 @@ test('records medium and low frame pacing under software WebGL', async ({ page, 
           viewport: innerWidth + '×' + innerHeight,
           render: canvas.width + '×' + canvas.height,
         });
-      }, 4500);
-    }));
+      }, sampleDuration);
+    }), duration);
     console.log('Chromium software WebGL ' + preset, JSON.stringify(timing));
     expect(timing.frames).toBeGreaterThan(0);
   }
 
-  await measure('medium');
+  await measure('medium idle');
+  await page.mouse.down({ button: 'left' });
+  await expect(page.locator('#cannon-state')).toHaveText('FIRING');
+  await measure('medium firing', 2600);
+  await page.mouse.up({ button: 'left' });
+  await expect.poll(async () => Number(await page.locator('#cannon-ammo').innerText())).toBeLessThan(400);
   await pauseFlight(page);
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByLabel('Quality preset').selectOption('low');
   await page.getByRole('button', { name: 'Close settings' }).click();
   await resumeFlight(page);
   await expect(page.locator('#viewport canvas')).toHaveAttribute('width', '1024');
-  await measure('low');
+  await measure('low idle');
 });
 
 test('captures relative input, pauses on Escape or lost focus, and recaptures', async ({ page, context }) => {
@@ -273,4 +278,69 @@ test('mouse-only turns lead the aircraft with the view and sustain positive G', 
   }, { timeout: 14000 }).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('mouse-dive.png') });
   await pauseFlight(page);
+});
+
+test('cannon range fires under Pointer Lock, hits a drone, exhausts ammunition, and restarts', async ({ page }, testInfo) => {
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    window.gunAudio = { starts: 0, stops: 0 };
+    const prototype = AudioBufferSourceNode.prototype;
+    const start = prototype.start;
+    const stop = prototype.stop;
+    prototype.start = function (...args) {
+      if (this.loop) window.gunAudio.starts++;
+      return start.apply(this, args);
+    };
+    prototype.stop = function (...args) {
+      if (this.loop) window.gunAudio.stops++;
+      return stop.apply(this, args);
+    };
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Cannon range' }).click();
+  await startFlight(page);
+  await expect(page.locator('#cannon-ammo')).toHaveText('510');
+  await expect(page.locator('#targets-remaining')).toHaveText('3');
+  await expect(page.locator('#boresight')).toHaveAttribute('title', 'Fixed cannon sight');
+  await expect.poll(() => page.evaluate(() => window.gunAudio.starts)).toBe(0);
+
+  await page.mouse.down({ button: 'left' });
+  await expect(page.locator('#cannon-state')).toHaveText('FIRING');
+  await expect.poll(async () => Number(await page.locator('#cannon-ammo').innerText())).toBeLessThan(505);
+  await page.screenshot({ path: testInfo.outputPath('cannon-firing.png') });
+  await expect(page.locator('#targets-remaining')).toHaveText('2', { timeout: 10000 });
+  await expect.poll(() => page.evaluate(() => window.gunAudio.starts)).toBe(1);
+  await page.mouse.up({ button: 'left' });
+  await expect(page.locator('#cannon-state')).toHaveText('READY');
+  await expect.poll(() => page.evaluate(() => window.gunAudio.stops)).toBe(1);
+  const remaining = await page.locator('#cannon-ammo').innerText();
+  const elapsed = await page.locator('#elapsed').innerText();
+  await expect(page.locator('#elapsed')).not.toHaveText(elapsed);
+  await expect(page.locator('#cannon-ammo')).toHaveText(remaining);
+
+  // Change aim during a sustained burst so steering and the trigger share the
+  // real viewport input path while the jet banks.
+  await page.mouse.down({ button: 'left' });
+  await relativeMouse(page, 950, 0);
+  await expect.poll(async () => (await aimState(page)).load, { timeout: 10000 }).toBeGreaterThan(4);
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(page.locator('#cannon-ammo')).toHaveText('0', { timeout: 18000 });
+  await expect(page.locator('#cannon-state')).toHaveText('AMMO EMPTY');
+  await expect.poll(() => page.evaluate(() => window.gunAudio.stops)).toBe(2);
+  await page.mouse.up({ button: 'left' });
+  await pauseFlight(page);
+  await page.getByRole('button', { name: /Restart flight/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(page.locator('#targets-remaining')).toHaveText('3');
+  await expect(page.locator('#cannon-ammo')).toHaveText('510');
+  await page.mouse.down({ button: 'left' });
+  await expect(page.locator('#cannon-state')).toHaveText('FIRING');
+  await pauseFlight(page);
+  await page.mouse.up({ button: 'left' });
+  const pausedAmmo = await page.locator('#cannon-ammo').textContent();
+  await resumeFlight(page);
+  await expect(page.locator('#cannon-state')).toHaveText('READY');
+  await expect(page.locator('#cannon-ammo')).toHaveText(pausedAmmo);
+  expect(errors).toEqual([]);
 });

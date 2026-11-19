@@ -107,7 +107,14 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
   transform: rotate(calc(var(--aim-bearing) + 45deg));
   filter: drop-shadow(0 1px 2px #222f2b);
 }
-.instrument-note.g-warning { color: #ffdc97; }
+.instrument-note.g-warning, .instrument-note.weapon-active { color: #ffdc97; }
+.range-status {
+  position: absolute; right: clamp(1.2rem, 5vw, 5rem); bottom: 6rem;
+  display: grid; gap: .3rem; padding: .48rem .7rem; text-align: right;
+  border-right: 1px solid #eaf0cd91; background: #14222d78; font: .78rem var(--mono);
+}
+#target-feedback { color: #ffdc97; font-weight: 700; }
+#target-feedback:empty { display: none; }
 [data-direct="true"] .aim-cursor, [data-looking="true"] .aim-cursor { display: none; }
 .flight-warning { position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%); color: #ffdc97; font: 700 .93rem var(--mono); letter-spacing: .14em; text-align: center; }
 .flight-warning:empty { display: none; }
@@ -168,6 +175,7 @@ input[type="range"] { max-width: min(29vw,8rem); }
   .flight-deck { min-height: 3.5rem; gap: .4rem; padding: .6rem; }
   [data-screen="flying"] .deck-summary { display: none; }
   .flight-actions { margin-inline: auto; }
+  .range-status { right: .55rem; }
   .briefing { width: min(24rem,calc(100vw - 2.4rem)); }
   .briefing h1 { font-size: clamp(3.15rem,12vw,5.5rem); }
   .readout { top: 7.7rem; gap: .52rem; }

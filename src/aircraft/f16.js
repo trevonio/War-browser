@@ -27,4 +27,19 @@ export const f16 = {
   minG: -3,
   gearClearance: 1.28,
   gearTime: 0.85,
+  cannon: {
+    name: 'M61A1',
+    caliber: 20,
+    rpm: 6000,
+    capacity: 510,
+    // Port-side emitter fitted to the procedural airframe's body axes.
+    muzzle: [0.71, 0.33, 3.42],
+    bore: [0, 0, 1],
+    projectileSpeed: 820,
+    drag: 0.00019,
+    lifetime: 2.4,
+    maxDistance: 2150,
+    tracerEvery: 5,
+    damage: 1,
+  },
 };

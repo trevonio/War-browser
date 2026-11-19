@@ -29,10 +29,11 @@
     <section id="briefing" class="briefing" aria-labelledby="aircraft-title">
       <p class="eyebrow">FREE FLIGHT <span></span> F-16C</p>
       <h1 id="aircraft-title">Fighting<br>Falcon</h1>
-      <p class="description">Fly the F-16C over a coastal range. Practice energy management, takeoffs, and runway approaches.</p>
+      <p class="description">Fly the F-16C over a coastal range. Practice energy management, landings, and cannon fire.</p>
       <div class="start-choice" role="group" aria-label="Starting position">
         <button id="start-air" type="button" aria-pressed="true">Air start</button>
         <button id="start-runway" type="button" aria-pressed="false">Runway 36</button>
+        <button id="start-practice" type="button" aria-pressed="false">Cannon range</button>
       </div>
       <div id="start-detail" class="start-detail">2,950 FT MSL · 358 KTS</div>
       <button class="primary-button" id="launch" type="button">Start flight <kbd>Enter</kbd></button>
@@ -58,6 +59,11 @@
           <output id="throttle">00</output><span class="unit">%</span>
           <div class="instrument-note" id="engine-state">MIL POWER</div>
         </div>
+        <div class="instrument">
+          <div class="instrument-label" id="cannon-label">M61A1 · 20 MM</div>
+          <output id="cannon-ammo">510</output><span class="unit">RDS</span>
+          <div class="instrument-note" id="cannon-state">READY</div>
+        </div>
       </div>
       <div class="readout readout-right">
         <div class="instrument">
@@ -71,13 +77,17 @@
           <div class="instrument-note"><span id="g-force">1.0</span> G</div>
         </div>
       </div>
-      <div id="boresight" class="boresight" title="Aircraft direction"></div>
+      <div id="boresight" class="boresight" title="Fixed cannon sight"></div>
       <div id="aim-cursor" class="aim-cursor" title="Mouse aim"></div>
       <div id="flight-warning" class="flight-warning" role="status"></div>
+      <div class="range-status" id="range-status" hidden>
+        <span id="target-feedback" role="status"></span>
+        <span><output id="targets-remaining">3</output> DRONES REMAIN</span>
+      </div>
     </section>
 
     <section id="pause-panel" class="briefing" aria-labelledby="pause-title">
-      <p class="eyebrow">FREE FLIGHT <span></span> F-16C</p>
+      <p class="eyebrow"><b id="pause-mode">FREE FLIGHT</b> <span></span> F-16C</p>
       <h1 id="pause-title">Paused</h1>
       <p id="pause-description" class="description" role="status">Your aircraft is holding position.</p>
       <button id="resume" class="primary-button" type="button">Resume flight <kbd>Enter</kbd></button>
@@ -94,7 +104,7 @@
           <span id="camera-name" class="deck-value">Chase camera</span>
         </div>
       </div>
-      <div id="ready-help" class="ready-help"><span><kbd>Mouse</kbd> Aim · <kbd>Esc</kbd> Release</span><span><kbd id="help-maneuver">W A S D</kbd> Maneuver</span><span><kbd id="help-throttle">Shift / Ctrl</kbd> Throttle</span></div>
+      <div id="ready-help" class="ready-help"><span><kbd>Mouse</kbd> Aim · <kbd>Left click</kbd> Fire · <kbd>Esc</kbd> Release</span><span><kbd id="help-maneuver">W A S D</kbd> Maneuver</span><span><kbd id="help-throttle">Shift / Ctrl</kbd> Throttle</span></div>
       <div id="flight-actions" class="flight-actions" aria-label="Aircraft systems">
         <button id="toggle-burner" type="button" aria-pressed="false"><kbd id="key-afterburner">B</kbd><span>Afterburner <small id="burner-state">Off</small></span></button>
         <button id="toggle-gear" type="button" aria-pressed="false"><kbd id="key-gear">G</kbd><span>Gear <small id="gear-state">Up</small></span></button>

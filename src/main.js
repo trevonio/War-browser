@@ -1,10 +1,16 @@
 import * as T from 'three';
 import { f16 } from './aircraft/f16.js';
 import { createF16Visual } from './aircraft/f16-visual.js';
+import { CannonAudio } from './audio/cannon-audio.js';
 import { canBind, Controls, keyDefaults, keyLabels, keyName, loadSettings, saveSettings } from './controls.js';
 import { FlightPointerLock } from './pointer-lock.js';
+import { Ballistics } from './sim/ballistics.js';
+import { Cannon } from './sim/cannon.js';
 import { Flight, STEP } from './sim/flight.js';
+import { PracticeRange } from './sim/practice.js';
 import { range, scenarios } from './sim/range.js';
+import { CannonTrigger } from './trigger.js';
+import { CannonEffects } from './view/cannon-effects.js';
 import { FlightCamera } from './view/camera.js';
 import { presets, WorldView } from './view/world.js';
 import './style.css';
@@ -70,10 +76,35 @@ function boot() {
     locked: () => capture.locked,
     assisted: () => !keyboardFlight && settings.controlMode === 'assist',
   }, view, signal);
+  const practice = new PracticeRange();
+  const colliders = [...range.structures, ...practice.targets];
+  const audio = new CannonAudio(f16.cannon.rpm);
+  const ballistics = new Ballistics(f16.cannon, range, (surface, point, collider) => {
+    const destroyed = collider?.shape === 'sphere' && practice.hit(collider, f16.cannon.damage, flight.elapsed);
+    weaponEffects.impact(surface, point, flight.elapsed, destroyed);
+  });
+  const weaponEffects = new CannonEffects(scene, visual.muzzle, ballistics, practice);
+  const cannon = new Cannon(f16.cannon, visual.muzzle, ballistics, (position, direction, time, count) => {
+    audio.setFiring(true);
+    weaponEffects.shot(position, direction, time, count);
+  });
+  const trigger = new CannonTrigger(ui.viewport, {
+    enabled: () => screen === 'flying' && !ui.settings.open && (capture.locked || keyboardFlight),
+    pressed: () => {
+      if (cannon.ammo) audio.unlock();
+      updateWeaponHud();
+    },
+    released: () => {
+      audio.setFiring(false);
+      updateWeaponHud();
+    },
+  }, signal);
+  signal.addEventListener('abort', () => audio.dispose(), { once: true });
   const previousRenderPosition = new T.Vector3();
   const directionMarker = new T.Vector3();
   const flightDirection = new T.Vector3();
   const aimDirection = new T.Vector3();
+  let lastEffectsTime = 0;
   let screen = 'loading';
   let startingPosition = 'air';
   let brake = false;
@@ -107,7 +138,11 @@ function boot() {
     if (next !== 'flying') capture.release();
     screen = next;
     document.body.dataset.screen = next;
-    text('phase', { ready: 'PREFLIGHT', flying: 'FREE FLIGHT', paused: 'PAUSED', failed: 'FLIGHT ENDED' }[next]);
+    const flightLabel = startingPosition === 'practice' ? 'CANNON RANGE' : 'FREE FLIGHT';
+    text('phase', { ready: 'PREFLIGHT', flying: flightLabel, paused: 'PAUSED', failed: 'FLIGHT ENDED' }[next]);
+    text('pause-mode', flightLabel);
+    trigger.clear();
+    audio.setFiring(false);
     controls.clear();
     accumulator = 0;
     if (next === 'paused') {
@@ -123,6 +158,7 @@ function boot() {
       ui['keyboard-flight'].hidden = next !== 'paused' || !keyboardFlight;
     }
     updateHud();
+    updateWeaponHud();
   }
 
   function pauseFlight(message) {
@@ -146,6 +182,11 @@ function boot() {
 
   function reset(next) {
     flight.reset(scenarios[startingPosition]);
+    cannon.reset();
+    ballistics.clear();
+    practice.reset(startingPosition === 'practice');
+    weaponEffects.clear();
+    lastEffectsTime = 0;
     aircraft.position.copy(flight.position);
     aircraft.quaternion.copy(flight.orientation);
     previousRenderPosition.copy(flight.position);
@@ -161,8 +202,10 @@ function boot() {
     startingPosition = next;
     pressed('start-air', next === 'air');
     pressed('start-runway', next === 'runway');
+    pressed('start-practice', next === 'practice');
     reset('ready');
-    text('start-detail', next === 'air' ? `2,950 FT MSL · ${Math.round(flight.airspeed)} KTS` : 'GROUND START · GEAR DOWN');
+    text('start-detail', next === 'runway' ? 'GROUND START · GEAR DOWN'
+      : next === 'practice' ? `3 AERIAL DRONES · ${f16.cannon.capacity} ROUNDS` : `2,950 FT MSL · ${Math.round(flight.airspeed)} KTS`);
   }
 
   function resize() {
@@ -174,6 +217,7 @@ function boot() {
     view.camera.aspect = width / Math.max(1, height);
     view.camera.fov = view.camera.aspect < 0.82 ? 66 : 51;
     view.camera.updateProjectionMatrix();
+    weaponEffects.resize(renderer, view.camera);
     if (screen === 'ready') view.snap = true;
   }
 
@@ -195,6 +239,7 @@ function boot() {
 
   function applyPreset() {
     world.setPreset(presets[settings.preset]);
+    weaponEffects.setPreset(presets[settings.preset]);
     resize();
   }
 
@@ -247,6 +292,7 @@ function boot() {
   }
   ui['start-air'].addEventListener('click', () => selectStart('air'));
   ui['start-runway'].addEventListener('click', () => selectStart('runway'));
+  ui['start-practice'].addEventListener('click', () => selectStart('practice'));
   ui.launch.addEventListener('click', () => { view.snap = true; requestFlight(); });
   ui.resume.addEventListener('click', requestFlight);
   ui.restart.addEventListener('click', restartFlight);
@@ -378,11 +424,24 @@ function boot() {
     ui['toggle-gear'].disabled = flight.grounded;
   }
 
+  function updateWeaponHud() {
+    const firing = screen === 'flying' && trigger.held && cannon.ammo > 0;
+    text('cannon-ammo', cannon.ammo);
+    text('cannon-state', cannon.ammo === 0 ? 'AMMO EMPTY' : firing ? 'FIRING' : 'READY');
+    ui['cannon-state'].classList.toggle('weapon-active', firing || cannon.ammo === 0);
+    ui['range-status'].hidden = !practice.enabled;
+    if (practice.enabled) {
+      text('targets-remaining', practice.remaining);
+      text('target-feedback', flight.elapsed < practice.noticeUntil ? practice.notice : '');
+    }
+  }
+
   function renderFlightMarkers() {
     const width = viewportWidth;
     const height = viewportHeight;
-    flightDirection.set(0, 0, 1).applyQuaternion(aircraft.quaternion);
-    directionMarker.copy(aircraft.position).addScaledVector(flightDirection, 1800).project(view.camera);
+    flightDirection.set(0, 0, 1).applyQuaternion(visual.muzzle.quaternion).applyQuaternion(aircraft.quaternion);
+    directionMarker.copy(visual.muzzle.position).applyQuaternion(aircraft.quaternion).add(aircraft.position)
+      .addScaledVector(flightDirection, 1800).project(view.camera);
     const x = (directionMarker.x + 1) * width * 0.5;
     const y = (1 - directionMarker.y) * height * 0.5;
     ui.boresight.hidden = directionMarker.z > 1 || x < 22 || x > width - 22 || y < 80 || y > height - 72;
@@ -421,7 +480,7 @@ function boot() {
     if (frameWindow < 0.75) return;
     const info = renderer.info.render;
     ui.metrics.hidden = false;
-    text('metrics', `${(frameCount / frameWindow).toFixed(1)} FPS · ${(1000 * frameWindow / frameCount).toFixed(1)} ms · ${info.calls} draws · ${info.triangles.toLocaleString()} triangles · AOA ${T.MathUtils.radToDeg(flight.alpha).toFixed(1)}°`);
+    text('metrics', `${(frameCount / frameWindow).toFixed(1)} FPS · ${(1000 * frameWindow / frameCount).toFixed(1)} ms · ${info.calls} draws · ${info.triangles.toLocaleString()} triangles · AOA ${T.MathUtils.radToDeg(flight.alpha).toFixed(1)}° · ${ballistics.count} rounds`);
     frameWindow = 0;
     frameCount = 0;
   }
@@ -441,11 +500,15 @@ function boot() {
         accumulator -= STEP;
         if (flight.failure) {
           text('pause-title', flight.failure);
-          text('pause-description', 'Free flight ended. Restart from the selected starting position.');
+          text('pause-description', 'Flight ended. Restart from the selected starting position.');
           changeScreen('failed');
           break;
         }
+        practice.step(flight.elapsed);
+        cannon.step(STEP, trigger.held, flight);
+        if (ballistics.count) ballistics.step(STEP, colliders);
       }
+      if (cannon.ammo === 0) audio.setFiring(false);
     }
     const blend = screen === 'flying' ? accumulator / STEP : 1;
     aircraft.position.copy(flight.previousPosition).lerp(flight.position, blend);
@@ -457,8 +520,15 @@ function boot() {
     const aim = !keyboardFlight && settings.controlMode === 'assist' ? controls.aim : null;
     view.update(aircraft, flight.velocity, dt, screen, controls.looking, settings.cameraSmoothing, aim, settings.cameraTurnResponse);
     world.update(aircraft.position, view.camera);
-    if (screen === 'flying') renderFlightMarkers();
-    else ui['g-effect'].style.opacity = 0;
+    const effectStep = Math.max(0, flight.elapsed - lastEffectsTime);
+    lastEffectsTime = flight.elapsed;
+    weaponEffects.render(flight.elapsed, effectStep, blend, screen === 'flying');
+    if (screen === 'flying') {
+      renderFlightMarkers();
+      updateWeaponHud();
+    } else {
+      ui['g-effect'].style.opacity = 0;
+    }
     if (time - lastHudTime > 74) {
       updateHud();
       lastHudTime = time;
@@ -467,6 +537,7 @@ function boot() {
     if (debug && realDt > 0) updateMetrics(realDt);
   }
 
+  text('cannon-label', `${f16.cannon.name} · ${f16.cannon.caliber} MM`);
   renderBindings();
   updateSettings();
   selectStart('air');

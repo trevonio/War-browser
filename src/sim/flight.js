@@ -23,6 +23,7 @@ export class Flight {
     this.velocity = new Vector3();
     this.rates = new Vector3();
     this.previousPosition = new Vector3();
+    this.previousVelocity = new Vector3();
     this.previousOrientation = new Quaternion();
     this.localVelocity = new Vector3();
     this.forward = new Vector3();
@@ -44,6 +45,7 @@ export class Flight {
     this.rates.set(0, 0, 0);
     this.instructor.reset();
     this.previousPosition.copy(this.position);
+    this.previousVelocity.copy(this.velocity);
     this.previousOrientation.copy(this.orientation);
     this.grounded = runway;
     this.gearDown = runway;
@@ -78,6 +80,7 @@ export class Flight {
     const spec = this.spec;
     this.elapsed += dt;
     this.previousPosition.copy(this.position);
+    this.previousVelocity.copy(this.velocity);
     this.previousOrientation.copy(this.orientation);
 
     this.throttle = clamp(this.throttle + controls.throttle * 0.36 * dt, 0, 1);

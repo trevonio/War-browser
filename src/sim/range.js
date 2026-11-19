@@ -5,6 +5,10 @@ export const scenarios = {
   runway: { x: 0, y: runway.elevation + 1.28, z: runway.start + 170, speed: 0, pitch: 0, throttle: 0.12, runway: true },
 };
 
+scenarios.practice = { ...scenarios.air };
+
+export const hangars = [-2180, -2100, -2020].map((z) => ({ x: 351, z }));
+
 const { sin, cos, abs, max, min, exp, floor } = Math;
 
 function smooth(low, high, value) {
@@ -51,6 +55,13 @@ export function terrainHeight(x, z) {
 }
 
 export const range = {
+  surfaceAt: terrainHeight,
+  maxTerrainHeight: 2140,
+  structures: hangars.map(({ x, z }) => ({
+    shape: 'box', surface: 'ground',
+    min: [x - 24, runway.elevation, z - 21],
+    max: [x + 24, runway.elevation + 14, z + 21],
+  })),
   heightAt(x, z) {
     return max(0, terrainHeight(x, z));
   },

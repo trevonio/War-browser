@@ -1,8 +1,8 @@
 # War Browser · Fighting Falcon
 
 A single-player, desktop browser flight simulator. Stage 1 includes a coastal
-free-flight range with an airborne F-16C start and a runway start for takeoff and
-landing practice.
+range with an airborne F-16C start, a runway start for takeoff and landing
+practice, and a cannon range with aerial drones.
 
 ## Run locally
 
@@ -29,6 +29,7 @@ and `npx playwright test` from a graphical session. On headless Linux, run
 | Input | Action |
 | --- | --- |
 | Mouse | Move the world-space aim point in Mouse assist mode |
+| Hold left mouse | Fire the internal cannon while in flight |
 | W / S | Pitch up / down |
 | A / D | Roll left / right |
 | Q / E | Yaw left / right |
@@ -121,3 +122,24 @@ The aircraft-specific data and visual adapter live in `src/aircraft/`.
 rendering and the camera. At this stage the external stores only affect
 appearance, mass, and drag. The next milestone is a small single-player
 intercept scenario with one AI aircraft and game-tuned combat systems.
+
+
+## Cannon range
+
+Select **Cannon range** in the briefing for one stationary sighting drone and two
+crossing drones. The wing-shaped sight stays aligned with the cannon. The mouse
+circle commands the aircraft's maneuver. The launcher supplies 510 rounds and
+fires 100 rounds per simulated second (6,000 RPM). The same loadout is available
+in free flight. Restarting restores ammunition and the exercise. The external
+stores toggle controls the separate wing stores.
+
+The emitter sits on the port side of the supplied procedural model. Projectiles
+inherit aircraft velocity and travel under gravity and simplified drag. Sweeps
+test the height field, water, hangars, and moving drone hit volumes. One round in
+five has a tracer. All rounds share the collision simulation. Projectile speed,
+drag, drone durability, and the model attachment are game-tuned approximations.
+
+An original synthesized loop provides cannon audio without requiring a download.
+Tracers use one line batch, and muzzle smoke, dust, splashes, and sparks use a
+fixed particle pool sized by the graphics preset. Drone damage is represented
+by durability per target.

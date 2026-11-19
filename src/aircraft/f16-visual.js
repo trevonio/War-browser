@@ -1,4 +1,5 @@
 import * as T from 'three';
+import { f16 } from './f16.js';
 
 // Geometry and materials adapted from the supplied procedural F-16 viewer.
 // One modeling unit is approximately a meter after the original 0.93 scale.
@@ -455,10 +456,17 @@ export function createF16Visual() {
   nav(0x20ff40, -5.3, -0.22, -2.6);
   const strobe = nav(0xffffff, 0, 3.45, -7.6);
 
+  const muzzle = new T.Object3D();
+  muzzle.name = 'Port cannon emitter';
+  muzzle.position.fromArray(f16.cannon.muzzle);
+  muzzle.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), new T.Vector3().fromArray(f16.cannon.bore).normalize());
+  root.add(muzzle);
+
   // The source switches the whole gear group on and off. Fold it toward the
   // fuselage during transit using the source meshes, with no skeletal rig.
   return {
     root,
+    muzzle,
     stations,
     gear,
     arm,

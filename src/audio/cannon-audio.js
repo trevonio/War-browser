@@ -1,0 +1,75 @@
+export class CannonAudio {
+  constructor(rpm) {
+    this.rate = rpm / 60;
+    this.firing = false;
+  }
+
+  unlock() {
+    const AudioContext = window.AudioContext ?? window.webkitAudioContext;
+    if (!AudioContext) return;
+    try {
+      if (!this.context) {
+        this.context = new AudioContext();
+        const { sampleRate } = this.context;
+        const period = 1 / this.rate;
+        this.buffer = this.context.createBuffer(1, Math.round(sampleRate * period * 37), sampleRate);
+        const samples = this.buffer.getChannelData(0);
+        let seed = 1230627;
+        let rumble = 0;
+        for (let i = 0; i < samples.length; i++) {
+          seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+          const noise = seed / 2147483648 - 1;
+          const time = i / sampleRate;
+          const pulse = time % period;
+          const crack = Math.exp(-pulse * 450);
+          rumble += (noise - rumble) * 0.14;
+          samples[i] = Math.tanh((noise - rumble) * crack * 0.85 + rumble * 0.67
+            + Math.sin(pulse * 2 * Math.PI * 125) * Math.exp(-pulse * 260) * 0.75);
+        }
+      }
+      if (this.context.state === 'suspended') {
+        this.context.resume().then(() => this.start()).catch(() => {});
+      }
+    } catch {
+      // The simulation remains playable on devices without audio output.
+    }
+  }
+
+  setFiring(firing) {
+    if (firing === this.firing) return;
+    this.firing = firing;
+    if (firing) {
+      this.start();
+    } else if (this.source) {
+      const time = this.context.currentTime;
+      this.gain.gain.cancelAndHoldAtTime?.(time);
+      this.gain.gain.setTargetAtTime(0, time, 0.004);
+      this.source.stop(time + 0.02);
+      this.source = null;
+    }
+  }
+
+  start() {
+    if (!this.firing || this.source || this.context?.state !== 'running' || !this.buffer) return;
+    const source = this.context.createBufferSource();
+    const gain = this.context.createGain();
+    gain.gain.value = 0;
+    source.buffer = this.buffer;
+    source.loop = true;
+    source.connect(gain).connect(this.context.destination);
+    source.onended = () => {
+      source.disconnect();
+      gain.disconnect();
+    };
+    this.gain = gain;
+    this.source = source;
+    const time = this.context.currentTime;
+    gain.gain.setTargetAtTime(0.33, time, 0.004);
+    source.start(time);
+  }
+
+  dispose() {
+    this.setFiring(false);
+    this.context?.close().catch(() => {});
+  }
+}
