@@ -336,7 +336,8 @@ function boot() {
     previousFrame = time;
     if (screen === 'flying') {
       const command = controls.sample(brake);
-      accumulator += dt;
+      // Allow slow frames to catch up while bounding work after a browser stall.
+      accumulator += Math.min(0.50, realDt);
       while (accumulator >= STEP) {
         flight.step(command);
         accumulator -= STEP;

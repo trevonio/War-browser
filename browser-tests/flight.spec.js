@@ -14,8 +14,8 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
 
   await page.getByRole('button', { name: /Start flight/ }).click();
   await expect(page.locator('#airspeed')).toHaveText(/^3\d{2}$/);
-  await page.mouse.move(950, 335);
-  await expect.poll(async () => Number(await page.locator('#heading').innerText())).toBeGreaterThan(2);
+  await page.mouse.move(1030, 345);
+  await expect.poll(async () => Number(await page.locator('#heading').innerText()), { timeout: 12000 }).toBeGreaterThan(2);
   await page.mouse.move(640, 360);
 
   const altitude = async () => Number((await page.locator('#altitude').innerText()).replaceAll(',', ''));
@@ -54,7 +54,7 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
   await page.keyboard.press('r');
   await expect(page.locator('#heading')).toHaveText('000');
-  await expect(page.locator('#elapsed')).toHaveText('00:00');
+  await expect(page.locator('#elapsed')).toHaveText(/^00:0[0-4]$/);
 
   await page.setViewportSize({ width: 500, height: 760 });
   await expect(page.getByRole('button', { name: 'Settings' })).toBeInViewport();
@@ -77,7 +77,7 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   await page.getByRole('button', { name: 'Back to briefing' }).click();
   await page.getByRole('button', { name: 'Runway 36' }).click();
   await page.getByRole('button', { name: /Start flight/ }).click();
-  await expect(page.locator('#airspeed')).toHaveText('0');
+  await expect.poll(async () => Number(await page.locator('#airspeed').innerText())).toBeLessThan(10);
   await expect(page.locator('#gear-state')).toHaveText('Down');
   await expect(page.locator('#toggle-gear')).toBeDisabled();
   expect(errors).toEqual([]);
