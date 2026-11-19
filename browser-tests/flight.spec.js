@@ -1,5 +1,26 @@
 import { expect, test } from '@playwright/test';
 
+const flightPanel = (page) => page.locator('body[data-screen="flying"]');
+const locked = (page) => page.evaluate(() => document.pointerLockElement?.id ?? null);
+
+async function startFlight(page) {
+  await page.getByRole('button', { name: /Start flight/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(flightPanel(page)).toBeVisible();
+}
+
+async function resumeFlight(page) {
+  await page.getByRole('button', { name: /Resume flight/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(flightPanel(page)).toBeVisible();
+}
+
+async function pauseFlight(page) {
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
+  await expect.poll(() => locked(page)).toBeNull();
+}
+
 test('the production build flies, operates aircraft systems, and restarts', async ({ page }, testInfo) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -12,11 +33,8 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   await expect(page.locator('#viewport canvas')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('briefing.png') });
 
-  await page.getByRole('button', { name: /Start flight/ }).click();
+  await startFlight(page);
   await expect(page.locator('#airspeed')).toHaveText(/^3\d{2}$/);
-  await page.mouse.move(1030, 345);
-  await expect.poll(async () => Number(await page.locator('#heading').innerText()), { timeout: 12000 }).toBeGreaterThan(2);
-  await page.mouse.move(640, 360);
 
   const altitude = async () => Number((await page.locator('#altitude').innerText()).replaceAll(',', ''));
   const initialAltitude = await altitude();
@@ -50,9 +68,9 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   await page.keyboard.press('v');
   await expect(page.locator('#camera-name')).toHaveText('Chase camera');
 
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
-  await page.keyboard.press('r');
+  await pauseFlight(page);
+  await page.getByRole('button', { name: /Restart flight/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
   await expect(page.locator('#heading')).toHaveText('000');
   await expect(page.locator('#elapsed')).toHaveText(/^00:0[0-4]$/);
 
@@ -62,31 +80,33 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   await expect(page.locator('#altitude')).toBeInViewport();
   await expect(page.locator('#viewport canvas')).toHaveAttribute('width', '500');
 
+  await pauseFlight(page);
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByLabel('Quality preset').selectOption('low');
   await page.getByLabel('Control mode').selectOption('direct');
   await page.getByRole('button', { name: /External stores/ }).click();
   await page.keyboard.press('j');
   await page.getByRole('button', { name: 'Close settings' }).click();
+  await resumeFlight(page);
   await expect(page.locator('#viewport canvas')).toHaveAttribute('width', '400');
   await expect(page.locator('#aim-cursor')).toBeHidden();
   await page.keyboard.press('j');
   await expect(page.locator('#stores-state')).toHaveText('Off');
 
-  await page.keyboard.press('Escape');
+  await pauseFlight(page);
   await page.getByRole('button', { name: 'Back to briefing' }).click();
   await page.getByRole('button', { name: 'Runway 36' }).click();
-  await page.getByRole('button', { name: /Start flight/ }).click();
+  await startFlight(page);
   await expect.poll(async () => Number(await page.locator('#airspeed').innerText())).toBeLessThan(10);
   await expect(page.locator('#gear-state')).toHaveText('Down');
   await expect(page.locator('#toggle-gear')).toBeDisabled();
   expect(errors).toEqual([]);
 });
 
-test('records medium and low frame pacing under software WebGL', async ({ page }) => {
+test('records medium and low frame pacing under software WebGL', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Compare against the existing Chromium benchmark.');
   await page.goto('/');
-  await expect(page.getByRole('button', { name: /Start flight/ })).toBeVisible();
-  await page.getByRole('button', { name: /Start flight/ }).click();
+  await startFlight(page);
   await page.locator('#airspeed').waitFor();
 
   async function measure(preset) {
@@ -121,9 +141,80 @@ test('records medium and low frame pacing under software WebGL', async ({ page }
   }
 
   await measure('medium');
+  await pauseFlight(page);
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByLabel('Quality preset').selectOption('low');
   await page.getByRole('button', { name: 'Close settings' }).click();
+  await resumeFlight(page);
   await expect(page.locator('#viewport canvas')).toHaveAttribute('width', '1024');
   await measure('low');
+});
+
+test('captures relative input, pauses on Escape or lost focus, and recaptures', async ({ page, context }) => {
+  await page.goto('/');
+  await startFlight(page);
+  const reticle = page.locator('#aim-cursor');
+  const heading = () => page.locator('#heading').innerText();
+  const initial = await reticle.getAttribute('style');
+  await page.mouse.move(900, 370, { steps: 5 });
+  await expect(reticle).not.toHaveAttribute('style', initial);
+  await expect.poll(async () => {
+    const value = Number(await heading());
+    return Math.min(value, 360 - value);
+  }, { timeout: 12000 }).toBeGreaterThan(1);
+  await expect.poll(() => locked(page)).toBe('viewport');
+
+  // Dispatch long relative travel while the native capture is active. This
+  // exercises wrap, pitch bounds, and reticle recovery beyond viewport edges.
+  await page.evaluate(() => {
+    for (let i = 0; i < 12; i++) {
+      document.pointerLockElement.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true, movementX: 50, movementY: -100,
+      }));
+    }
+  });
+  await expect(reticle).toHaveClass(/offscreen/);
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await pauseFlight(page);
+  await resumeFlight(page);
+
+  await page.keyboard.down('Shift');
+  const other = await context.newPage();
+  await other.bringToFront();
+  await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
+  await expect.poll(() => locked(page)).toBeNull();
+  await other.close();
+  await page.bringToFront();
+  const throttle = await page.locator('#throttle').innerText();
+  await resumeFlight(page);
+  await expect.poll(async () => page.locator('#throttle').innerText()).toBe(throttle);
+  await page.keyboard.up('Shift');
+
+  await pauseFlight(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const sensitivity = page.getByLabel('Mouse sensitivity');
+  await sensitivity.fill('2.2');
+  await page.getByLabel('Mouse aim responsiveness').fill('1.5');
+  await page.getByLabel('Chase camera smoothing').fill('1.3');
+  await expect(page.locator('#mouse-value')).toHaveText('2.2');
+  await page.getByRole('button', { name: 'Close settings' }).click();
+  await resumeFlight(page);
+  await expect(reticle).toBeVisible();
+  await pauseFlight(page);
+});
+
+test('shows a recovery option when capture is denied', async ({ page }) => {
+  await page.addInitScript(() => {
+    HTMLElement.prototype.requestPointerLock = () => Promise.reject(new DOMException('Denied', 'SecurityError'));
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: /Start flight/ }).click();
+  await expect(page.locator('#pause-description')).toContainText('not allowed to capture the mouse');
+  await page.getByRole('button', { name: 'Fly with keyboard' }).click();
+  await expect(flightPanel(page)).toBeVisible();
+  await expect.poll(() => locked(page)).toBeNull();
+  await expect(page.locator('#aim-cursor')).toBeHidden();
+  await page.keyboard.press('b');
+  await expect(page.locator('#engine-state')).toHaveText('AFTERBURNER');
+  await pauseFlight(page);
 });

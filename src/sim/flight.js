@@ -1,6 +1,6 @@
 import { MathUtils, Quaternion, Vector3 } from 'three';
 
-const { clamp, lerp, smoothstep } = MathUtils;
+const { clamp, euclideanModulo, lerp, smoothstep } = MathUtils;
 export const STEP = 1 / 120;
 const GRAVITY = 9.80665;
 const FORWARD = new Vector3(0, 0, 1);
@@ -9,7 +9,7 @@ const MPS_TO_KNOTS = 1.943844;
 const METERS_TO_FEET = 3.28084;
 
 export const neutralControls = {
-  pitch: 0, roll: 0, yaw: 0, throttle: 0, aimX: 0, aimY: 0,
+  pitch: 0, roll: 0, yaw: 0, throttle: 0, aimHeading: null, aimPitch: 0, aimResponsiveness: 1,
   assisted: true, brakes: false,
 };
 
@@ -54,6 +54,7 @@ export class Flight {
     this.afterburner = false;
     this.thrust = 0;
     this.g = 1;
+    this.gWarning = '';
     this.alpha = pitch;
     this.stalled = false;
     this.blackout = 0;
@@ -106,25 +107,39 @@ export class Flight {
     const stallControl = 1 - 0.64 * smoothstep(Math.abs(alpha), spec.stallAngle, 0.67);
     const authority = airAuthority * highSpeedControl * stallControl;
     const bank = Math.atan2(this.up.dot(this.angularStep.set(-this.forward.z, 0, this.forward.x).normalize()), this.up.y);
-    const pathPitch = Math.atan2(this.velocity.y, Math.max(1, Math.hypot(this.velocity.x, this.velocity.z)));
-    const trimG = 1 / Math.max(0.36, Math.cos(bank));
-    const levelAlpha = (trimG * mass * GRAVITY / Math.max(1, dynamicPressure * spec.wingArea) - spec.baseLift) / spec.liftSlope;
-    const liftLimit = 0.95 * (spec.maxG * mass * GRAVITY / Math.max(1, dynamicPressure * spec.wingArea) - spec.baseLift) / spec.liftSlope;
-    const downLimit = 0.95 * (spec.minG * mass * GRAVITY / Math.max(1, dynamicPressure * spec.wingArea) - spec.baseLift) / spec.liftSlope;
-    const pitchInput = Math.abs(controls.pitch) > 0.01 ? controls.pitch : null;
+    const groundSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+    const pathPitch = Math.atan2(this.velocity.y, Math.max(1, groundSpeed));
+    const course = groundSpeed > 12 ? this.velocity : this.forward;
+    const courseHeading = Math.atan2(-course.x, course.z);
+    const headingError = euclideanModulo((controls.aimHeading ?? courseHeading) - courseHeading + Math.PI, 2 * Math.PI) - Math.PI;
+    const responsiveness = controls.aimResponsiveness;
+    const bankLimit = lerp(0.48, 1.19, authority);
+    // Lead the rollout by the aircraft's current turn rate so the instructor
+    // stops asking for bank before the flight path reaches the target.
+    const liftTurnRate = Math.max(0, this.g) * GRAVITY * Math.sin(bank) / Math.max(groundSpeed, 55);
+    const headingDemand = headingError - liftTurnRate * 0.55;
+    const bankDemand = clamp(headingDemand * (2.05 * responsiveness), -bankLimit, bankLimit);
+    const rollError = euclideanModulo(bankDemand - bank + Math.PI, 2 * Math.PI) - Math.PI;
 
-    const bankDemand = controls.aimX * 1.16;
-    const pathDemand = controls.aimY * 0.61;
-    const trim = clamp(levelAlpha, -0.03, 0.17) * (this.grounded ? 0 : 1);
-    const assistedPitch = trim + clamp((pathDemand - pathPitch) * 0.48, -0.20, 0.20);
+    const trimG = 1 / Math.max(0.36, Math.cos(bank));
+    const liftScale = mass * GRAVITY / Math.max(1, dynamicPressure * spec.wingArea);
+    const levelAlpha = (trimG * liftScale - spec.baseLift) / spec.liftSlope;
+    const liftLimit = 0.95 * (spec.maxG * liftScale - spec.baseLift) / spec.liftSlope;
+    const downLimit = 0.95 * (spec.minG * liftScale - spec.baseLift) / spec.liftSlope;
+    const pitchInput = Math.abs(controls.pitch) > 0.01 ? controls.pitch : null;
+    const trim = this.grounded ? 0 : clamp(levelAlpha, -0.03, 0.17);
+    const assistedPitch = trim + clamp((controls.aimPitch - pathPitch) * 0.55 * responsiveness, -0.20, 0.20);
     const manualPitch = trim + (pitchInput ?? 0) * 0.32;
     const desiredAlpha = clamp(pitchInput === null && controls.assisted ? assistedPitch : manualPitch,
       Math.max(-0.23, downLimit), Math.min(0.34, liftLimit));
     const pitchRate = clamp((alpha - desiredAlpha) * 5.6, -spec.pitchRate, spec.pitchRate) * authority;
-    const rollRate = this.grounded ? 0 : (controls.roll || (controls.assisted ? clamp((bankDemand - bank) * 1.9, -1, 1) : 0))
-      * spec.rollRate * authority;
+    const assistedRoll = clamp((rollError * 3.5 - this.rates.z * 0.48) / spec.rollRate, -1, 1);
+    const rollRate = this.grounded ? 0 : (controls.roll || (controls.assisted ? assistedRoll : 0)) * spec.rollRate * authority;
     const groundSteering = this.grounded ? clamp(speed / 25, 0, 0.35) : 0;
-    const yawRate = (-controls.yaw * spec.yawRate + clamp(sideslip * 1.6, -0.25, 0.25)) * (authority + groundSteering);
+    const rudder = controls.yaw || (this.grounded && controls.assisted ? clamp(headingError * 1.9, -1, 1) : 0);
+    const coordinatedYaw = !this.grounded && controls.assisted ? -liftTurnRate : 0;
+    const yawRate = (-rudder * spec.yawRate + clamp(sideslip * 1.8 + coordinatedYaw, -0.28, 0.28))
+      * (authority + groundSteering);
     const response = 1 - Math.exp(-5.8 * dt);
     this.rates.x = lerp(this.rates.x, pitchRate, response);
     this.rates.y = lerp(this.rates.y, yawRate, response);
@@ -192,6 +207,10 @@ export class Flight {
   }
 
   updatePilot(dt) {
+    if (this.g >= 5.8) this.gWarning = 'HIGH G';
+    else if (this.g <= -1.5) this.gWarning = 'NEGATIVE G';
+    else if ((this.gWarning === 'HIGH G' && this.g < 5.3) ||
+      (this.gWarning === 'NEGATIVE G' && this.g > -1.2)) this.gWarning = '';
     const overload = smoothstep(this.g, 5.6, 9.5);
     const negative = smoothstep(-this.g, 0.8, 3.5);
     this.blackout = clamp(this.blackout + (overload * 0.5 - (1 - overload) * 0.25) * dt, 0, 0.93);

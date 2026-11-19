@@ -19,15 +19,16 @@ Open the URL Vite prints. Run `npm test` for fixed-step simulation checks and
 check use `npm run preview`. Append `?debug` to the **development** URL for
 frame timing, draw calls, triangles, and angle of attack.
 
-GitHub Actions runs the production build in Chromium. To repeat its browser
-checks locally after building, run `npx playwright install chromium` and
-`npx playwright test`. The frame-pacing check uses software WebGL in CI.
+GitHub Actions runs the production build in Chromium and Firefox. To repeat
+the browser checks after building, run `npx playwright install chromium firefox`
+and `npx playwright test` from a graphical session. On headless Linux, run
+`xvfb-run -a npx playwright test`. The frame-pacing check uses software WebGL in CI.
 
 ## Default controls
 
 | Input | Action |
 | --- | --- |
-| Mouse | Command bank and flight path in Mouse assist mode |
+| Mouse | Move the world-space aim point in Mouse assist mode |
 | W / S | Pitch up / down |
 | A / D | Roll left / right |
 | Q / E | Yaw left / right |
@@ -39,10 +40,17 @@ checks locally after building, run `npx playwright install chromium` and
 | V | Switch between chase and nose HUD views |
 | Right mouse or F + move | Free look |
 | Mouse wheel | Adjust chase distance |
-| Esc / R | Pause or resume / restart from the selected start |
+| Esc / Enter / R | Release the mouse and pause / start or resume / restart |
 
-Settings let you rebind keys, select direct keyboard controls, invert vertical
-mouse aim, adjust sensitivity, and choose a graphics preset.
+Start or resume with a click or Enter to capture the mouse. Switching tabs or
+losing window focus pauses the flight and clears held inputs. If capture is
+denied, the pause menu lets you retry or fly with the keyboard. The small
+circle marks your desired direction. Its edge chevron points to an offscreen
+aim direction, and the wing-shaped boresight marks the F-16's nose.
+
+Settings let you rebind keys, select direct keyboard controls, set mouse and
+camera sensitivity, invert mouse Y, tune instructor responsiveness and chase
+camera smoothing, and choose a graphics preset.
 
 For a runway start, keep the controls centered, apply full throttle, then hold
 W near 125 knots to rotate. Retract the gear once safely airborne. The runway
@@ -90,7 +98,10 @@ scales with the square of lift coefficient. The model includes an approximate
 standard atmosphere, Mach-dependent drag and control effectiveness, a
 post-stall lift falloff, thrust and spool lag, fuel burn, and gear and airbrake
 drag. Positive and negative G-load drive timed visual effects, and sustained
-overload can end a flight.
+overload can end a flight. The HUD indicates high positive or negative G
+from the measured load factor. Mouse assist requests bank from course error and
+starts rolling out as the target direction approaches. The flight model still
+sets available trim, angular authority, and lift.
 
 Nominal dimensions and engine ratings anchor the F-16 configuration. The
 aerodynamic curves, loaded masses, fuel flows, low-speed and transonic control

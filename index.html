@@ -78,8 +78,9 @@
     <section id="pause-panel" class="briefing" aria-labelledby="pause-title">
       <p class="eyebrow">FREE FLIGHT <span></span> F-16C</p>
       <h1 id="pause-title">Paused</h1>
-      <p id="pause-description" class="description">Your aircraft is holding position.</p>
-      <button id="resume" class="primary-button" type="button">Resume flight <kbd id="resume-key">Esc</kbd></button>
+      <p id="pause-description" class="description" role="status">Your aircraft is holding position.</p>
+      <button id="resume" class="primary-button" type="button">Resume flight <kbd>Enter</kbd></button>
+      <button id="keyboard-flight" class="secondary-button" type="button" hidden>Fly with keyboard</button>
       <button id="restart" class="secondary-button" type="button">Restart flight <kbd id="restart-key">R</kbd></button>
       <button id="return" class="text-button" type="button">Back to briefing</button>
     </section>
@@ -92,7 +93,7 @@
           <span id="camera-name" class="deck-value">Chase camera</span>
         </div>
       </div>
-      <div id="ready-help" class="ready-help"><span><kbd>Mouse</kbd> Aim</span><span><kbd id="help-maneuver">W A S D</kbd> Maneuver</span><span><kbd id="help-throttle">Shift / Ctrl</kbd> Throttle</span></div>
+      <div id="ready-help" class="ready-help"><span><kbd>Mouse</kbd> Aim · <kbd>Esc</kbd> Release</span><span><kbd id="help-maneuver">W A S D</kbd> Maneuver</span><span><kbd id="help-throttle">Shift / Ctrl</kbd> Throttle</span></div>
       <div id="flight-actions" class="flight-actions" aria-label="Aircraft systems">
         <button id="toggle-burner" type="button" aria-pressed="false"><kbd id="key-afterburner">B</kbd><span>Afterburner <small id="burner-state">Off</small></span></button>
         <button id="toggle-gear" type="button" aria-pressed="false"><kbd id="key-gear">G</kbd><span>Gear <small id="gear-state">Up</small></span></button>
@@ -124,8 +125,14 @@
           <label class="settings-row" for="mouse-sensitivity">Mouse sensitivity
             <span><input id="mouse-sensitivity" type="range" min=".4" max="2.2" step=".1"><output id="mouse-value"></output></span>
           </label>
-          <label class="settings-row" for="camera-sensitivity">Free-look sensitivity
+          <label class="settings-row" for="camera-sensitivity">Camera sensitivity
             <span><input id="camera-sensitivity" type="range" min=".4" max="2.2" step=".1"><output id="camera-value"></output></span>
+          </label>
+          <label class="settings-row" for="aim-responsiveness">Mouse aim responsiveness
+            <span><input id="aim-responsiveness" type="range" min=".4" max="2.2" step=".1"><output id="aim-response-value"></output></span>
+          </label>
+          <label class="settings-row" for="camera-smoothing">Chase camera smoothing
+            <span><input id="camera-smoothing" type="range" min=".4" max="2.2" step=".1"><output id="camera-smoothing-value"></output></span>
           </label>
           <label class="settings-row" for="invert">Invert vertical mouse aim <input id="invert" type="checkbox"></label>
           <p class="settings-hint">Hold right mouse or the free-look key to look around. Scroll to adjust chase distance.</p>

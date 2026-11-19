@@ -2,6 +2,7 @@ import * as T from 'three';
 import { f16 } from './aircraft/f16.js';
 import { createF16Visual } from './aircraft/f16-visual.js';
 import { canBind, Controls, keyDefaults, keyLabels, keyName, loadSettings, saveSettings } from './controls.js';
+import { FlightPointerLock } from './pointer-lock.js';
 import { Flight, STEP } from './sim/flight.js';
 import { range, scenarios } from './sim/range.js';
 import { FlightCamera } from './view/camera.js';
@@ -51,15 +52,35 @@ function boot() {
   const aircraft = visual.root;
   aircraft.renderMovement = new T.Vector3();
   scene.add(aircraft);
-  const controls = new Controls(settings, ui.viewport, () => screen === 'flying' && !ui.settings.open, view);
+  const lifecycle = new AbortController();
+  const { signal } = lifecycle;
+  const capture = new FlightPointerLock(ui.viewport, {
+    acquired: () => {
+      ui['keyboard-flight'].hidden = true;
+      changeScreen('flying');
+    },
+    lost: () => pauseFlight('Mouse capture released. Resume to capture it again.'),
+    failed: (reason) => {
+      changeScreen('paused', reason + ' Click Resume flight to retry, or fly with the keyboard.');
+      ui['keyboard-flight'].hidden = false;
+    },
+  }, signal);
+  const controls = new Controls(settings, ui.viewport, {
+    flying: () => screen === 'flying' && !ui.settings.open,
+    locked: () => capture.locked,
+    assisted: () => !keyboardFlight && settings.controlMode === 'assist',
+  }, view, signal);
   const previousRenderPosition = new T.Vector3();
   const directionMarker = new T.Vector3();
   const flightDirection = new T.Vector3();
+  const aimDirection = new T.Vector3();
   let screen = 'loading';
   let startingPosition = 'air';
   let brake = false;
   let rebinding;
-  let resumeAfterSettings = false;
+  let keyboardFlight = false;
+  let viewportWidth = 0;
+  let viewportHeight = 0;
   let accumulator = 0;
   let previousFrame;
   let lastHudTime = -1;
@@ -71,10 +92,19 @@ function boot() {
     event.preventDefault();
     stopped = true;
     controls.clear();
+    lifecycle.abort();
     unavailable('The graphics context was lost. Reload this page to restart the flight deck.');
-  });
+  }, { signal });
 
-  function changeScreen(next) {
+  function alignAim() {
+    const velocity = flight.velocity;
+    const groundSpeed = Math.hypot(velocity.x, velocity.z);
+    const heading = groundSpeed > 12 ? Math.atan2(-velocity.x, velocity.z) : T.MathUtils.degToRad(flight.heading);
+    controls.align(heading, Math.atan2(velocity.y, Math.max(1, groundSpeed)));
+  }
+
+  function changeScreen(next, pauseMessage = 'Your aircraft is holding position.') {
+    if (next !== 'flying') capture.release();
     screen = next;
     document.body.dataset.screen = next;
     text('phase', { ready: 'PREFLIGHT', flying: 'FREE FLIGHT', paused: 'PAUSED', failed: 'FLIGHT ENDED' }[next]);
@@ -82,10 +112,36 @@ function boot() {
     accumulator = 0;
     if (next === 'paused') {
       text('pause-title', 'Paused');
-      text('pause-description', 'Your aircraft is holding position.');
+      text('pause-description', pauseMessage);
     }
-    if (next === 'flying' && document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    document.body.dataset.direct = String(keyboardFlight || settings.controlMode === 'direct');
+    document.body.dataset.captured = String(next === 'flying' && capture.locked);
+    if (next === 'flying') {
+      alignAim();
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    } else {
+      ui['keyboard-flight'].hidden = true;
+    }
     updateHud();
+  }
+
+  function pauseFlight(message) {
+    if (screen === 'flying' || capture.pending) changeScreen('paused', message);
+  }
+
+  function requestFlight() {
+    if (stopped || ui.settings.open) return;
+    keyboardFlight = false;
+    capture.request();
+  }
+
+  function restartFlight() {
+    if (screen === 'flying') {
+      reset('flying');
+    } else {
+      reset('paused');
+      requestFlight();
+    }
   }
 
   function reset(next) {
@@ -111,8 +167,8 @@ function boot() {
 
   function resize() {
     const preset = presets[settings.preset];
-    const width = ui.viewport.clientWidth;
-    const height = ui.viewport.clientHeight;
+    const width = viewportWidth = ui.viewport.clientWidth;
+    const height = viewportHeight = ui.viewport.clientHeight;
     renderer.setPixelRatio(Math.min(devicePixelRatio, preset.pixels));
     renderer.setSize(width, height, false);
     view.camera.aspect = width / Math.max(1, height);
@@ -123,13 +179,14 @@ function boot() {
 
   function updateSettings() {
     saveSettings(settings);
-    document.body.dataset.direct = String(settings.controlMode === 'direct');
+    document.body.dataset.direct = String(keyboardFlight || settings.controlMode === 'direct');
     text('mouse-value', settings.mouseSensitivity.toFixed(1));
     text('camera-value', settings.cameraSensitivity.toFixed(1));
+    text('aim-response-value', settings.aimResponsiveness.toFixed(1));
+    text('camera-smoothing-value', settings.cameraSmoothing.toFixed(1));
     for (const action of ['afterburner', 'gear', 'stores', 'airbrake', 'camera', 'pause']) {
       text(`key-${action}`, keyName(settings.keys[action]));
     }
-    text('resume-key', keyName(settings.keys.pause));
     text('restart-key', keyName(settings.keys.restart));
     text('help-maneuver', ['pitchUp', 'rollLeft', 'pitchDown', 'rollRight'].map((key) => keyName(settings.keys[key])).join(' '));
     text('help-throttle', [keyName(settings.keys.throttleUp), keyName(settings.keys.throttleDown)].join(' / '));
@@ -163,8 +220,7 @@ function boot() {
   }
 
   function openSettings() {
-    resumeAfterSettings = screen === 'flying';
-    if (resumeAfterSettings) changeScreen('paused');
+    pauseFlight('Resume flight to recapture the mouse.');
     ui.settings.showModal();
     ui['close-settings'].focus();
   }
@@ -176,7 +232,7 @@ function boot() {
     airbrake() { brake = !brake; },
     camera() { view.cycle(); },
     pause() { changeScreen('paused'); },
-    restart() { reset('flying'); },
+    restart: restartFlight,
   };
 
   for (const [name, run] of Object.entries(actions)) {
@@ -190,9 +246,17 @@ function boot() {
   }
   ui['start-air'].addEventListener('click', () => selectStart('air'));
   ui['start-runway'].addEventListener('click', () => selectStart('runway'));
-  ui.launch.addEventListener('click', () => { view.snap = true; changeScreen('flying'); });
-  ui.resume.addEventListener('click', () => changeScreen('flying'));
-  ui.restart.addEventListener('click', () => reset('flying'));
+  ui.launch.addEventListener('click', () => { view.snap = true; requestFlight(); });
+  ui.resume.addEventListener('click', requestFlight);
+  ui.restart.addEventListener('click', restartFlight);
+  ui['keyboard-flight'].addEventListener('click', () => {
+    keyboardFlight = true;
+    capture.release();
+    changeScreen('flying');
+  });
+  ui.viewport.addEventListener('click', () => {
+    if ((screen === 'ready' || screen === 'paused') && !ui.settings.open) requestFlight();
+  }, { signal });
   ui.return.addEventListener('click', () => reset('ready'));
   ui['open-settings'].addEventListener('click', openSettings);
   ui['close-settings'].addEventListener('click', () => ui.settings.close());
@@ -200,12 +264,11 @@ function boot() {
     rebinding = undefined;
     text('rebind-message', 'Select a binding to change it.');
     renderBindings();
-    if (resumeAfterSettings && screen === 'paused') changeScreen('flying');
-    resumeAfterSettings = false;
   });
 
   for (const [id, property] of Object.entries({ preset: 'preset', 'control-mode': 'controlMode', invert: 'invert',
-    'mouse-sensitivity': 'mouseSensitivity', 'camera-sensitivity': 'cameraSensitivity' })) {
+    'mouse-sensitivity': 'mouseSensitivity', 'camera-sensitivity': 'cameraSensitivity',
+    'aim-responsiveness': 'aimResponsiveness', 'camera-smoothing': 'cameraSmoothing' })) {
     const field = ui[id];
     if (field.type === 'checkbox') field.checked = settings[property];
     else field.value = settings[property];
@@ -241,18 +304,22 @@ function boot() {
       renderBindings();
       return;
     }
-    if (screen === 'ready' && code === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
+    if (code === 'Escape' && (screen === 'flying' || capture.pending)) {
       event.preventDefault();
-      if (!event.repeat) ui.launch.click();
+      pauseFlight('Mouse capture released. Resume to capture it again.');
+      return;
+    }
+    if (code === 'Enter' && !(event.target instanceof HTMLButtonElement) && (screen === 'ready' || screen === 'paused')) {
+      event.preventDefault();
+      if (!event.repeat) requestFlight();
       return;
     }
     const key = Object.keys(settings.keys).find((action) => settings.keys[action] === code);
     if (!key) return;
     if (screen === 'paused' || screen === 'failed') {
-      if (!event.repeat && (key === 'restart' || (key === 'pause' && screen === 'paused'))) {
+      if (!event.repeat && key === 'restart') {
         event.preventDefault();
-        if (key === 'restart') reset('flying');
-        else changeScreen('flying');
+        restartFlight();
       }
       return;
     }
@@ -260,16 +327,20 @@ function boot() {
     event.preventDefault();
     controls.held.add(code);
     if (!event.repeat) {
-      if (key === 'freeLook') controls.resetAim();
       actions[key]?.();
       updateHud();
     }
-  });
+  }, { signal });
 
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', resize, { signal });
+  window.addEventListener('blur', () => pauseFlight('Window lost focus. Resume when you’re ready.'), { signal });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && screen === 'flying') changeScreen('paused');
-  });
+    if (document.hidden) pauseFlight('Flight paused while this tab was hidden.');
+  }, { signal });
+  window.addEventListener('pagehide', (event) => {
+    pauseFlight('Resume flight to recapture the mouse.');
+    if (!event.persisted) lifecycle.abort();
+  }, { signal });
 
   function updateHud() {
     const degrees = (value) => String((Math.round(value) + 360) % 360).padStart(3, '0');
@@ -294,7 +365,10 @@ function boot() {
     text('camera-state', view.mode === 'hud' ? 'HUD' : 'Chase');
     text('camera-name', view.mode === 'hud' ? 'HUD camera' : 'Chase camera');
     text('elapsed', `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`);
-    text('flight-warning', flight.stalled ? 'STALL' : flight.fuel < 200 ? 'LOW FUEL' : flight.stress > 0.28 ? 'STRUCTURAL LOAD' : '');
+    const warning = flight.stalled ? 'STALL' : flight.stress > 0.28 ? 'STRUCTURAL LOAD'
+      : flight.gWarning || (flight.fuel < 200 ? 'LOW FUEL' : '');
+    text('flight-warning', warning);
+    ui['g-force'].parentElement.classList.toggle('g-warning', Boolean(flight.gWarning));
     pressed('toggle-burner', flight.burnerArmed);
     pressed('toggle-gear', flight.gearDown);
     pressed('toggle-stores', flight.stores);
@@ -303,18 +377,42 @@ function boot() {
   }
 
   function renderFlightMarkers() {
-    const width = ui.viewport.clientWidth;
-    const height = ui.viewport.clientHeight;
+    const width = viewportWidth;
+    const height = viewportHeight;
     flightDirection.set(0, 0, 1).applyQuaternion(aircraft.quaternion);
     directionMarker.copy(aircraft.position).addScaledVector(flightDirection, 1800).project(view.camera);
     const x = (directionMarker.x + 1) * width * 0.5;
     const y = (1 - directionMarker.y) * height * 0.5;
     ui.boresight.hidden = directionMarker.z > 1 || x < 22 || x > width - 22 || y < 80 || y > height - 72;
     ui.boresight.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
-    ui['aim-cursor'].style.transform = `translate(${(1 + controls.aim.x) * width * 0.5}px,${(1 + controls.aim.y) * height * 0.5}px) translate(-50%,-50%)`;
+    if (!keyboardFlight && settings.controlMode === 'assist' && !controls.looking) renderAimMarker(width, height);
     ui['g-effect'].classList.toggle('red', flight.redout > flight.blackout);
     ui['g-effect'].style.opacity = Math.max(flight.blackout, flight.redout);
-    document.body.dataset.looking = String(controls.looking);
+    const looking = String(controls.looking);
+    if (document.body.dataset.looking !== looking) document.body.dataset.looking = looking;
+  }
+
+  function renderAimMarker(width, height) {
+    const { heading, pitch } = controls.aim;
+    const horizontal = Math.cos(pitch);
+    aimDirection.set(-Math.sin(heading) * horizontal, Math.sin(pitch), Math.cos(heading) * horizontal);
+    aimDirection.transformDirection(view.camera.matrixWorldInverse);
+    const projection = view.camera.projectionMatrix.elements;
+    const depth = Math.max(0.001, -aimDirection.z);
+    const behind = aimDirection.z >= 0;
+    let x = aimDirection.x * projection[0] * width * 0.5 / depth;
+    const y = -aimDirection.y * projection[5] * height * 0.5 / depth;
+    // A world-space target may lie outside the chase view. Indicate its
+    // direction at the edge while continuing to accumulate relative input.
+    const horizontalLimit = Math.max(10, width * 0.5 - 25);
+    const verticalLimit = Math.max(10, height * 0.5 - 86);
+    if (behind && Math.abs(x) + Math.abs(y) < 0.01) x = Math.sign(aimDirection.x || 1);
+    const fit = Math.min(behind ? Infinity : 1, horizontalLimit / Math.max(0.001, Math.abs(x)), verticalLimit / Math.max(0.001, Math.abs(y)));
+    const marker = ui['aim-cursor'];
+    const offscreen = behind || fit < 1;
+    marker.classList.toggle('offscreen', offscreen);
+    marker.style.transform = `translate(${width * 0.5 + x * fit}px,${height * 0.5 + y * fit}px) translate(-50%,-50%)`;
+    if (offscreen) marker.style.setProperty('--aim-bearing', `${Math.atan2(y, x)}rad`);
   }
 
   function updateMetrics(frameSeconds) {
@@ -335,7 +433,7 @@ function boot() {
     const dt = Math.min(0.10, realDt);
     previousFrame = time;
     if (screen === 'flying') {
-      const command = controls.sample(brake);
+      const command = controls.sample(brake, !keyboardFlight && settings.controlMode === 'assist');
       // Allow slow frames to catch up while bounding work after a browser stall.
       accumulator += Math.min(0.50, realDt);
       while (accumulator >= STEP) {
@@ -356,7 +454,7 @@ function boot() {
     previousRenderPosition.copy(aircraft.position);
     visual.update(flight, time / 1000);
     aircraft.visible = view.mode === 'chase' || screen === 'ready';
-    view.update(aircraft, dt, screen, controls.looking);
+    view.update(aircraft, flight.velocity, dt, screen, controls.looking, settings.cameraSmoothing);
     world.update(aircraft.position, view.camera);
     if (screen === 'flying') renderFlightMarkers();
     else ui['g-effect'].style.opacity = 0;

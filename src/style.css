@@ -16,12 +16,12 @@ button, select, input { font: inherit; }
 button { color: inherit; cursor: pointer; }
 button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 button:disabled { cursor: default; opacity: .66; }
+[hidden] { display: none !important; }
 output { font-variant-numeric: tabular-nums; }
 #simulator, #viewport, .vignette, #g-effect { position: fixed; inset: 0; }
 #simulator { overflow: hidden; isolation: isolate; }
 #viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-[data-screen="flying"] #viewport { cursor: none; }
-[data-screen="flying"][data-direct="true"] #viewport { cursor: default; }
+[data-captured="true"] #viewport { cursor: none; }
 .vignette, #g-effect { pointer-events: none; }
 .vignette {
   background: linear-gradient(180deg,#0a152c88,transparent 26%,transparent 65%,#0b192173),
@@ -98,8 +98,16 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
 .boresight::before { left: 0; border-right: 1px solid var(--hud); }
 .boresight::after { right: 0; border-left: 1px solid var(--hud); }
 .boresight { background: radial-gradient(circle at center, var(--hud) 0 1px, transparent 2px); }
-.aim-cursor { width: 29px; height: 29px; border: 1px solid #f5f7e1a6; border-radius: 50%; box-shadow: 0 0 6px #17262c60; }
-.aim-cursor::after { content: ""; position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #f5f7e1; top: 12px; left: 12px; }
+.aim-cursor { width: 21px; height: 21px; border: 1px solid #f5f7e1a6; border-radius: 50%; box-shadow: 0 0 6px #17262c60; }
+.aim-cursor::after { content: ""; position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #f5f7e1; top: 8px; left: 8px; }
+.aim-cursor.offscreen { border-color: transparent; box-shadow: none; }
+.aim-cursor.offscreen::after {
+  width: 8px; height: 8px; left: 5px; top: 5px; border-radius: 0; background: transparent;
+  border-top: 2px solid var(--hud); border-right: 2px solid var(--hud);
+  transform: rotate(calc(var(--aim-bearing) + 45deg));
+  filter: drop-shadow(0 1px 2px #222f2b);
+}
+.instrument-note.g-warning { color: #ffdc97; }
 [data-direct="true"] .aim-cursor, [data-looking="true"] .aim-cursor { display: none; }
 .flight-warning { position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%); color: #ffdc97; font: 700 .93rem var(--mono); letter-spacing: .14em; text-align: center; }
 .flight-warning:empty { display: none; }

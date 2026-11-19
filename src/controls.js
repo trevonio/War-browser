@@ -22,7 +22,8 @@ export function keyName(code) {
 export const canBind = (code) => /^(Key[A-Z]|Digit[0-9]|Arrow(Up|Down|Left|Right)|Shift(Left|Right)|Control(Left|Right)|Alt(Left|Right)|Space)$/.test(code);
 
 const defaults = {
-  preset: 'medium', controlMode: 'assist', mouseSensitivity: 1, cameraSensitivity: 1, invert: false,
+  preset: 'medium', controlMode: 'assist', mouseSensitivity: 1, cameraSensitivity: 1,
+  aimResponsiveness: 1, cameraSmoothing: 1, invert: false,
 };
 
 export function loadSettings() {
@@ -32,7 +33,7 @@ export function loadSettings() {
   if (!saved || typeof saved !== 'object') return config;
   if (['low', 'medium', 'high'].includes(saved.preset)) config.preset = saved.preset;
   if (['assist', 'direct'].includes(saved.controlMode)) config.controlMode = saved.controlMode;
-  for (const option of ['mouseSensitivity', 'cameraSensitivity']) {
+  for (const option of ['mouseSensitivity', 'cameraSensitivity', 'aimResponsiveness', 'cameraSmoothing']) {
     if (Number.isFinite(saved[option])) config[option] = MathUtils.clamp(saved[option], 0.4, 2.2);
   }
   config.invert = saved.invert === true;
@@ -48,75 +49,78 @@ export function saveSettings(settings) {
   try { localStorage.setItem('war-browser:settings', JSON.stringify(settings)); } catch { /* Session settings still apply. */ }
 }
 
+const AIM_RADIANS_PER_PIXEL = 0.00255;
+const MAX_AIM_PITCH = MathUtils.degToRad(74);
+
 export class Controls {
-  constructor(settings, viewport, isFlying, camera) {
+  constructor(settings, viewport, session, camera, signal) {
     this.settings = settings;
     this.held = new Set();
-    this.aim = { x: 0, y: 0 };
+    this.aim = { heading: 0, pitch: 0 };
     this.command = { ...neutralControls };
     this.orbiting = false;
-    viewport.addEventListener('contextmenu', (event) => event.preventDefault());
+    const options = { signal };
+
+    viewport.addEventListener('contextmenu', (event) => event.preventDefault(), options);
     viewport.addEventListener('pointerdown', (event) => {
-      if (!isFlying() || event.button !== 2) return;
+      if (!session.flying() || event.button !== 2) return;
       this.orbiting = true;
-      this.resetAim();
-      viewport.setPointerCapture(event.pointerId);
-    });
-    viewport.addEventListener('lostpointercapture', () => { this.orbiting = false; });
-    viewport.addEventListener('pointerup', (event) => {
+      if (!session.locked()) viewport.setPointerCapture(event.pointerId);
+    }, options);
+    viewport.addEventListener('lostpointercapture', () => { this.orbiting = false; }, options);
+    window.addEventListener('pointerup', (event) => {
       if (event.button === 2) this.orbiting = false;
-    });
-    viewport.addEventListener('pointercancel', () => this.clear());
-    viewport.addEventListener('pointerleave', () => {
-      if (!this.looking) this.resetAim();
-    });
-    viewport.addEventListener('pointermove', (event) => {
-      if (!isFlying() || event.pointerType !== 'mouse') return;
-      if (this.looking) {
+    }, options);
+    window.addEventListener('pointercancel', () => this.clear(), options);
+    document.addEventListener('mousemove', (event) => {
+      if (!session.flying()) return;
+      if (this.looking && (session.locked() || viewport.contains(event.target))) {
         camera.orbit(event.movementX, event.movementY, settings.cameraSensitivity);
-        return;
+      } else if (session.locked() && session.assisted()) {
+        this.moveAim(event.movementX, event.movementY);
       }
-      this.aim.x = MathUtils.clamp((event.clientX / viewport.clientWidth - 0.5) * 2, -0.99, 0.99);
-      this.aim.y = MathUtils.clamp((event.clientY / viewport.clientHeight - 0.5) * 2, -0.99, 0.99);
-    });
+    }, options);
     viewport.addEventListener('wheel', (event) => {
-      if (!isFlying()) return;
+      if (!session.flying()) return;
       event.preventDefault();
       camera.zoom(event.deltaY);
-    }, { passive: false });
-    window.addEventListener('keyup', (event) => this.held.delete(event.code));
-    window.addEventListener('blur', () => this.clear());
+    }, { signal, passive: false });
+    window.addEventListener('keyup', (event) => this.held.delete(event.code), options);
   }
 
   get looking() {
     return this.orbiting || this.held.has(this.settings.keys.freeLook);
   }
 
-  resetAim() {
-    this.aim.x = 0;
-    this.aim.y = 0;
+  align(heading, pitch) {
+    this.aim.heading = heading;
+    this.aim.pitch = MathUtils.clamp(pitch, -MAX_AIM_PITCH, MAX_AIM_PITCH);
+  }
+
+  moveAim(dx, dy) {
+    const scale = this.settings.mouseSensitivity * AIM_RADIANS_PER_PIXEL;
+    const verticalSign = this.settings.invert ? 1 : -1;
+    const heading = MathUtils.euclideanModulo(this.aim.heading + dx * scale + Math.PI, 2 * Math.PI) - Math.PI;
+    this.align(heading, this.aim.pitch + dy * scale * verticalSign);
   }
 
   clear() {
     this.held.clear();
     this.orbiting = false;
-    this.resetAim();
   }
 
-  sample(brakes) {
+  sample(brakes, assisted) {
     const { keys } = this.settings;
     const command = this.command;
     const down = (action) => Number(this.held.has(keys[action]));
-    const throttleUp = down('throttleUp');
-    const throttleDown = down('throttleDown');
-    const sensitivity = this.settings.mouseSensitivity;
     command.pitch = down('pitchUp') - down('pitchDown');
     command.roll = down('rollRight') - down('rollLeft');
     command.yaw = down('yawRight') - down('yawLeft');
-    command.throttle = throttleUp - throttleDown;
-    command.assisted = this.settings.controlMode === 'assist';
-    command.aimX = this.looking ? 0 : MathUtils.clamp(this.aim.x * sensitivity, -1, 1);
-    command.aimY = this.looking ? 0 : MathUtils.clamp(this.aim.y * sensitivity * (this.settings.invert ? 1 : -1), -1, 1);
+    command.throttle = down('throttleUp') - down('throttleDown');
+    command.assisted = assisted;
+    command.aimHeading = this.aim.heading;
+    command.aimPitch = this.aim.pitch;
+    command.aimResponsiveness = this.settings.aimResponsiveness;
     command.brakes = brakes;
     return command;
   }
