@@ -120,7 +120,7 @@ function boot() {
       alignAim();
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     } else {
-      ui['keyboard-flight'].hidden = true;
+      ui['keyboard-flight'].hidden = next !== 'paused' || !keyboardFlight;
     }
     updateHud();
   }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const flightPanel = (page) => page.locator('body[data-screen="flying"]');
+const flightPanel = (page) => page.locator('#flight-hud');
 const locked = (page) => page.evaluate(() => document.pointerLockElement?.id ?? null);
 
 async function startFlight(page) {
@@ -200,6 +200,27 @@ test('captures relative input, pauses on Escape or lost focus, and recaptures', 
   await page.getByRole('button', { name: 'Close settings' }).click();
   await resumeFlight(page);
   await expect(reticle).toBeVisible();
+
+  const markerX = () => reticle.evaluate((element) => element.getBoundingClientRect().left);
+  async function yawDisplacement() {
+    await page.keyboard.press('r');
+    await expect(page.locator('#heading')).toHaveText('000');
+    const initialX = await markerX();
+    await page.evaluate(() => document.pointerLockElement.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true, movementX: 55,
+    })));
+    await expect.poll(markerX).toBeGreaterThan(initialX + 5);
+    return (await markerX()) - initialX;
+  }
+
+  const highDisplacement = await yawDisplacement();
+  await pauseFlight(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByLabel('Mouse sensitivity').fill('0.4');
+  await page.getByRole('button', { name: 'Close settings' }).click();
+  await resumeFlight(page);
+  const lowDisplacement = await yawDisplacement();
+  expect(highDisplacement).toBeGreaterThan(lowDisplacement * 2);
   await pauseFlight(page);
 });
 
