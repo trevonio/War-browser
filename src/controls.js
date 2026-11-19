@@ -1,4 +1,5 @@
 import { MathUtils } from 'three';
+import { MouseAim } from './aim.js';
 import { neutralControls } from './sim/flight.js';
 
 export const keyDefaults = {
@@ -23,7 +24,7 @@ export const canBind = (code) => /^(Key[A-Z]|Digit[0-9]|Arrow(Up|Down|Left|Right
 
 const defaults = {
   preset: 'medium', controlMode: 'assist', mouseSensitivity: 1, cameraSensitivity: 1,
-  aimResponsiveness: 1, cameraSmoothing: 1, invert: false,
+  aimResponsiveness: 1, cameraSmoothing: 1, cameraTurnResponse: 1, invert: false,
 };
 
 export function loadSettings() {
@@ -33,7 +34,7 @@ export function loadSettings() {
   if (!saved || typeof saved !== 'object') return config;
   if (['low', 'medium', 'high'].includes(saved.preset)) config.preset = saved.preset;
   if (['assist', 'direct'].includes(saved.controlMode)) config.controlMode = saved.controlMode;
-  for (const option of ['mouseSensitivity', 'cameraSensitivity', 'aimResponsiveness', 'cameraSmoothing']) {
+  for (const option of ['mouseSensitivity', 'cameraSensitivity', 'aimResponsiveness', 'cameraSmoothing', 'cameraTurnResponse']) {
     if (Number.isFinite(saved[option])) config[option] = MathUtils.clamp(saved[option], 0.4, 2.2);
   }
   config.invert = saved.invert === true;
@@ -49,14 +50,11 @@ export function saveSettings(settings) {
   try { localStorage.setItem('war-browser:settings', JSON.stringify(settings)); } catch { /* Session settings still apply. */ }
 }
 
-const AIM_RADIANS_PER_PIXEL = 0.00255;
-const MAX_AIM_PITCH = MathUtils.degToRad(74);
-
 export class Controls {
   constructor(settings, viewport, session, camera, signal) {
     this.settings = settings;
     this.held = new Set();
-    this.aim = { heading: 0, pitch: 0 };
+    this.aim = new MouseAim();
     this.command = { ...neutralControls };
     this.orbiting = false;
     const options = { signal };
@@ -77,7 +75,7 @@ export class Controls {
       if (this.looking && (session.locked() || viewport.contains(event.target))) {
         camera.orbit(event.movementX, event.movementY, settings.cameraSensitivity);
       } else if (session.locked() && session.assisted()) {
-        this.moveAim(event.movementX, event.movementY);
+        this.aim.move(event.movementX, event.movementY, settings.mouseSensitivity, settings.invert);
       }
     }, options);
     viewport.addEventListener('wheel', (event) => {
@@ -90,18 +88,6 @@ export class Controls {
 
   get looking() {
     return this.orbiting || this.held.has(this.settings.keys.freeLook);
-  }
-
-  align(heading, pitch) {
-    this.aim.heading = heading;
-    this.aim.pitch = MathUtils.clamp(pitch, -MAX_AIM_PITCH, MAX_AIM_PITCH);
-  }
-
-  moveAim(dx, dy) {
-    const scale = this.settings.mouseSensitivity * AIM_RADIANS_PER_PIXEL;
-    const verticalSign = this.settings.invert ? 1 : -1;
-    const heading = MathUtils.euclideanModulo(this.aim.heading + dx * scale + Math.PI, 2 * Math.PI) - Math.PI;
-    this.align(heading, this.aim.pitch + dy * scale * verticalSign);
   }
 
   clear() {
@@ -118,8 +104,8 @@ export class Controls {
     command.yaw = down('yawRight') - down('yawLeft');
     command.throttle = down('throttleUp') - down('throttleDown');
     command.assisted = assisted;
-    command.aimHeading = this.aim.heading;
-    command.aimPitch = this.aim.pitch;
+    command.aimDirection = this.aim.direction;
+    command.aimHint = this.aim.turnHint;
     command.aimResponsiveness = this.settings.aimResponsiveness;
     command.brakes = brakes;
     return command;

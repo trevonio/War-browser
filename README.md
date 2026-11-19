@@ -45,12 +45,15 @@ and `npx playwright test` from a graphical session. On headless Linux, run
 Start or resume with a click or Enter to capture the mouse. Switching tabs or
 losing window focus pauses the flight and clears held inputs. If capture is
 denied, the pause menu lets you retry or fly with the keyboard. The small
-circle marks your desired direction. Its edge chevron points to an offscreen
-aim direction, and the wing-shaped boresight marks the F-16's nose.
+circle marks the desired direction within a bounded area of the HUD. A
+chevron indicates when the view is still catching up to a large input. The
+wing-shaped boresight marks the F-16's nose. The mouse keeps turning the view
+through that boundary and across vertical.
 
 Settings let you rebind keys, select direct keyboard controls, set mouse and
-camera sensitivity, invert mouse Y, tune instructor responsiveness and chase
-camera smoothing, and choose a graphics preset.
+camera sensitivity, invert mouse Y, tune instructor responsiveness, adjust
+mouse-camera turning and chase smoothing separately, and choose a graphics
+preset.
 
 For a runway start, keep the controls centered, apply full throttle, then hold
 W near 125 knots to rotate. Retract the gear once safely airborne. The runway
@@ -99,9 +102,13 @@ standard atmosphere, Mach-dependent drag and control effectiveness, a
 post-stall lift falloff, thrust and spool lag, fuel burn, and gear and airbrake
 drag. Positive and negative G-load drive timed visual effects, and sustained
 overload can end a flight. The HUD indicates high positive or negative G
-from the measured load factor. Mouse assist requests bank from course error and
-starts rolling out as the target direction approaches. The flight model still
-sets available trim, angular authority, and lift.
+from the measured load factor. Mouse aim feeds the chase camera and instructor
+a shared direction in three dimensions. The instructor computes a turn plane
+from the current flight path and target, banks the lift vector toward that
+plane, and uses available positive G for large turns and dives. It allows
+gentle pushovers using negative G. The chase camera follows the requested view
+while its boom stays anchored to the jet. The flight model sets available
+trim, angular authority, and lift.
 
 Nominal dimensions and engine ratings anchor the F-16 configuration. The
 aerodynamic curves, loaded masses, fuel flows, low-speed and transonic control

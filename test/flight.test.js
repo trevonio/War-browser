@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { MathUtils, Vector3 } from 'three';
+import { MathUtils, Quaternion, Vector3 } from 'three';
+import { MouseAim } from '../src/aim.js';
 import { f16 } from '../src/aircraft/f16.js';
 import { Flight, neutralControls, STEP } from '../src/sim/flight.js';
 import { range, runway, scenarios } from '../src/sim/range.js';
+
+function direction(heading, pitch = 0) {
+  return new Vector3(-Math.sin(heading) * Math.cos(pitch), Math.sin(pitch), Math.cos(heading) * Math.cos(pitch));
+}
 
 function start(scenario) {
   const flight = new Flight(f16, range);
@@ -30,7 +35,7 @@ test('banking turns the flight path and spends more energy at the same throttle'
   const straight = start(scenarios.air);
   const turning = start(scenarios.air);
   run(straight, 30);
-  run(turning, 30, () => ({ aimHeading: Math.PI / 2 }));
+  run(turning, 30, () => ({ aimDirection: direction(Math.PI / 2) }));
   assert.ok(turning.heading > 50 && turning.heading < 92);
   assert.ok(turning.position.x < scenarios.air.x - 1000);
   const specificEnergy = (flight) => 0.5 * flight.velocity.lengthSq() + 9.80665 * flight.position.y;
@@ -59,7 +64,7 @@ test('runway start can take off and retract the gear', () => {
   run(flight, 30, (plane) => ({
     throttle: 1,
     pitch: plane.airspeed > 125 && plane.position.y < 60 ? 0.65 : 0,
-    aimPitch: plane.grounded ? 0 : 0.17,
+    aimDirection: direction(0, plane.grounded ? 0 : 0.17),
   }));
   assert.equal(flight.failure, '');
   assert.equal(flight.grounded, false);
@@ -79,7 +84,7 @@ test('a controlled approach lands with gear down and ends the flight with gear u
     flight.gear = Number(gearDown);
     flight.gearDown = gearDown;
     flight.velocity.y = -3;
-    run(flight, 4, () => ({ aimPitch: -0.09 }));
+    run(flight, 4, () => ({ aimDirection: direction(0, -0.09) }));
     assert.equal(flight.grounded, true);
     assert.equal(flight.failure, gearDown ? '' : 'Ground impact');
   }
@@ -87,7 +92,7 @@ test('a controlled approach lands with gear down and ends the flight with gear u
 
 test('the same sequence of control inputs produces the same fixed-step state after restart', () => {
   const flight = start(scenarios.air);
-  const manoeuvre = (_flight, time) => ({ aimHeading: Math.sin(time) * 0.6, aimPitch: Math.cos(time) * 0.10 });
+  const manoeuvre = (_flight, time) => ({ aimDirection: direction(Math.sin(time) * 0.6, Math.cos(time) * 0.10) });
   run(flight, 12, manoeuvre);
   const first = [flight.position.toArray(), flight.velocity.toArray(), flight.orientation.toArray(), flight.fuel];
   flight.reset(scenarios.air);
@@ -103,7 +108,7 @@ test('the instructor captures a heading and rolls level at low and transonic spe
     run(flight, 52, (plane) => {
       bodyUp.set(0, 1, 0).applyQuaternion(plane.orientation);
       peakBank = Math.max(peakBank, Math.acos(MathUtils.clamp(bodyUp.y, -1, 1)));
-      return { aimHeading: heading, aimResponsiveness: responsiveness };
+      return { aimDirection: direction(heading), aimResponsiveness: responsiveness };
     });
     const course = Math.atan2(-flight.velocity.x, flight.velocity.z);
     assert.equal(flight.failure, '');
@@ -117,7 +122,7 @@ test('the instructor takes the shorter direction across the heading wrap', () =>
   const flight = start({ ...scenarios.air, y: 6500, throttle: 0.7 });
   flight.orientation.setFromAxisAngle(new Vector3(0, 1, 0), MathUtils.degToRad(-174));
   flight.velocity.set(0, 0, scenarios.air.speed).applyQuaternion(flight.orientation);
-  run(flight, 0.6, () => ({ aimHeading: MathUtils.degToRad(-174) }));
+  run(flight, 0.6, () => ({ aimDirection: direction(MathUtils.degToRad(-174)) }));
   const heading = flight.heading;
   assert.ok(heading > 174 && heading < 193, 'turns toward the nearby course across the wrap');
   assert.ok(flight.rates.z > 0, 'banks toward the clockwise target');
@@ -135,4 +140,80 @@ test('G warnings reflect measured simulated load and clear after recovery', () =
     run(flight, 5);
     assert.equal(flight.gWarning, '');
   }
+});
+
+function moveMouse(aim, dx, dy = 0) {
+  for (let i = 0; i < 20; i++) aim.move(dx / 20, dy / 20, 1, false);
+}
+
+function measureMouseTurn(flight, aim, seconds) {
+  let peakG = 0;
+  let minG = Infinity;
+  let bank = 0;
+  const bodyUp = new Vector3();
+  run(flight, seconds, (plane) => {
+    peakG = Math.max(peakG, plane.g);
+    minG = Math.min(minG, plane.g);
+    bank = Math.max(bank, Math.acos(MathUtils.clamp(bodyUp.set(0, 1, 0).applyQuaternion(plane.orientation).y, -1, 1)));
+    return { aimDirection: aim.direction, aimHint: aim.turnHint };
+  });
+  assert.equal(flight.failure, '');
+  return { peakG, minG, bank, error: flight.velocity.angleTo(aim.direction) };
+}
+
+test('mouse alone commands sharp 90-degree turns and a 180-degree reversal', () => {
+  for (const angle of [Math.PI / 2, -Math.PI / 2, Math.PI, -Math.PI]) {
+    const aim = new MouseAim();
+    const flight = start(scenarios.air);
+    moveMouse(aim, angle / 0.00125);
+    const turn = measureMouseTurn(flight, aim, Math.abs(angle) > 2 ? 20 : 10);
+    assert.ok(turn.error < 0.035, 'flight path converges on the mouse target');
+    assert.ok(turn.bank > MathUtils.degToRad(65));
+    assert.ok(turn.peakG > 5.3 && turn.peakG <= f16.maxG + 0.5);
+    assert.ok(turn.minG > -0.5, 'the instructor primarily pulls into large turns');
+    assert.ok(Math.sign(flight.position.x - scenarios.air.x) === -Math.sign(angle));
+  }
+});
+
+test('mouse-only steep downward and upward targets converge with positive pull', () => {
+  for (const [dx, dy] of [[600, 780], [0, 780], [0, -820]]) {
+    const flight = start({ ...scenarios.air, y: 6500, speed: 240, throttle: 0.75 });
+    const aim = new MouseAim();
+    moveMouse(aim, dx, dy);
+    const turn = measureMouseTurn(flight, aim, 12);
+    assert.ok(turn.error < 0.06);
+    assert.ok(turn.peakG > 4);
+    assert.ok(turn.minG > -0.65);
+    assert.ok(Math.sign(flight.velocity.y) === -Math.sign(dy));
+  }
+});
+
+test('the instructor recovers from vertical and inverted attitudes with mouse input', () => {
+  for (const [pitch, bank, dx, dy] of [
+    [Math.PI / 2, 0.5, 1000, 0],
+    [-Math.PI / 2, 0.5, -800, 650],
+    [0, Math.PI, -850, 300],
+    [0, Math.PI, 850, -300],
+  ]) {
+    const flight = start({ ...scenarios.air, y: 6800, speed: 240, pitch, throttle: 0.8 });
+    flight.velocity.copy(direction(0, pitch)).multiplyScalar(240);
+    flight.orientation.multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), bank));
+    const aim = new MouseAim();
+    aim.align(0, pitch);
+    moveMouse(aim, dx, dy);
+    const turn = measureMouseTurn(flight, aim, 13);
+    assert.ok(turn.error < 0.09, 'aim remains reachable through vertical and inverted flight');
+  }
+});
+
+test('reversing mouse travel reverses the requested bank and settles on the new course', () => {
+  const flight = start({ ...scenarios.air, y: 2800, speed: 220, throttle: 0.75 });
+  const aim = new MouseAim();
+  moveMouse(aim, 1250);
+  measureMouseTurn(flight, aim, 1.4);
+  moveMouse(aim, -2500);
+  const change = measureMouseTurn(flight, aim, 12);
+  assert.ok(flight.heading > 230 && flight.heading < 290);
+  assert.ok(change.error < 0.045);
+  assert.ok(Math.abs(flight.rates.z) < 0.13);
 });

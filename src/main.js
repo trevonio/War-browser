@@ -100,7 +100,7 @@ function boot() {
     const velocity = flight.velocity;
     const groundSpeed = Math.hypot(velocity.x, velocity.z);
     const heading = groundSpeed > 12 ? Math.atan2(-velocity.x, velocity.z) : T.MathUtils.degToRad(flight.heading);
-    controls.align(heading, Math.atan2(velocity.y, Math.max(1, groundSpeed)));
+    controls.aim.align(heading, Math.atan2(velocity.y, Math.max(1, groundSpeed)));
   }
 
   function changeScreen(next, pauseMessage = 'Your aircraft is holding position.') {
@@ -184,6 +184,7 @@ function boot() {
     text('camera-value', settings.cameraSensitivity.toFixed(1));
     text('aim-response-value', settings.aimResponsiveness.toFixed(1));
     text('camera-smoothing-value', settings.cameraSmoothing.toFixed(1));
+    text('camera-turn-value', settings.cameraTurnResponse.toFixed(1));
     for (const action of ['afterburner', 'gear', 'stores', 'airbrake', 'camera', 'pause']) {
       text(`key-${action}`, keyName(settings.keys[action]));
     }
@@ -268,7 +269,8 @@ function boot() {
 
   for (const [id, property] of Object.entries({ preset: 'preset', 'control-mode': 'controlMode', invert: 'invert',
     'mouse-sensitivity': 'mouseSensitivity', 'camera-sensitivity': 'cameraSensitivity',
-    'aim-responsiveness': 'aimResponsiveness', 'camera-smoothing': 'cameraSmoothing' })) {
+    'aim-responsiveness': 'aimResponsiveness', 'camera-smoothing': 'cameraSmoothing',
+    'camera-turn-response': 'cameraTurnResponse' })) {
     const field = ui[id];
     if (field.type === 'checkbox') field.checked = settings[property];
     else field.value = settings[property];
@@ -393,26 +395,24 @@ function boot() {
   }
 
   function renderAimMarker(width, height) {
-    const { heading, pitch } = controls.aim;
-    const horizontal = Math.cos(pitch);
-    aimDirection.set(-Math.sin(heading) * horizontal, Math.sin(pitch), Math.cos(heading) * horizontal);
-    aimDirection.transformDirection(view.camera.matrixWorldInverse);
+    aimDirection.copy(controls.aim.direction).transformDirection(view.camera.matrixWorldInverse);
     const projection = view.camera.projectionMatrix.elements;
-    const depth = Math.max(0.001, -aimDirection.z);
     const behind = aimDirection.z >= 0;
+    const depth = Math.max(0.001, -aimDirection.z);
     let x = aimDirection.x * projection[0] * width * 0.5 / depth;
     const y = -aimDirection.y * projection[5] * height * 0.5 / depth;
-    // A world-space target may lie outside the chase view. Indicate its
-    // direction at the edge while continuing to accumulate relative input.
-    const horizontalLimit = Math.max(10, width * 0.5 - 25);
-    const verticalLimit = Math.max(10, height * 0.5 - 86);
+    // The marker is presentation only. Compress its displacement into the
+    // center of the view without shrinking or clamping the actual aim ray.
+    const horizontalLimit = Math.max(20, width * 0.23);
+    const verticalLimit = Math.max(20, height * 0.22);
     if (behind && Math.abs(x) + Math.abs(y) < 0.01) x = Math.sign(aimDirection.x || 1);
-    const fit = Math.min(behind ? Infinity : 1, horizontalLimit / Math.max(0.001, Math.abs(x)), verticalLimit / Math.max(0.001, Math.abs(y)));
+    const length = Math.hypot(x / horizontalLimit, y / verticalLimit);
+    const scale = behind ? 1 / Math.max(length, 0.001) : 1 / Math.hypot(1, length);
     const marker = ui['aim-cursor'];
-    const offscreen = behind || fit < 1;
-    marker.classList.toggle('offscreen', offscreen);
-    marker.style.transform = `translate(${width * 0.5 + x * fit}px,${height * 0.5 + y * fit}px) translate(-50%,-50%)`;
-    if (offscreen) marker.style.setProperty('--aim-bearing', `${Math.atan2(y, x)}rad`);
+    const limited = behind || length > 1.8;
+    marker.classList.toggle('offscreen', limited);
+    marker.style.transform = `translate(${width * 0.5 + x * scale}px,${height * 0.5 + y * scale}px) translate(-50%,-50%)`;
+    if (limited) marker.style.setProperty('--aim-bearing', `${Math.atan2(y, x)}rad`);
   }
 
   function updateMetrics(frameSeconds) {
@@ -454,7 +454,8 @@ function boot() {
     previousRenderPosition.copy(aircraft.position);
     visual.update(flight, time / 1000);
     aircraft.visible = view.mode === 'chase' || screen === 'ready';
-    view.update(aircraft, flight.velocity, dt, screen, controls.looking, settings.cameraSmoothing);
+    const aim = !keyboardFlight && settings.controlMode === 'assist' ? controls.aim : null;
+    view.update(aircraft, flight.velocity, dt, screen, controls.looking, settings.cameraSmoothing, aim, settings.cameraTurnResponse);
     world.update(aircraft.position, view.camera);
     if (screen === 'flying') renderFlightMarkers();
     else ui['g-effect'].style.opacity = 0;

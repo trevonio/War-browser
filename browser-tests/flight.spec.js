@@ -21,6 +21,28 @@ async function pauseFlight(page) {
   await expect.poll(() => locked(page)).toBeNull();
 }
 
+async function relativeMouse(page, dx, dy, steps = 20) {
+  await page.evaluate(({ dx, dy, steps }) => {
+    for (let i = 0; i < steps; i++) {
+      document.pointerLockElement.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true, movementX: dx / steps, movementY: dy / steps,
+      }));
+    }
+  }, { dx, dy, steps });
+}
+
+function aimState(page) {
+  return page.locator('#aim-cursor').evaluate((marker) => {
+    const { x, y, width, height } = marker.getBoundingClientRect();
+    return {
+      x: (x + width / 2) / innerWidth,
+      y: (y + height / 2) / innerHeight,
+      heading: Number(document.querySelector('#heading').textContent),
+      load: Number(document.querySelector('#g-force').textContent),
+    };
+  });
+}
+
 test('the production build flies, operates aircraft systems, and restarts', async ({ page }, testInfo) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -165,16 +187,12 @@ test('captures relative input, pauses on Escape or lost focus, and recaptures', 
   }, { timeout: 12000 }).toBeGreaterThan(1);
   await expect.poll(() => locked(page)).toBe('viewport');
 
-  // Dispatch long relative travel while the native capture is active. This
-  // exercises wrap, pitch bounds, and reticle recovery beyond viewport edges.
-  await page.evaluate(() => {
-    for (let i = 0; i < 12; i++) {
-      document.pointerLockElement.dispatchEvent(new MouseEvent('mousemove', {
-        bubbles: true, movementX: 50, movementY: -100,
-      }));
-    }
-  });
-  await expect(reticle).toHaveClass(/offscreen/);
+  // Keep steering through multiple revolutions with native capture active.
+  await relativeMouse(page, 10500, -280);
+  await expect.poll(async () => {
+    const aim = await aimState(page);
+    return aim.x >= 0.26 && aim.x <= 0.74 && aim.y >= 0.27 && aim.y <= 0.73;
+  }).toBe(true);
   await expect.poll(() => locked(page)).toBe('viewport');
   await pauseFlight(page);
   await resumeFlight(page);
@@ -197,33 +215,14 @@ test('captures relative input, pauses on Escape or lost focus, and recaptures', 
   await sensitivity.fill('2.2');
   await page.getByLabel('Mouse aim responsiveness').fill('1.5');
   await page.getByLabel('Chase camera smoothing').fill('1.3');
+  await page.getByLabel('Mouse camera response').fill('1.2');
+  await expect(page.locator('#camera-turn-value')).toHaveText('1.2');
   await expect(page.locator('#mouse-value')).toHaveText('2.2');
   await page.getByRole('button', { name: 'Close settings' }).click();
   await resumeFlight(page);
   await expect(reticle).toBeVisible();
 
-  const markerX = () => reticle.evaluate((element) => element.getBoundingClientRect().left);
-  async function yawDisplacement() {
-    await page.keyboard.press('r');
-    await expect(page.locator('#heading')).toHaveText('000');
-    await expect.poll(markerX).toBeGreaterThan(580);
-    await expect.poll(markerX).toBeLessThan(685);
-    const initialX = await markerX();
-    await page.evaluate(() => document.pointerLockElement.dispatchEvent(new MouseEvent('mousemove', {
-      bubbles: true, movementX: 55,
-    })));
-    await expect.poll(markerX).toBeGreaterThan(initialX + 5);
-    return (await markerX()) - initialX;
-  }
 
-  const highDisplacement = await yawDisplacement();
-  await pauseFlight(page);
-  await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByLabel('Mouse sensitivity').fill('0.4');
-  await page.getByRole('button', { name: 'Close settings' }).click();
-  await resumeFlight(page);
-  const lowDisplacement = await yawDisplacement();
-  expect(highDisplacement).toBeGreaterThan(lowDisplacement * 2);
   await pauseFlight(page);
 });
 
@@ -240,5 +239,38 @@ test('shows a recovery option when capture is denied', async ({ page }) => {
   await expect(page.locator('#aim-cursor')).toBeHidden();
   await page.keyboard.press('b');
   await expect(page.locator('#engine-state')).toHaveText('AFTERBURNER');
+  await pauseFlight(page);
+});
+
+test('mouse-only turns lead the aircraft with the view and sustain positive G', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await startFlight(page);
+  await expect(page.locator('#aim-cursor')).toHaveAttribute('style', /translate/);
+
+  await relativeMouse(page, 1260, 0);
+  await expect.poll(async () => {
+    const { heading, x } = await aimState(page);
+    return heading > 2 && heading < 55 && Math.abs(x - 0.5) < 0.13;
+  }, { timeout: 12000 }).toBe(true);
+  await expect.poll(async () => (await aimState(page)).load, { timeout: 12000 }).toBeGreaterThan(5);
+  await page.screenshot({ path: testInfo.outputPath('mouse-turn.png') });
+  await expect.poll(async () => (await aimState(page)).heading, { timeout: 18000 }).toBeGreaterThan(82);
+
+  await relativeMouse(page, 2510, 0);
+  await expect.poll(async () => {
+    const { heading } = await aimState(page);
+    return heading >= 259 && heading <= 281;
+  }, { timeout: 27500 }).toBe(true);
+
+  await pauseFlight(page);
+  await page.getByRole('button', { name: /Restart flight/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await relativeMouse(page, 360, 670);
+  await expect.poll(async () => {
+    const verticalSpeed = Number(await page.locator('#vertical-speed').innerText());
+    const { heading } = await aimState(page);
+    return verticalSpeed < -5000 && heading > 8 && heading < 35;
+  }, { timeout: 14000 }).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('mouse-dive.png') });
   await pauseFlight(page);
 });

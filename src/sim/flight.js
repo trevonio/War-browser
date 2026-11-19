@@ -1,6 +1,7 @@
 import { MathUtils, Quaternion, Vector3 } from 'three';
+import { FlightInstructor } from './instructor.js';
 
-const { clamp, euclideanModulo, lerp, smoothstep } = MathUtils;
+const { clamp, lerp, smoothstep } = MathUtils;
 export const STEP = 1 / 120;
 const GRAVITY = 9.80665;
 const FORWARD = new Vector3(0, 0, 1);
@@ -9,7 +10,7 @@ const MPS_TO_KNOTS = 1.943844;
 const METERS_TO_FEET = 3.28084;
 
 export const neutralControls = {
-  pitch: 0, roll: 0, yaw: 0, throttle: 0, aimHeading: null, aimPitch: 0, aimResponsiveness: 1,
+  pitch: 0, roll: 0, yaw: 0, throttle: 0, aimDirection: null, aimHint: null, aimResponsiveness: 1,
   assisted: true, brakes: false,
 };
 
@@ -32,6 +33,7 @@ export class Flight {
     this.angularStep = new Vector3();
     this.rotationStep = new Quaternion();
     this.inverse = new Quaternion();
+    this.instructor = new FlightInstructor();
   }
 
   reset(scenario) {
@@ -40,6 +42,7 @@ export class Flight {
     this.orientation.setFromAxisAngle(this.angularStep.set(1, 0, 0), -pitch);
     this.velocity.set(0, 0, speed);
     this.rates.set(0, 0, 0);
+    this.instructor.reset();
     this.previousPosition.copy(this.position);
     this.previousOrientation.copy(this.orientation);
     this.grounded = runway;
@@ -107,37 +110,26 @@ export class Flight {
     const stallControl = 1 - 0.64 * smoothstep(Math.abs(alpha), spec.stallAngle, 0.67);
     const authority = airAuthority * highSpeedControl * stallControl;
     const bank = Math.atan2(this.up.dot(this.angularStep.set(-this.forward.z, 0, this.forward.x).normalize()), this.up.y);
-    const groundSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-    const pathPitch = Math.atan2(this.velocity.y, Math.max(1, groundSpeed));
-    const course = groundSpeed > 12 ? this.velocity : this.forward;
-    const courseHeading = Math.atan2(-course.x, course.z);
-    const headingError = euclideanModulo((controls.aimHeading ?? courseHeading) - courseHeading + Math.PI, 2 * Math.PI) - Math.PI;
-    const responsiveness = controls.aimResponsiveness;
-    const bankLimit = lerp(0.48, 1.19, authority);
-    // Lead the rollout by the aircraft's current turn rate so the instructor
-    // stops asking for bank before the flight path reaches the target.
-    const liftTurnRate = Math.max(0, this.g) * GRAVITY * Math.sin(bank) / Math.max(groundSpeed, 55);
-    const headingDemand = headingError - liftTurnRate * 0.55;
-    const bankDemand = clamp(headingDemand * (2.05 * responsiveness), -bankLimit, bankLimit);
-    const rollError = euclideanModulo(bankDemand - bank + Math.PI, 2 * Math.PI) - Math.PI;
-
-    const trimG = 1 / Math.max(0.36, Math.cos(bank));
     const liftScale = mass * GRAVITY / Math.max(1, dynamicPressure * spec.wingArea);
-    const levelAlpha = (trimG * liftScale - spec.baseLift) / spec.liftSlope;
     const liftLimit = 0.95 * (spec.maxG * liftScale - spec.baseLift) / spec.liftSlope;
     const downLimit = 0.95 * (spec.minG * liftScale - spec.baseLift) / spec.liftSlope;
-    const pitchInput = Math.abs(controls.pitch) > 0.01 ? controls.pitch : null;
+    const instructor = this.instructor;
+    if (controls.assisted) instructor.update(this, controls, speed, authority, liftScale, GRAVITY);
+
+    const trimG = 1 / Math.max(0.36, Math.cos(bank));
+    const levelAlpha = (trimG * liftScale - spec.baseLift) / spec.liftSlope;
     const trim = this.grounded ? 0 : clamp(levelAlpha, -0.03, 0.17);
-    const assistedPitch = trim + clamp((controls.aimPitch - pathPitch) * 0.55 * responsiveness, -0.20, 0.20);
-    const manualPitch = trim + (pitchInput ?? 0) * 0.32;
-    const desiredAlpha = clamp(pitchInput === null && controls.assisted ? assistedPitch : manualPitch,
-      Math.max(-0.23, downLimit), Math.min(0.34, liftLimit));
-    const pitchRate = clamp((alpha - desiredAlpha) * 5.6, -spec.pitchRate, spec.pitchRate) * authority;
-    const assistedRoll = clamp((rollError * 3.5 - this.rates.z * 0.48) / spec.rollRate, -1, 1);
-    const rollRate = this.grounded ? 0 : (controls.roll || (controls.assisted ? assistedRoll : 0)) * spec.rollRate * authority;
+    const assistedPitch = controls.assisted && Math.abs(controls.pitch) <= 0.01;
+    const alphaDemand = assistedPitch ? instructor.alpha : trim + controls.pitch * 0.32;
+    const desiredAlpha = clamp(alphaDemand, Math.max(-0.23, downLimit), Math.min(0.34, liftLimit));
+    const pitchCommand = assistedPitch ? instructor.pitchRate(alpha, desiredAlpha) : (alpha - desiredAlpha) * 5.6;
+    const pitchRate = clamp(pitchCommand, -spec.pitchRate, spec.pitchRate) * authority;
+
+    const rollCommand = controls.roll ? controls.roll * spec.rollRate : controls.assisted ? instructor.roll : 0;
+    const rollRate = this.grounded ? 0 : rollCommand * authority;
     const groundSteering = this.grounded ? clamp(speed / 25, 0, 0.35) : 0;
-    const rudder = controls.yaw || (this.grounded && controls.assisted ? clamp(headingError * 1.9, -1, 1) : 0);
-    const coordinatedYaw = !this.grounded && controls.assisted ? -liftTurnRate : 0;
+    const rudder = controls.yaw || (controls.assisted ? instructor.rudder : 0);
+    const coordinatedYaw = controls.assisted ? instructor.yawLead : 0;
     const yawRate = (-rudder * spec.yawRate + clamp(sideslip * 1.8 + coordinatedYaw, -0.28, 0.28))
       * (authority + groundSteering);
     const response = 1 - Math.exp(-5.8 * dt);

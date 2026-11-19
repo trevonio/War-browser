@@ -1,4 +1,4 @@
-import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
+import { MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 
 const vertical = new Vector3(0, 1, 0);
 
@@ -21,6 +21,10 @@ export class FlightCamera {
     this.target = new Vector3();
     this.look = new Vector3();
     this.destination = new Vector3();
+    this.aimView = new Quaternion();
+    this.chasingAim = false;
+    this.sideOffset = 0;
+    this.chaseDistance = this.distance;
     this.snap = true;
   }
 
@@ -38,9 +42,19 @@ export class FlightCamera {
     this.snap = true;
   }
 
-  update(aircraft, velocity, dt, screen, looking, smoothing) {
+  update(aircraft, velocity, dt, screen, looking, smoothing, aim = null, turnResponse = 1) {
     const camera = this.camera;
     const position = aircraft.position;
+    const briefing = screen === 'ready';
+    if (!looking) {
+      this.azimuth *= Math.exp(-9 * dt);
+      this.elevation *= Math.exp(-9 * dt);
+    }
+    if (aim && this.mode === 'chase' && !briefing) {
+      this.updateAimChase(aircraft, dt, aim, smoothing, turnResponse);
+      return;
+    }
+    this.chasingAim = false;
     this.forward.set(0, 0, 1).applyQuaternion(aircraft.quaternion);
     if (Math.hypot(this.forward.x, this.forward.z) > 0.12) {
       this.level.set(this.forward.x, 0, this.forward.z).normalize();
@@ -49,12 +63,6 @@ export class FlightCamera {
     const pathBlend = MathUtils.smoothstep(this.path.dot(this.forward), 0.56, 0.96) * 0.25;
     this.track.copy(this.forward).lerp(this.path, pathBlend).normalize();
     this.right.crossVectors(this.level, vertical);
-    const briefing = screen === 'ready';
-    if (!looking) {
-      this.azimuth *= Math.exp(-9 * dt);
-      this.elevation *= Math.exp(-9 * dt);
-    }
-
     const bodyUp = this.bodyUp.set(0, 1, 0).applyQuaternion(aircraft.quaternion);
     const noseView = this.mode === 'hud' && !briefing;
     this.upTarget.copy(vertical).lerp(bodyUp, noseView ? 1 : 0.10).normalize();
@@ -98,4 +106,44 @@ export class FlightCamera {
     camera.lookAt(this.look);
     camera.updateMatrixWorld();
   }
+
+  updateAimChase(aircraft, dt, aim, smoothing, turnResponse) {
+    const camera = this.camera;
+    const position = aircraft.position;
+    if (this.snap || !this.chasingAim) {
+      this.aimView.copy(aim.orientation);
+      this.chaseDistance = this.distance;
+      this.sideOffset = 0;
+    } else {
+      this.aimView.slerp(aim.orientation, 1 - Math.exp(-8.5 * turnResponse * dt));
+      this.chaseDistance = MathUtils.lerp(this.chaseDistance, this.distance, 1 - Math.exp(-7 * dt / smoothing));
+    }
+    this.chasingAim = true;
+    this.snap = false;
+
+    this.forward.set(0, 0, 1).applyQuaternion(this.aimView);
+    this.upTarget.set(0, 1, 0).applyQuaternion(this.aimView);
+    this.bodyUp.set(0, 1, 0).applyQuaternion(aircraft.quaternion);
+    if (this.azimuth || this.elevation) {
+      this.forward.applyAxisAngle(this.upTarget, this.azimuth);
+      this.right.crossVectors(this.forward, this.upTarget);
+      this.forward.applyAxisAngle(this.right, this.elevation);
+      this.upTarget.applyAxisAngle(this.right, this.elevation);
+    }
+    this.right.crossVectors(this.forward, this.upTarget);
+    const lean = -this.bodyUp.dot(this.right) * 2.7;
+    this.sideOffset = MathUtils.lerp(this.sideOffset, lean, 1 - Math.exp(-7 * dt / smoothing));
+
+    // Position and view use the same rotating boom. It orbits the aircraft
+    // during a reversal without interpolating through the middle of the jet.
+    const distance = this.chaseDistance;
+    camera.position.copy(position).addScaledVector(this.forward, -distance)
+      .addScaledVector(this.upTarget, distance * 0.17).addScaledVector(this.right, this.sideOffset);
+    camera.position.y = Math.max(camera.position.y, this.world.heightAt(camera.position.x, camera.position.z) + 1.5);
+    this.look.copy(position).addScaledVector(this.forward, distance * 0.76).addScaledVector(this.upTarget, distance * 0.06);
+    camera.up.copy(this.upTarget);
+    camera.lookAt(this.look);
+    camera.updateMatrixWorld();
+  }
+
 }
