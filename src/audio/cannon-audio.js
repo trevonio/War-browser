@@ -3,6 +3,7 @@ export class CannonAudio {
     this.rate = rpm / 60;
     this.firing = false;
     this.lastPulse = -Infinity;
+    this.lastImpact = -Infinity;
   }
 
   unlock() {
@@ -77,6 +78,18 @@ export class CannonAudio {
     gain.gain.value = 0.24;
     gain.gain.setTargetAtTime(0, time + 0.009, 0.003);
     source.start(time, 0, 0.02);
+  }
+
+  impact() {
+    if (this.context?.state !== 'running' || !this.buffer) return;
+    const time = this.context.currentTime;
+    if (time - this.lastImpact < 0.12) return;
+    this.lastImpact = time;
+    const { source, gain } = this.voice();
+    source.playbackRate.value = 0.43;
+    gain.gain.value = 0.27;
+    gain.gain.setTargetAtTime(0, time + 0.012, 0.023);
+    source.start(time, 0, 0.037);
   }
 
   voice() {

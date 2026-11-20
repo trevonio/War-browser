@@ -6,6 +6,9 @@ const styles = {
   water: { color: 0xc3e4ef, life: 0.37, size: 0.44, speed: 12, opacity: 0.78, lift: 8 },
   metal: { color: 0xffbc59, life: 0.26, size: 0.28, speed: 23, opacity: 0.92, lift: 2 },
   destroyed: { color: 0xfca350, life: 0.72, size: 0.85, speed: 17, opacity: 0.72, lift: 4 },
+  fire: { color: 0xff8c33, life: 0.34, size: 0.98, speed: 10, opacity: 0.85, lift: 4 },
+  engineSmoke: { color: 0x343539, life: 1.7, size: 1.8, speed: 6, opacity: 0.62, lift: 5 },
+  fuelMist: { color: 0xc6d9d5, life: 0.90, size: 0.53, speed: 4, opacity: 0.45, lift: -2 },
 };
 for (const style of Object.values(styles)) style.rgb = new T.Color(style.color);
 
@@ -76,6 +79,7 @@ export class CannonEffects {
     this.points.frustumCulled = false;
     scene.add(this.points);
     this.drones = makeDrones(scene, practice.targets);
+    this.damageOrigin = new T.Vector3();
     this.budget = 112;
     this.seed = 32491;
     this.clear();
@@ -111,6 +115,21 @@ export class CannonEffects {
     if (time - this.lastImpact < 0.035) return;
     this.lastImpact = time;
     this.emit(kind, position, this.budget > 100 ? 5 : 3);
+  }
+
+  damageTrail(flight) {
+    const emitters = flight.spec.damageEmitters;
+    const { damage } = flight;
+    if (!emitters || flight.failure) return;
+    if (damage.fire || (damage.enginePower > 0 && damage.enginePower < 0.63)) {
+      this.damageOrigin.fromArray(emitters.engine).applyQuaternion(flight.orientation).add(flight.position);
+      this.emit('engineSmoke', this.damageOrigin, 2);
+      if (damage.fire) this.emit('fire', this.damageOrigin, 2);
+    }
+    if (damage.leak > 0 && flight.fuel > 0) {
+      this.damageOrigin.fromArray(emitters.fuel).applyQuaternion(flight.orientation).add(flight.position);
+      this.emit('fuelMist', this.damageOrigin, 1);
+    }
   }
 
   random() {

@@ -8,6 +8,11 @@ export function cannonMount(config) {
   return mount;
 }
 
+export function worldMuzzle(mount, orientation, position, origin, bore) {
+  origin.copy(mount.position).applyQuaternion(orientation).add(position);
+  bore.set(0, 0, 1).applyQuaternion(mount.quaternion).applyQuaternion(orientation);
+}
+
 export class Cannon {
   constructor(config, mount, ballistics, onShot) {
     this.config = config;
@@ -41,9 +46,8 @@ export class Cannon {
     while (this.cooldown < end - 1e-10 && this.ammo > 0) {
       const at = this.cooldown / dt;
       this.rotation.copy(flight.previousOrientation).slerp(flight.orientation, at);
-      this.position.copy(this.mount.position).applyQuaternion(this.rotation)
-        .addScaledVector(flight.previousPosition, 1 - at).addScaledVector(flight.position, at);
-      this.direction.set(0, 0, 1).applyQuaternion(this.mount.quaternion).applyQuaternion(this.rotation);
+      this.velocity.copy(flight.previousPosition).lerp(flight.position, at);
+      worldMuzzle(this.mount, this.rotation, this.velocity, this.position, this.direction);
       this.velocity.copy(this.direction).multiplyScalar(this.config.projectileSpeed)
         .addScaledVector(flight.previousVelocity, 1 - at).addScaledVector(flight.velocity, at);
       this.ammo--;

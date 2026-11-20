@@ -88,6 +88,7 @@
       <div id="boresight" class="boresight" title="Fixed cannon sight"></div>
       <div id="aim-cursor" class="aim-cursor" title="Mouse aim"></div>
       <div id="flight-warning" class="flight-warning" role="status"></div>
+      <div id="damage-warning" class="flight-warning" role="status"></div>
       <div class="range-status" id="range-status" hidden>
         <span id="target-feedback" role="status"></span>
         <span><output id="targets-remaining">3</output> DRONES REMAIN</span>
@@ -99,6 +100,11 @@
         <span>AIRFRAME <output id="player-integrity">100</output>%</span>
       </div>
       <span id="opponent-marker" aria-hidden="true" hidden></span>
+      <div id="sight-readout" hidden>
+        <b id="sight-mode">CCIP</b>
+        <span id="sight-state" role="status"></span>
+      </div>
+      <div id="sight-marker" aria-label="Computed gun solution" hidden></div>
     </section>
 
     <section id="pause-panel" class="briefing" aria-labelledby="pause-title">
@@ -126,6 +132,8 @@
         <button id="toggle-stores" type="button" aria-pressed="true"><kbd id="key-stores">H</kbd><span>Stores <small id="stores-state">On</small></span></button>
         <button id="toggle-airbrake" type="button" aria-pressed="false"><kbd id="key-airbrake">X</kbd><span>Airbrake <small id="brake-state">Off</small></span></button>
         <button id="toggle-camera" type="button"><kbd id="key-camera">V</kbd><span>Camera <small id="camera-state">Chase</small></span></button>
+        <button id="toggle-sight" type="button" aria-pressed="false"><kbd id="key-sight">C</kbd><span>Gun computer <small id="sight-enabled">Off</small></span></button>
+        <button id="toggle-sightMode" type="button"><kbd id="key-sightMode">M</kbd><span>Sight mode <small id="sight-selected">CCIP</small></span></button>
         <button id="toggle-pause" type="button"><kbd id="key-pause">Esc</kbd><span>Pause</span></button>
       </div>
       <output id="elapsed" class="elapsed" aria-label="Elapsed flight time">00:00</output>

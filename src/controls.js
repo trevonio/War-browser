@@ -6,6 +6,7 @@ export const keyDefaults = {
   pitchUp: 'KeyW', pitchDown: 'KeyS', rollLeft: 'KeyA', rollRight: 'KeyD', yawLeft: 'KeyQ', yawRight: 'KeyE',
   throttleUp: 'ShiftLeft', throttleDown: 'ControlLeft', afterburner: 'KeyB', gear: 'KeyG', stores: 'KeyH',
   airbrake: 'KeyX', camera: 'KeyV', freeLook: 'KeyF', pause: 'Escape', restart: 'KeyR',
+  sight: 'KeyC', sightMode: 'KeyM',
 };
 
 export const keyLabels = {
@@ -13,6 +14,7 @@ export const keyLabels = {
   yawRight: 'Yaw right', throttleUp: 'Throttle up', throttleDown: 'Throttle down', afterburner: 'Afterburner',
   gear: 'Landing gear', stores: 'External stores', airbrake: 'Airbrake / wheel brakes', camera: 'Switch camera',
   freeLook: 'Free look', pause: 'Pause', restart: 'Restart flight',
+  sight: 'Toggle gun computer', sightMode: 'Change gun computer mode',
 };
 
 export function keyName(code) {
@@ -41,6 +43,14 @@ export function loadSettings() {
   for (const action of Object.keys(config.keys)) {
     const code = saved.keys?.[action];
     if (code === 'Escape' || canBind(code)) config.keys[action] = code;
+  }
+  for (const action of ['sight', 'sightMode']) {
+    if (saved.keys?.[action]) continue;
+    const used = new Set(Object.entries(config.keys).filter(([key]) => key !== action).map(([, code]) => code));
+    if (used.has(config.keys[action])) {
+      config.keys[action] = ['KeyC', 'KeyM', 'KeyJ', 'KeyK', 'KeyL', 'KeyT', 'KeyY', 'Digit1']
+        .find((code) => !used.has(code)) ?? config.keys[action];
+    }
   }
   if (new Set(Object.values(config.keys)).size !== Object.keys(config.keys).length) config.keys = { ...keyDefaults };
   return config;

@@ -122,9 +122,23 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
   position: absolute; top: 0; left: 0; width: 20px; height: 20px;
   border: 1px solid #ffc4a2ba; box-shadow: 0 0 4px #25181170;
 }
+#sight-readout {
+  position: absolute; bottom: 6rem; left: clamp(.55rem, 5vw, 5rem);
+  padding: .48rem .7rem; display: grid; gap: .24rem;
+  background: #14222d78; border-left: 1px solid #92eec2; color: #b5f8d5; font: .75rem var(--mono);
+}
+#sight-marker {
+  --sight-color: #a0f3c6;
+  position: absolute; width: 24px; height: 24px; inset: 0 auto auto 0;
+  border: 1px solid var(--sight-color); border-radius: 50%;
+  background: radial-gradient(circle, var(--sight-color) 1px, transparent 2px);
+  filter: drop-shadow(0 1px 2px #0e3428);
+}
+#sight-marker[data-mode="lead"] { width: 15px; height: 15px; }
 [data-direct="true"] .aim-cursor, [data-looking="true"] .aim-cursor { display: none; }
 .flight-warning { position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%); color: #ffdc97; font: 700 .93rem var(--mono); letter-spacing: .14em; text-align: center; }
 .flight-warning:empty { display: none; }
+#damage-warning { bottom: calc(26% - 1.5rem); color: #ffc19f; font-size: .81rem; }
 .flight-deck {
   position: absolute; bottom: 0; inset-inline: 0; display: flex; align-items: center; justify-content: space-between;
   gap: 1rem; border-top: 1px solid var(--line); background: #111e28b9; min-height: 4.5rem; padding: .82rem 2rem;

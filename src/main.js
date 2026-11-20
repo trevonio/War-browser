@@ -9,6 +9,7 @@ import { Ballistics } from './sim/ballistics.js';
 import { Cannon } from './sim/cannon.js';
 import { Dogfight } from './sim/dogfight.js';
 import { Flight, STEP } from './sim/flight.js';
+import { GunComputer, sightInterval, VisualTrack } from './sim/gun-computer.js';
 import { PracticeRange } from './sim/practice.js';
 import { range, scenarios } from './sim/range.js';
 import { CannonTrigger } from './trigger.js';
@@ -88,10 +89,13 @@ function boot() {
   const audio = new CannonAudio(f16.cannon.rpm);
   const dogfight = new Dogfight(flight, f16, range, {
     shot: (position, direction, time, count) => weaponEffects.shot(1, position, direction, time, count),
-    impact: (surface, point, time, destroyed) => weaponEffects.impact(surface, point, time, destroyed),
+    impact: (surface, point, time, destroyed, ownHit) => {
+      weaponEffects.impact(surface, point, time, destroyed);
+      if (ownHit) audio.impact();
+    },
   });
-  const ballistics = new Ballistics(f16.cannon, range, (surface, point, collider) => {
-    const destroyed = collider?.hull ? dogfight.hit(collider, f16.cannon.damage)
+  const ballistics = new Ballistics(f16.cannon, range, (surface, point, collider, impactSpeed) => {
+    const destroyed = collider?.hull ? dogfight.hit(collider, f16.cannon.damage, impactSpeed / f16.cannon.projectileSpeed)
       : collider?.shape === 'sphere' && practice.hit(collider, f16.cannon.damage, flight.elapsed);
     weaponEffects.impact(surface, point, flight.elapsed, destroyed);
   });
@@ -104,6 +108,9 @@ function boot() {
     else audio.pulse();
     weaponEffects.shot(0, position, direction, time, count);
   });
+  const gunComputer = new GunComputer(f16.cannon, visual.muzzle, range);
+  const visualTrack = new VisualTrack();
+  const droneTrack = { position: null, velocity: new T.Vector3() };
   const trigger = new CannonTrigger(ui.viewport, {
     enabled: () => screen === 'flying' && !ui.settings.open && (capture.locked || keyboardFlight),
     pressed: () => {
@@ -121,6 +128,13 @@ function boot() {
   const flightDirection = new T.Vector3();
   const aimDirection = new T.Vector3();
   const opponentMarker = new T.Vector3();
+  const sightProjection = new T.Vector3();
+  const sightBearing = new T.Vector3();
+  const sightForward = new T.Vector3();
+  let sightActive = false;
+  let sightMode = 'impact';
+  let nextSight = 0;
+  let nextDamageTrail = 0;
   let lastEffectsTime = 0;
   let screen = 'loading';
   let startingPosition = 'air';
@@ -209,6 +223,7 @@ function boot() {
     dogfight.reset(startingPosition === 'dogfight' ? ui['opponent-mode'].value : null, start);
     weaponEffects.clear();
     lastEffectsTime = 0;
+    nextDamageTrail = 0;
     aircraft.position.copy(flight.position);
     aircraft.quaternion.copy(flight.orientation);
     previousRenderPosition.copy(flight.position);
@@ -217,6 +232,7 @@ function boot() {
     view.azimuth = 0;
     view.elevation = 0;
     view.snap = true;
+    invalidateSight();
     changeScreen(next);
   }
 
@@ -256,7 +272,7 @@ function boot() {
     text('aim-response-value', settings.aimResponsiveness.toFixed(1));
     text('camera-smoothing-value', settings.cameraSmoothing.toFixed(1));
     text('camera-turn-value', settings.cameraTurnResponse.toFixed(1));
-    for (const action of ['afterburner', 'gear', 'stores', 'airbrake', 'camera', 'pause']) {
+    for (const action of ['afterburner', 'gear', 'stores', 'airbrake', 'camera', 'pause', 'sight', 'sightMode']) {
       text(`key-${action}`, keyName(settings.keys[action]));
     }
     text('restart-key', keyName(settings.keys.restart));
@@ -304,6 +320,8 @@ function boot() {
     stores() { flight.stores = !flight.stores; },
     airbrake() { brake = !brake; },
     camera() { view.cycle(); },
+    sight() { sightActive = !sightActive; invalidateSight(); },
+    sightMode() { sightMode = sightMode === 'impact' ? 'lead' : 'impact'; invalidateSight(); },
     pause() { changeScreen('paused'); },
     restart: restartFlight,
   };
@@ -431,7 +449,8 @@ function boot() {
     text('airspeed', Math.round(flight.airspeed));
     text('mach', flight.mach.toFixed(2));
     text('throttle', Math.round(flight.throttle * 100));
-    text('engine-state', flight.afterburner ? 'AFTERBURNER' : flight.burnerArmed ? 'ENGINE SPOOLING' : flight.spool > 0.97 ? 'MIL POWER' : 'DRY THRUST');
+    text('engine-state', flight.damage.enginePower === 0 ? 'ENGINE OUT'
+      : flight.afterburner ? 'AFTERBURNER' : flight.burnerArmed ? 'ENGINE SPOOLING' : flight.spool > 0.97 ? 'MIL POWER' : 'DRY THRUST');
     text('altitude', Math.round(flight.altitude).toLocaleString('en-US'));
     text('vertical-speed', vertical > 0 ? `+${vertical}` : vertical);
     text('fuel', Math.round(flight.fuel / f16.fuelCapacity * 100));
@@ -446,11 +465,15 @@ function boot() {
     const warning = flight.stalled ? 'STALL' : flight.stress > 0.28 ? 'STRUCTURAL LOAD'
       : flight.gWarning || (flight.fuel < 200 ? 'LOW FUEL' : '');
     text('flight-warning', warning);
+    text('damage-warning', flight.damage.warning);
     ui['g-force'].parentElement.classList.toggle('g-warning', Boolean(flight.gWarning));
     pressed('toggle-burner', flight.burnerArmed);
     pressed('toggle-gear', flight.gearDown);
     pressed('toggle-stores', flight.stores);
     pressed('toggle-airbrake', brake);
+    pressed('toggle-sight', sightActive);
+    text('sight-enabled', sightActive ? 'On' : 'Off');
+    text('sight-selected', sightMode === 'impact' ? 'CCIP' : 'Lead');
     ui['toggle-gear'].disabled = flight.grounded;
   }
 
@@ -499,7 +522,7 @@ function boot() {
     const opponent = dogfight.opponent;
     opponentAircraft.position.copy(opponent.previousPosition).lerp(opponent.position, blend);
     opponentAircraft.quaternion.copy(opponent.previousOrientation).slerp(opponent.orientation, blend);
-    opponentVisual.update(opponent, time);
+    opponentVisual.update(opponent, time, blend);
     if (screen !== 'flying' || opponent.position.distanceToSquared(flight.position) > 3000 ** 2) return;
     opponentMarker.copy(opponentAircraft.position).project(view.camera);
     if (Math.abs(opponentMarker.x) > 0.94 || Math.abs(opponentMarker.y) > 0.82 || Math.abs(opponentMarker.z) > 1) return;
@@ -509,12 +532,92 @@ function boot() {
     marker.hidden = false;
   }
 
+  function invalidateSight() {
+    visualTrack.reset();
+    gunComputer.valid = false;
+    nextSight = 0;
+  }
+
+  function trackVisible(point) {
+    sightProjection.copy(point).project(view.camera);
+    return Math.abs(sightProjection.x) <= 0.92 && Math.abs(sightProjection.y) <= 0.80
+      && Math.abs(sightProjection.z) < 1;
+  }
+
+  function acquireTrack() {
+    const origin = flight.position;
+    sightForward.set(0, 0, 1).applyQuaternion(visual.muzzle.quaternion).applyQuaternion(flight.orientation);
+    if (practice.enabled) {
+      let best = 0.95;
+      let nearest = null;
+      for (const target of practice.targets) {
+        if (!target.active || !trackVisible(target.position)) continue;
+        const alignment = sightBearing.subVectors(target.position, origin).normalize().dot(sightForward);
+        if (alignment > best) {
+          nearest = target;
+          best = alignment;
+        }
+      }
+      if (!nearest) return null;
+      droneTrack.position = nearest.position;
+      droneTrack.velocity.subVectors(nearest.position, nearest.previous).multiplyScalar(1 / STEP);
+      return droneTrack;
+    }
+    if (!dogfight.enabled || !opponentAircraft.visible || !trackVisible(dogfight.opponent.position)) {
+      visualTrack.reset();
+      return null;
+    }
+    const contact = dogfight.opponent.position;
+    sightBearing.subVectors(contact, origin);
+    const distance = sightBearing.length();
+    sightBearing.multiplyScalar(1 / Math.max(1, distance));
+    if (distance < 25 || distance > 1500 || sightBearing.dot(sightForward) < 0.95) {
+      visualTrack.reset();
+      return null;
+    }
+    for (let at = 100; at < distance; at += 100) {
+      if (origin.y + sightBearing.y * at > range.heightAt(origin.x + sightBearing.x * at, origin.z + sightBearing.z * at)) continue;
+      visualTrack.reset();
+      return null;
+    }
+    const span = f16.opticalSpan;
+    const aspect = Math.abs(dogfight.opponent.forward.dot(sightBearing));
+    const apparentSize = span * (0.92 + aspect * 0.08) / (2 * distance);
+    return visualTrack.observe(flight.elapsed, origin, sightBearing, apparentSize, span);
+  }
+
+  function renderSight() {
+    const enabled = sightActive && screen === 'flying';
+    ui['sight-readout'].hidden = !enabled;
+    const marker = ui['sight-marker'];
+    if (!enabled) {
+      marker.hidden = true;
+      return;
+    }
+    if (flight.elapsed >= nextSight) {
+      nextSight = flight.elapsed + sightInterval;
+      if (sightMode === 'impact') gunComputer.impact(flight);
+      else gunComputer.lead(flight, acquireTrack());
+    }
+    const visible = gunComputer.valid && trackVisible(gunComputer.point);
+    marker.hidden = !visible;
+    if (visible) {
+      const x = (sightProjection.x + 1) * viewportWidth * 0.5;
+      const y = (1 - sightProjection.y) * viewportHeight * 0.5;
+      marker.dataset.mode = sightMode;
+      marker.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
+    }
+    text('sight-mode', sightMode === 'impact' ? 'CCIP' : practice.enabled ? 'TRAINING LEAD' : 'VISUAL LEAD');
+    text('sight-state', gunComputer.valid ? `${visible ? 'VALID' : 'OFFSCREEN'} · ${Math.round(gunComputer.range)} M`
+      : sightMode === 'impact' ? 'NO IMPACT' : 'NO SOLUTION');
+  }
+
   function finishDogfight(result) {
     const won = result === 'win';
     const draw = result === 'draw';
     text('pause-title', draw ? 'Mutual loss' : won ? 'Dogfight won' : 'Dogfight lost');
     text('pause-description', draw ? 'Both aircraft were lost on the same pass.'
-      : won ? (dogfight.opponent.failure ? 'The opponent crashed.' : 'The opponent’s airframe failed.')
+      : won ? `Opponent lost · ${dogfight.opponent.failure}`
       : flight.failure || 'Your airframe took critical damage.');
     changeScreen('complete');
   }
@@ -579,6 +682,11 @@ function boot() {
         }
         if (dogfight.enabled) dogfight.fire();
         if (ballistics.count) ballistics.step(STEP, dogfight.enabled ? dogfight.playerTargets : colliders);
+        if (dogfight.enabled && flight.elapsed >= nextDamageTrail && (flight.damage.active || dogfight.opponent.damage.active)) {
+          nextDamageTrail = flight.elapsed + 0.075;
+          weaponEffects.damageTrail(flight);
+          weaponEffects.damageTrail(dogfight.opponent);
+        }
         if (dogfight.enabled && dogfight.finish()) {
           finishDogfight(dogfight.result);
           break;
@@ -591,11 +699,12 @@ function boot() {
     aircraft.quaternion.copy(flight.previousOrientation).slerp(flight.orientation, blend);
     aircraft.renderMovement.copy(aircraft.position).sub(previousRenderPosition);
     previousRenderPosition.copy(aircraft.position);
-    visual.update(flight, time / 1000);
+    visual.update(flight, time / 1000, blend);
     aircraft.visible = view.mode === 'chase' || screen === 'ready';
     const aim = !keyboardFlight && settings.controlMode === 'assist' ? controls.aim : null;
     view.update(aircraft, flight.velocity, dt, screen, controls.looking, settings.cameraSmoothing, aim, settings.cameraTurnResponse);
     renderOpponent(blend, time / 1000);
+    renderSight();
     world.update(aircraft.position, view.camera);
     const effectStep = Math.max(0, flight.elapsed - lastEffectsTime);
     lastEffectsTime = flight.elapsed;

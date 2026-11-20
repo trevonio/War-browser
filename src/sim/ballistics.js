@@ -42,7 +42,7 @@ function sweepBox(start, end, { min, max }) {
   return near;
 }
 
-function sweepSurface(start, end, impactY, surfaceAt) {
+export function sweepSurface(start, end, impactY, surfaceAt) {
   if (Math.min(start.y, end.y) > impactY) return Infinity;
   const dx = end.x - start.x;
   const dy = end.y - start.y;
@@ -66,6 +66,33 @@ function sweepSurface(start, end, impactY, surfaceAt) {
     else far = mid;
   }
   return far;
+}
+
+export function staticImpact(world, start, end, colliders = world.structures) {
+  let first = sweepSurface(start, end, world.maxTerrainHeight, world.surfaceAt);
+  for (const collider of colliders) {
+    if (collider.active !== false && collider.shape === 'box') first = Math.min(first, sweepBox(start, end, collider));
+  }
+  return first;
+}
+
+export function advanceRound(round, dt, config) {
+  const step = Math.min(dt, config.lifetime - round.age);
+  const speed = round.velocity.length();
+  const distance = Math.min(speed * step, config.maxDistance - round.travel);
+  const travelTime = speed > 0 ? Math.min(step, distance / speed) : step;
+  round.previous.copy(round.position);
+  round.position.addScaledVector(round.velocity, travelTime);
+  round.position.y -= 0.5 * GRAVITY * travelTime * travelTime;
+  round.velocity.multiplyScalar(1 / (1 + config.drag * speed * travelTime));
+  round.velocity.y -= GRAVITY * travelTime;
+  round.age += travelTime;
+  round.travel += distance;
+  return travelTime;
+}
+
+export function flightExpired(round, config) {
+  return round.age >= config.lifetime - 1e-10 || round.travel >= config.maxDistance;
 }
 
 export class Ballistics {
@@ -100,19 +127,9 @@ export class Ballistics {
     const config = this.config;
     for (let i = 0; i < this.count;) {
       const round = this.rounds[i];
-      const step = Math.min(dt - round.delay, config.lifetime - round.age);
       const startFraction = round.delay / dt;
+      const travelTime = advanceRound(round, dt - round.delay, config);
       round.delay = 0;
-      const speed = round.velocity.length();
-      const distance = Math.min(speed * step, config.maxDistance - round.travel);
-      const travelTime = speed > 0 ? Math.min(step, distance / speed) : step;
-      round.previous.copy(round.position);
-      round.position.addScaledVector(round.velocity, travelTime);
-      round.position.y -= 0.5 * GRAVITY * travelTime * travelTime;
-      round.velocity.multiplyScalar(1 / (1 + config.drag * speed * travelTime));
-      round.velocity.y -= GRAVITY * travelTime;
-      round.age += step;
-      round.travel += distance;
 
       const { previous, position } = round;
       let firstHit = sweepSurface(previous, position, this.world.maxTerrainHeight, this.world.surfaceAt);
@@ -131,9 +148,9 @@ export class Ballistics {
       if (firstHit < Infinity) {
         this.impact.copy(previous).lerp(position, firstHit);
         const kind = struck?.surface ?? (this.world.surfaceAt(this.impact.x, this.impact.z) > 0 ? 'ground' : 'water');
-        this.onImpact(kind, this.impact, struck);
+        this.onImpact(kind, this.impact, struck, round.velocity.length());
       }
-      if (firstHit < Infinity || round.age >= config.lifetime || round.travel >= config.maxDistance) {
+      if (firstHit < Infinity || flightExpired(round, config)) {
         this.rounds[i] = this.rounds[--this.count];
         this.rounds[this.count] = round;
       } else {

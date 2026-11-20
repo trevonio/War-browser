@@ -154,3 +154,32 @@ The opponent uses the same fixed-step flight model, instructor, and cannon
 simulation as the player. Its alternate paint shares the existing F-16
 geometry and texture maps. Aircraft hit volumes follow each airframe through
 the same swept projectile checks used on training targets.
+
+## Flight controls and component damage
+
+The supplied rigged F-16 uses separate named mesh pivots. The adapter keeps
+its body axes, 0.93 scale, and existing cannon and stores attachments. The
+leading-edge flaps, left and right flaperons and stabilators, and rudder take
+their positions from the fixed-step control outputs. The low-speed gear
+configuration deploys both flaperons together, and roll adds differential
+travel. The supplied struts, wheels, gear doors, and airbrakes have their
+own pivots. Player and opponent instances share geometry and textures.
+
+Shots can hit the engine, wings, stabilators, flaperons, fuel system,
+fuselage, or pilot. Wing damage changes lift, drag, roll balance, and load
+limits. Severe actuator damage can jam a surface at its current angle.
+Engine fires can lead to power loss, and a fuel leak drains the remaining
+fuel. The AI disengages or glides when damage warrants it. A wing or flight
+surface can disappear at its modeled attachment point. Craft loss ends the
+dogfight, and restarting repairs both aircraft.
+
+## Gun computer
+
+Press **C** to toggle the gun computer and **M** to switch between CCIP
+and lead. Both bindings are configurable. CCIP shows the first terrain,
+water, or structure intersection predicted by the cannon's projectile
+model. In a dogfight, lead requires a visible contact near the gun axis.
+The visual track estimates range from apparent size and estimates velocity
+from successive observations. **Training Lead** in the cannon range uses
+drone telemetry. The computer displays a cue and leaves the rounds on
+their simulated trajectory.

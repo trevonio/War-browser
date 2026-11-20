@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { cannonMount } from '../sim/cannon.js';
 import { f16 } from './f16.js';
+import { bindF16Rig, buildF16Rig } from './f16-rig.js';
 
 // Geometry and materials adapted from the supplied procedural F-16 viewer.
 // One modeling unit is approximately a meter after the original 0.93 scale.
@@ -224,97 +225,8 @@ export function createF16Visual() {
     M(new T.BoxGeometry(0.7, 0.06, 0.3), dk, 0, 0.78, 3.7),
   );
   // Alas, flaps, strakes, estabilizadores, deriva, aletas ventrales
-  const wp = [
-    [0.55, 1],
-    [5.25, -2.7],
-    [5.25, -4.1],
-    [0.55, -4],
-  ];
-  const W = M(slabH(wp, 0.12), mW, 0, -0.22, 0);
-  two(W);
-  two(
-    M(
-      slabH(
-        [
-          [0.9, 0.6],
-          [5.2, -2.65],
-          [5.2, -3.1],
-          [0.9, 0.15],
-        ],
-        0.128,
-      ),
-      mW2,
-      0,
-      -0.22,
-      0,
-    ),
-  );
-  two(
-    M(
-      slabH(
-        [
-          [0.6, -3.1],
-          [5.2, -3.95],
-          [5.2, -4.12],
-          [0.6, -4.0],
-        ],
-        0.128,
-      ),
-      mW2,
-      0,
-      -0.22,
-      0,
-    ),
-  );
-  two(
-    M(
-      slabH(
-        [
-          [0.4, 5],
-          [1.9, 0.5],
-          [0.5, -0.6],
-        ],
-        0.1,
-      ),
-      mW,
-      0,
-      -0.02,
-      0,
-    ),
-  );
-  two(
-    M(
-      slabH(
-        [
-          [0.9, -4.7],
-          [3, -6.1],
-          [3, -7.3],
-          [0.9, -7.1],
-        ],
-        0.09,
-      ),
-      mW,
-      0,
-      -0.12,
-      0,
-    ),
-  );
+  const gear = buildF16Rig(P, M, slabH, slabV, { wing: mW, trim: mW2, dark: dk, metal: met });
   P.add(
-    M(
-      slabV(
-        [
-          [-3.6, 0.7],
-          [-6.4, 3.5],
-          [-7.4, 3.5],
-          [-7.4, 0.7],
-        ],
-        0.1,
-      ),
-      mW,
-      0,
-      0,
-      0,
-    ),
     M(new T.BoxGeometry(0.1, 0.18, 0.9), dk, 0, 3.55, -6.9),
     M(new T.CylinderGeometry(0.008, 0.008, 0.4, 6), met, 0, 3.7, -6.6),
   );
@@ -415,37 +327,6 @@ export function createF16Visual() {
     const inner = two(c, arm);
     stations.push({ name: 'inner pylon', left: c, right: inner });
   }
-  // Tren de aterrizaje
-  const gear = new T.Group();
-  gear.name = 'Landing gear';
-  P.add(gear);
-  const tire = new T.MeshStandardMaterial({ color: 0x151515, roughness: 0.9 }),
-    wh = (r, w, x, y, z) => {
-      const g = new T.Group();
-      g.add(
-        M(new T.CylinderGeometry(r, r, w, 28).rotateZ(Math.PI / 2), tire),
-        M(new T.CylinderGeometry(r * 0.55, r * 0.55, w + 0.01, 20).rotateZ(Math.PI / 2), met),
-      );
-      g.position.set(x, y, z);
-      return g;
-    };
-  gear.add(
-    M(new T.CylinderGeometry(0.05, 0.06, 0.9, 12), met, 0, -0.75, 3.6),
-    wh(0.2, 0.12, 0.1, -1.15, 3.6),
-    wh(0.2, 0.12, -0.1, -1.15, 3.6),
-    M(new T.BoxGeometry(0.5, 0.04, 0.9), mF, 0, -0.62, 3.2),
-  );
-  {
-    const g = new T.Group();
-    g.add(
-      M(new T.CylinderGeometry(0.07, 0.08, 0.8, 12), met, 0.0, -0.75, -1.2),
-      wh(0.33, 0.2, 0.08, -1.02, -1.2),
-    );
-    g.position.x = 1;
-    g.rotation.z = 0.06;
-    two(g, gear);
-  }
-  gear.visible = false;
   // Luces de navegación
   const nav = (c, x, y, z) => {
     const m = new T.Mesh(new T.SphereGeometry(0.07, 12, 8), new T.MeshBasicMaterial({ color: c }));
@@ -460,6 +341,10 @@ export function createF16Visual() {
 
   const muzzle = cannonMount(f16.cannon);
   root.add(muzzle);
+  for (const { left, right } of stations) {
+    left.userData.wing = 'leftWing';
+    right.userData.wing = 'rightWing';
+  }
   return { ...animate(root, muzzle, gear, arm, ab, strobe), stations, paint: [mF, mW, mW2] };
 }
 
@@ -484,8 +369,7 @@ export function createOpponentVisual(source) {
 
 function animate(root, muzzle, gear, arm, ab, strobe) {
   const [f1, f2, fli] = ab.children;
-  // The source switches the whole gear group on and off. Fold it toward the
-  // fuselage during transit using the source meshes, with no skeletal rig.
+  const updateRig = bindF16Rig(root);
   return {
     root,
     muzzle,
@@ -493,11 +377,8 @@ function animate(root, muzzle, gear, arm, ab, strobe) {
     arm,
     ab,
     strobe,
-    update(state, time) {
-      const extension = T.MathUtils.smoothstep(state.gear, 0, 1);
-      gear.visible = extension > 0.015;
-      gear.scale.y = Math.max(0.015, extension);
-      gear.position.y = -0.42 * (1 - extension);
+    update(state, time, blend = 1) {
+      updateRig(state, blend);
       arm.visible = state.stores;
       ab.visible = state.afterburner;
       if (ab.visible) {

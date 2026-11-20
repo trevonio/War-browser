@@ -1,10 +1,9 @@
-import { Vector3 } from 'three';
+import { MathUtils, Vector3 } from 'three';
 import { AIPilot } from './ai-pilot.js';
 import { Ballistics } from './ballistics.js';
 import { Cannon, cannonMount } from './cannon.js';
 import { Flight, STEP } from './flight.js';
 
-const integrity = 36;
 const spawns = {
   passive: { x: 0, y: 12.5, z: 360, speed: 186, heading: 0 },
   defensive: { x: -18, y: 4, z: 485, speed: 189, heading: 0 },
@@ -14,14 +13,14 @@ const spawns = {
 class Hull {
   constructor(flight) {
     this.flight = flight;
-    this.colliders = flight.spec.hitVolumes.map(([x, y, z, radius]) => ({
-      shape: 'sphere', surface: 'metal', radius, active: false, hull: this,
-      offset: new Vector3(x, y, z), previous: new Vector3(), position: new Vector3(),
-    }));
+    this.colliders = Object.entries(flight.damage.components).flatMap(([component, { volumes }]) =>
+      volumes.map(([x, y, z, radius]) => ({
+        shape: 'sphere', surface: 'metal', radius, active: false, hull: this, component,
+        offset: new Vector3(x, y, z), previous: new Vector3(), position: new Vector3(),
+      })));
   }
 
   reset(active) {
-    this.integrity = integrity;
     this.activate(active);
     if (active) this.update();
   }
@@ -31,26 +30,36 @@ class Hull {
   }
 
   update() {
-    const { previousPosition, previousOrientation, position, orientation } = this.flight;
+    const { previousPosition, previousOrientation, position, orientation, damage } = this.flight;
     for (const collider of this.colliders) {
+      if (!collider.active) continue;
+      const part = collider.component;
+      if ((part === 'leftWing' || part === 'leftFlaperon') && damage.health.leftWing === 0
+        || (part === 'rightWing' || part === 'rightFlaperon') && damage.health.rightWing === 0
+        || (part.endsWith('Flaperon') || part.endsWith('Stabilator')) && damage.condition(part) === 0) {
+        collider.active = false;
+        continue;
+      }
       collider.previous.copy(collider.offset).applyQuaternion(previousOrientation).add(previousPosition);
       collider.position.copy(collider.offset).applyQuaternion(orientation).add(position);
     }
   }
 
-  hit(damage) {
-    this.integrity = Math.max(0, this.integrity - damage);
-    if (this.integrity > 0) return false;
-    this.activate(false);
-    return true;
+  hit(component, amount) {
+    const destroyed = this.flight.damage.hit(component, amount);
+    if (destroyed) {
+      this.flight.failure ||= this.flight.damage.failure;
+      this.activate(false);
+    }
+    return destroyed;
   }
 
   get percentage() {
-    return Math.ceil(this.integrity / integrity * 100);
+    return this.incapacitated ? 0 : Math.ceil(this.flight.damage.condition('fuselage') * 100);
   }
 
   get incapacitated() {
-    return this.integrity === 0 || Boolean(this.flight.failure);
+    return Boolean(this.flight.failure);
   }
 }
 
@@ -63,9 +72,9 @@ export class Dogfight {
     this.opponentHull = new Hull(this.opponent);
     this.playerTargets = [...world.structures, ...this.opponentHull.colliders];
     this.opponentTargets = [...world.structures, ...this.playerHull.colliders];
-    this.ballistics = new Ballistics(spec.cannon, world, (kind, position, collider) => {
-      const destroyed = collider?.hull ? this.hit(collider, spec.cannon.damage) : false;
-      effects.impact(kind, position, player.elapsed, destroyed);
+    this.ballistics = new Ballistics(spec.cannon, world, (kind, position, collider, impactSpeed) => {
+      const destroyed = collider?.hull ? this.hit(collider, spec.cannon.damage, impactSpeed / spec.cannon.projectileSpeed) : false;
+      effects.impact(kind, position, player.elapsed, destroyed, Boolean(collider?.hull));
     });
     this.cannon = new Cannon(spec.cannon, cannonMount(spec.cannon), this.ballistics, effects.shot);
   }
@@ -74,6 +83,7 @@ export class Dogfight {
     this.enabled = Boolean(mode);
     this.notice = '';
     this.noticeUntil = 0;
+    this.ownNotice = false;
     this.result = '';
     this.cannon.reset();
     this.ballistics.clear();
@@ -91,7 +101,7 @@ export class Dogfight {
   }
 
   update() {
-    const command = this.pilot.update(this.opponent, this.player);
+    const command = this.pilot.update(this.opponent, this.player, this.cannon.ammo > 0);
     if (this.pilot.burner !== this.opponent.burnerArmed) this.opponent.toggleAfterburner();
     this.opponent.step(command);
     this.playerHull.update();
@@ -105,14 +115,17 @@ export class Dogfight {
     if (this.ballistics.count) this.ballistics.step(STEP, this.opponentTargets);
   }
 
-  hit(collider, damage) {
+  hit(collider, damage, speedScale = 1) {
     const own = collider.hull === this.playerHull;
+    const destroyed = collider.hull.hit(collider.component, damage * MathUtils.clamp(speedScale, 0.48, 1.25));
     if (!own) this.pilot.alert(this.opponent.elapsed);
-    if (own || this.player.elapsed >= this.noticeUntil || this.notice !== 'AIRFRAME HIT') {
-      this.notice = own ? 'AIRFRAME HIT' : 'OPPONENT HIT';
+    if (own || this.player.elapsed >= this.noticeUntil || !this.ownNotice) {
+      const report = collider.hull.flight.damage.report;
+      this.notice = own ? report : `OPPONENT · ${report}`;
       this.noticeUntil = this.player.elapsed + 0.9;
+      this.ownNotice = own;
     }
-    return collider.hull.hit(damage);
+    return destroyed;
   }
 
   finish() {

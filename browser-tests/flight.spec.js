@@ -382,6 +382,10 @@ test('dogfight briefing selects opponents, scores a cannon win, and restarts', a
   await startFlight(page);
   await expect(page.locator('#opponent-marker')).toBeVisible();
   await expect(page.locator('#opponent-status')).toHaveText('PATROL');
+  await page.keyboard.press('c');
+  await page.keyboard.press('m');
+  await expect(page.locator('#sight-mode')).toHaveText('VISUAL LEAD');
+  await expect(page.locator('#sight-state')).toHaveText(/^VALID/, { timeout: 8000 });
   await page.mouse.down({ button: 'left' });
   await expect(page.getByRole('heading', { name: 'Dogfight won' })).toBeVisible({ timeout: 12000 });
   await page.mouse.up({ button: 'left' });
@@ -409,4 +413,29 @@ test('dogfight briefing selects opponents, scores a cannon win, and restarts', a
   await expect(page.locator('#opponent-status')).toHaveText('INTERCEPT');
   await expect.poll(async () => Number(await page.locator('#opponent-distance').innerText())).toBeLessThan(1.75);
   expect(errors).toEqual([]);
+});
+
+test('gun computer displays training lead and a valid CCIP in a dive', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Cannon range' }).click({ timeout: 20000 });
+  await startFlight(page);
+  const readout = page.locator('#sight-readout');
+  const marker = page.locator('#sight-marker');
+  const state = page.locator('#sight-state');
+  await expect(readout).toBeHidden();
+  await page.keyboard.press('c');
+  await expect(state).toHaveText('NO IMPACT');
+  await expect(marker).toBeHidden();
+  await page.keyboard.press('m');
+  await expect(page.locator('#sight-mode')).toHaveText('TRAINING LEAD');
+  await expect(state).toHaveText(/^VALID · \d+ M$/);
+  await expect(marker).toBeVisible();
+
+  await page.keyboard.press('m');
+  await relativeMouse(page, 0, 930);
+  await expect(state).toHaveText(/^VALID · \d+ M$/, { timeout: 18000 });
+  await expect(marker).toHaveAttribute('data-mode', 'impact');
+  await page.keyboard.press('c');
+  await expect(readout).toBeHidden();
+  await expect(marker).toBeHidden();
 });

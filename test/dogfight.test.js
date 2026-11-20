@@ -13,8 +13,8 @@ function exercise(mode) {
   const player = new Flight(f16, range);
   const effects = { shot() {}, impact() {} };
   const fight = new Dogfight(player, f16, range, effects);
-  const rounds = new Ballistics(f16.cannon, range, (_kind, _position, collider) => {
-    if (collider?.hull) fight.hit(collider, f16.cannon.damage);
+  const rounds = new Ballistics(f16.cannon, range, (_kind, _position, collider, impactSpeed) => {
+    if (collider?.hull) fight.hit(collider, f16.cannon.damage, impactSpeed / f16.cannon.projectileSpeed);
   });
   const cannon = new Cannon(f16.cannon, cannonMount(f16.cannon), rounds, effects.shot);
   player.reset(start);
@@ -89,5 +89,5 @@ test('aggressive AI intercepts, pursues, and can win with ballistic hits', () =>
   assert.equal(fight.result, 'loss');
   assert.equal(fight.playerHull.percentage, 0);
   assert.equal(fight.opponentHull.percentage, 100);
-  assert.equal(fight.player.failure, '');
+  assert.match(fight.player.failure, /^(Pilot incapacitated|Airframe failure)$/);
 });

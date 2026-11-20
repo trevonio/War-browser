@@ -1,5 +1,7 @@
 import { MathUtils, Vector3 } from 'three';
+import { cannonMount } from './cannon.js';
 import { neutralControls } from './flight.js';
+import { GunComputer } from './gun-computer.js';
 
 const { clamp, lerp } = MathUtils;
 const detectionRange = 3400;
@@ -25,8 +27,7 @@ export class AIPilot {
     this.forward = new Vector3();
     this.relativeVelocity = new Vector3();
     this.prefire = new Vector3();
-    this.bore = new Vector3().fromArray(this.cannon.bore).normalize();
-    this.muzzle = new Vector3().fromArray(this.cannon.muzzle);
+    this.computer = new GunComputer(this.cannon, cannonMount(this.cannon), world);
     this.controls = { ...neutralControls, aimDirection: this.aim, aimHint: new Vector3() };
   }
 
@@ -59,7 +60,7 @@ export class AIPilot {
     this.alertUntil = time + 5;
   }
 
-  update(flight, player) {
+  update(flight, player, armed = true) {
     const time = flight.elapsed;
     if (time < this.nextDecision) return this.controls;
     this.nextDecision = time + decisionInterval;
@@ -79,8 +80,19 @@ export class AIPilot {
     this.burner = false;
     this.fire = false;
 
-    if (this.mode === 'aggressive' && distance < detectionRange) {
-      targetSpeed = this.engage(flight, player, distance, speed);
+    const { damage } = flight;
+    const glide = damage.enginePower < 0.27 || flight.fuel < flight.spec.fuelCapacity * 0.035;
+    const retreat = damage.fire || damage.pitchAuthority < 0.57 || damage.rollAuthority < 0.55
+      || damage.lift < 0.72 || damage.leak > 8;
+    if (glide || retreat) {
+      if (this.status !== 'GLIDING' && this.status !== 'DISENGAGING') {
+        this.course = ownHeading + (glide ? 0 : this.turnDirection * 0.64);
+      }
+      this.status = glide ? 'GLIDING' : 'DISENGAGING';
+      this.setCourse(this.course, glide ? -0.065 : 0.025);
+      targetSpeed = glide ? 154 * this.speedScale : 216 * this.speedScale;
+    } else if (this.mode === 'aggressive' && distance < detectionRange) {
+      targetSpeed = this.engage(flight, player, distance, speed, armed);
     } else if (this.mode === 'defensive' && (threat || time < this.maneuverUntil)) {
       if (time >= this.maneuverUntil) {
         const variant = this.breakIndex++ % 3;
@@ -127,7 +139,7 @@ export class AIPilot {
     return this.controls;
   }
 
-  engage(flight, player, distance, speed) {
+  engage(flight, player, distance, speed, armed) {
     const time = flight.elapsed;
     const facing = this.forward.dot(this.toPlayer);
     const playerFacing = this.playerForward.dot(this.toPlayer);
@@ -147,20 +159,13 @@ export class AIPilot {
     this.aim.y = clamp(this.aim.y, -distance * 0.55, distance * 0.68);
     this.aim.normalize();
 
-    if (firingPass && !overrun) {
-      const travel = distance / Math.max(220, this.cannon.projectileSpeed + closing) * 1.065;
-      this.prefire.copy(this.muzzle).applyQuaternion(flight.orientation).add(flight.position);
-      this.prefire.subVectors(player.position, this.prefire).addScaledVector(this.relativeVelocity, -travel);
-      this.prefire.y += 4.9 * travel ** 2;
-      this.prefire.normalize();
+    if (armed && firingPass && !overrun && this.computer.lead(flight, player)) {
+      this.prefire.subVectors(this.computer.point, this.computer.origin).normalize();
       // The instructor steers the flight path. Allow for the nose sitting
       // above it and add a small tracking error for a beatable opponent.
-      const trackingError = Math.sin(time * 3.8) * 0.004;
-      this.aim.copy(this.prefire);
-      this.aim.y += trackingError - clamp(flight.alpha, 0, 0.12) * 0.74;
-      this.aim.normalize();
-      const bore = this.forward.copy(this.bore).applyQuaternion(flight.orientation);
-      const aligned = bore.dot(this.prefire) > (time < this.burstUntil ? 0.9980 : 0.99965);
+      const trackingError = Math.sin(time * 3.8) * 0.0025;
+      this.aim.copy(this.prefire).addScaledVector(flight.up, trackingError - clamp(flight.alpha, -0.10, 0.12)).normalize();
+      const aligned = this.computer.bore.dot(this.prefire) > (time < this.burstUntil ? 0.99994 : 0.999985);
       if (aligned && time >= this.nextBurst && distance > 85) {
         this.burstUntil = time + 0.30;
         this.nextBurst = time + 1.35;
