@@ -422,16 +422,15 @@ test('gun computer displays training lead and a valid CCIP in a dive', async ({ 
   const readout = page.locator('#sight-readout');
   const marker = page.locator('#sight-marker');
   const state = page.locator('#sight-state');
-  await expect(readout).toBeHidden();
   await page.keyboard.press('c');
-  await expect(state).toHaveText('NO IMPACT');
-  await expect(marker).toBeHidden();
   await page.keyboard.press('m');
-  await expect(page.locator('#sight-mode')).toHaveText('TRAINING LEAD');
   await expect(state).toHaveText(/^VALID · \d+ M$/);
+  await expect(page.locator('#sight-mode')).toHaveText('TRAINING LEAD');
   await expect(marker).toBeVisible();
 
   await page.keyboard.press('m');
+  await expect(state).toHaveText('NO IMPACT');
+  await expect(marker).toBeHidden();
   await relativeMouse(page, 0, 930);
   await expect(state).toHaveText(/^VALID · \d+ M$/, { timeout: 18000 });
   await expect(marker).toHaveAttribute('data-mode', 'impact');

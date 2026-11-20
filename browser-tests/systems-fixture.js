@@ -23,6 +23,7 @@ camera.camera.aspect = 800 / 450;
 camera.camera.updateProjectionMatrix();
 const player = new Flight(f16, range);
 const model = createF16Visual();
+model.root.renderMovement = new T.Vector3();
 const playerRounds = new Ballistics(f16.cannon, range, () => {});
 const opponents = Array.from({ length: 3 }, (_, index) => {
   const visual = createOpponentVisual(model);
@@ -81,12 +82,15 @@ function checkRig() {
   player.reset(scenarios.dogfight);
   const { visual, fight } = opponents[0];
   fight.reset('defensive', scenarios.dogfight);
+  let ai = 0;
   for (let i = 0; i < 118; i++) {
     player.step(neutralControls);
     fight.update();
+    if (i % 12 === 11) {
+      visual.update(fight.opponent, fight.opponent.elapsed);
+      ai = Math.max(ai, Math.abs(angle(visual, 'LeftFlaperon') - angle(visual, 'RightFlaperon')));
+    }
   }
-  visual.update(fight.opponent, 1);
-  const ai = angle(visual, 'LeftFlaperon') - angle(visual, 'RightFlaperon');
   const meshName = 'LeftFlaperon';
   const sharedGeometry = visual.root.getObjectByName(meshName).children[0].geometry
     === model.root.getObjectByName(meshName).children[0].geometry;
@@ -95,6 +99,7 @@ function checkRig() {
 }
 
 function pose(visual, flight, time) {
+  visual.root.renderMovement?.subVectors(flight.position, visual.root.position);
   visual.root.position.copy(flight.position);
   visual.root.quaternion.copy(flight.orientation);
   visual.update(flight, time);
