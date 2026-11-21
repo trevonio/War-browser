@@ -426,7 +426,7 @@ test('dogfight briefing selects opponents, scores a cannon win, and restarts', a
   await page.goto('/');
   const opponent = page.getByLabel('AI opponent');
   await expect(opponent).toBeHidden();
-  await page.getByRole('button', { name: 'Dogfight' }).click();
+  await page.getByRole('button', { name: 'Dogfight', exact: true }).click();
   await expect(opponent).toHaveValue('aggressive');
 
   await opponent.selectOption('passive');
