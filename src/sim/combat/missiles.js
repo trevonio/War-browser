@@ -90,7 +90,7 @@ export class MissilePool {
       missile.direction.y -= 0.020 * dt;
       missile.direction.normalize();
     }
-    missile.speed = clamp(missile.speed + ((missile.age < config.burn ? config.boost : 0)
+    missile.speed = clamp(missile.speed + ((missile.age < config.burn ? config.thrust / config.mass : 0)
       - missile.speed * config.damping) * dt, 0, config.speedCap);
     missile.previous.copy(missile.position);
     missile.position.addScaledVector(missile.direction, missile.speed * dt);

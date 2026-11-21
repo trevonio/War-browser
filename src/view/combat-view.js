@@ -74,8 +74,8 @@ export class CombatEffects {
       const model = this.missiles[index];
       model.visible = missile.active;
       if (!missile.active) continue;
-      model.children[0].visible = missile.type === 'infrared';
-      model.children[1].visible = missile.type === 'radar';
+      model.children[0].visible = missile.config.model === 'wingtip';
+      model.children[1].visible = missile.config.model === 'outer';
       model.children[2].visible = missile.age < missile.config.burn;
       model.position.copy(missile.previous).lerp(missile.position, blend);
       model.quaternion.setFromUnitVectors(axis, missile.direction);

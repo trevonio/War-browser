@@ -99,6 +99,7 @@ export class CannonAudio {
       track: { frequency: 410, end: 525, duration: 0.18 },
       threat: { frequency: 890, end: 510, duration: 0.22 },
       launch: { frequency: 170, end: 100, duration: 0.25 },
+      radarLaunch: { frequency: 130, end: 75, duration: 0.30 },
     }[kind];
     const time = this.context.currentTime;
     const voice = this.context.createOscillator();

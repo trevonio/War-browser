@@ -4,7 +4,7 @@ import { Countermeasures } from './countermeasures.js';
 import { MissilePool } from './missiles.js';
 import { Radar } from './radar.js';
 import { ThreatReceiver } from './warnings.js';
-import { WeaponRack } from './weapons.js';
+import { WeaponRack, weapons } from './weapons.js';
 
 export const combatExercises = {
   short: {
@@ -82,7 +82,7 @@ export class CombatExercise {
 
   launch(side, opponent, type = side.rack.selected) {
     const launched = side.rack.fire(type, side.flight.elapsed, this.missiles, opponent.hull);
-    if (launched) this.effects.launch?.(side === this.player);
+    if (launched) this.effects.launch?.(side === this.player, weapons[type].launchCue);
     return launched;
   }
 

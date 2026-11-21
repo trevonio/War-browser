@@ -7,12 +7,12 @@ export const weapons = {
   cannon: { label: 'M61A1 · 20 MM' },
   infrared: {
     label: 'SIDEWINDER · IR', minRange: 150, maxRange: 2400, acquireArc: 0.955, keeperArc: 0.62,
-    dwell: 0.32, burn: 2.25, boost: 155, speedCap: 580, damping: 0.058,
+    dwell: 0.32, model: 'wingtip', launchCue: 'launch', mass: 1, burn: 2.25, thrust: 155, speedCap: 580, damping: 0.058,
     turnRate: 0.92, life: 10.5, fuse: 9, blast: 28, power: 17, decoyBias: 1.0,
   },
   radar: {
     label: 'AMRAAM · ACTIVE', minRange: 480, maxRange: 11900, acquireArc: 0.80, keeperArc: 0.69,
-    dwell: 0.24, burn: 6.4, boost: 166, speedCap: 890, damping: 0.026,
+    dwell: 0.24, model: 'outer', launchCue: 'radarLaunch', mass: 1.25, burn: 6.4, thrust: 207.5, speedCap: 890, damping: 0.026,
     turnRate: 0.63, life: 24, fuse: 12, blast: 33, power: 21, decoyBias: 1.04, terminalRange: 2150,
   },
 };

@@ -118,7 +118,7 @@ function boot() {
     weaponEffects.shot(0, position, direction, time, count);
   });
   const combat = new CombatExercise(dogfight, range, {
-    launch(own) { if (own) audio.cue('launch'); },
+    launch(own, cue) { if (own) audio.cue(cue); },
     burst(point, hit, own) {
       weaponEffects.emit('explosion', point, weaponEffects.budget > 100 ? 18 : 10);
       weaponEffects.emit('debris', point, hit ? 10 : 4);
