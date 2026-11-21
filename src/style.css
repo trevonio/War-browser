@@ -160,7 +160,7 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
 }
 #seeker-marker[data-ready="true"] { border-style: solid; border-color: #b0ffd1; }
 #combat-avionics, #combat-shortcuts {
-  position: absolute; bottom: 5.75rem; padding: .48rem .6rem;
+  position: absolute; bottom: max(5.75rem, calc(var(--deck-height, 0px) + .65rem)); padding: .48rem .6rem;
   color: #c5e4db; background: #0d2026bb; border: 1px solid #527c7e7a;
   font: .71rem/1.4 var(--mono);
 }
@@ -194,7 +194,7 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
   #flight-hud:has(#combat-shortcuts:not([hidden])) #sight-readout { bottom: 6rem; }
 }
 @media (max-height: 520px) {
-  #combat-avionics { bottom: 5.25rem; inset-inline: 50% auto; transform: translateX(-50%); }
+  #combat-avionics { bottom: max(5.25rem, calc(var(--deck-height, 0px) + .5rem)); inset-inline: 50% auto; transform: translateX(-50%); }
   #radar-scope { height: 3.4rem; }
 }
 [data-direct="true"] .aim-cursor, [data-looking="true"] .aim-cursor { display: none; }

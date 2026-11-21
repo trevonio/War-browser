@@ -578,6 +578,12 @@ function boot() {
     if (event.code === settings.keys.fireSelected) trigger.setKey(false);
   }, { signal });
 
+  const deckSize = new ResizeObserver(([entry]) => {
+    const height = entry.borderBoxSize[0].blockSize;
+    document.body.style.setProperty('--deck-height', `${height}px`);
+  });
+  deckSize.observe(ui['flight-deck']);
+  signal.addEventListener('abort', () => deckSize.disconnect(), { once: true });
   window.addEventListener('resize', resize, { signal });
   window.addEventListener('blur', () => pauseFlight('Window lost focus. Resume when you’re ready.'), { signal });
   document.addEventListener('visibilitychange', () => {
