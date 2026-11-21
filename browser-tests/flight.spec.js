@@ -282,6 +282,58 @@ test('mouse-only turns lead the aircraft with the view and sustain positive G', 
   await pauseFlight(page);
 });
 
+test('mouse pitch stays in the current roll hemisphere through vertical corrections', async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 600 });
+  await page.addInitScript(() => localStorage.setItem('war-browser:settings', JSON.stringify({ preset: 'low' })));
+  await page.goto('http://127.0.0.1:4174/');
+  // Read attitude from the same fixed steps driven by the real input handlers.
+  await page.evaluate(async () => {
+    const { Flight } = await import('/src/sim/flight.js');
+    const step = Flight.prototype.step;
+    const sample = window.flightSample = { elapsed: 0, travel: 0, minBankCosine: 1, releaseAt: Infinity };
+    Flight.prototype.step = function (...args) {
+      const before = this.elapsed;
+      step.apply(this, args);
+      if (before < sample.elapsed) {
+        sample.travel = 0;
+        sample.minBankCosine = 1;
+      }
+      const { x, y, z, w } = this.orientation;
+      const forwardY = 2 * (y * z - w * x);
+      sample.bankCosine = (1 - 2 * (x * x + z * z)) / Math.sqrt(Math.max(1e-8, 1 - forwardY ** 2));
+      sample.minBankCosine = Math.min(sample.minBankCosine, sample.bankCosine);
+      sample.verticalSpeed = this.velocity.y;
+      sample.elapsed = this.elapsed;
+      sample.travel += this.rates.z * (this.elapsed - before);
+      if (sample.travel >= sample.releaseAt) {
+        sample.releaseAt = Infinity;
+        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD' }));
+      }
+    };
+  });
+  const sample = () => page.evaluate(() => window.flightSample);
+  await startFlight(page);
+
+  await relativeMouse(page, 0, 620);
+  await expect.poll(async () => (await sample()).verticalSpeed, { timeout: 9000 }).toBeLessThan(-26);
+  expect(Math.abs((await aimState(page)).y - 0.5)).toBeLessThan(0.21);
+  for (const [dx, dy] of [[16, -1160], [-29, 1160], [29, -1160]]) {
+    await relativeMouse(page, dx, dy);
+    await expect.poll(async () => (await sample()).verticalSpeed * -Math.sign(dy), { timeout: 10000 }).toBeGreaterThan(12);
+  }
+  expect((await sample()).minBankCosine).toBeGreaterThan(0.94);
+
+  await page.keyboard.press('r');
+  await expect.poll(async () => (await sample()).elapsed).toBeLessThan(2);
+  await page.evaluate(() => { window.flightSample.releaseAt = 2.85; });
+  await page.keyboard.down('d');
+  await expect.poll(async () => (await sample()).bankCosine, { timeout: 8000 }).toBeLessThan(-0.95);
+  await page.keyboard.up('d');
+  await relativeMouse(page, 0, 490);
+  await expect.poll(async () => (await sample()).verticalSpeed, { timeout: 9000 }).toBeLessThan(-25);
+  expect((await sample()).bankCosine).toBeLessThan(-0.89);
+});
+
 test('cannon range fires under Pointer Lock, hits a drone, exhausts ammunition, and restarts', async ({ page }, testInfo) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));

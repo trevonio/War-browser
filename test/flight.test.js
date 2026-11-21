@@ -146,19 +146,32 @@ function moveMouse(aim, dx, dy = 0) {
   for (let i = 0; i < 20; i++) aim.move(dx / 20, dy / 20, 1, false);
 }
 
-function measureMouseTurn(flight, aim, seconds) {
+function mouseCommand(aim) {
+  return { pitchPriority: true, aimDirection: aim.direction, aimHint: aim.turnHint };
+}
+
+function bankCosine(flight) {
+  const { x, y, z, w } = flight.orientation;
+  const forwardY = 2 * (y * z - w * x);
+  const upY = 1 - 2 * (x * x + z * z);
+  return upY / Math.max(1e-6, Math.sqrt(Math.max(0, 1 - forwardY ** 2)));
+}
+
+function measureMouseTurn(flight, aim, seconds, pitchPriority = true) {
   let peakG = 0;
   let minG = Infinity;
   let bank = 0;
-  const bodyUp = new Vector3();
+  let leastBank = Math.PI;
   run(flight, seconds, (plane) => {
     peakG = Math.max(peakG, plane.g);
     minG = Math.min(minG, plane.g);
-    bank = Math.max(bank, Math.acos(MathUtils.clamp(bodyUp.set(0, 1, 0).applyQuaternion(plane.orientation).y, -1, 1)));
-    return { aimDirection: aim.direction, aimHint: aim.turnHint };
+    const bankAngle = Math.acos(MathUtils.clamp(bankCosine(plane), -1, 1));
+    bank = Math.max(bank, bankAngle);
+    leastBank = Math.min(leastBank, bankAngle);
+    return { ...mouseCommand(aim), pitchPriority };
   });
   assert.equal(flight.failure, '');
-  return { peakG, minG, bank, error: flight.velocity.angleTo(aim.direction) };
+  return { peakG, minG, bank, leastBank, error: flight.velocity.angleTo(aim.direction) };
 }
 
 test('mouse alone commands sharp 90-degree turns and a 180-degree reversal', () => {
@@ -175,15 +188,78 @@ test('mouse alone commands sharp 90-degree turns and a 180-degree reversal', () 
   }
 });
 
-test('mouse-only steep downward and upward targets converge with positive pull', () => {
-  for (const [dx, dy] of [[600, 780], [0, 780], [0, -820]]) {
+test('diagonal mouse targets still reach strong bank and converge in both directions', () => {
+  for (const [dx, dy] of [[600, 780], [-600, 780], [600, -820], [-600, -820]]) {
+    const scenario = { ...scenarios.air, y: 6500, speed: 240, throttle: 0.75 };
+    const flight = start(scenario);
+    const aim = new MouseAim();
+    moveMouse(aim, dx, dy);
+    const turn = measureMouseTurn(flight, aim, 12);
+    const original = measureMouseTurn(start(scenario), aim, 12, false);
+    assert.ok(turn.error < 0.06);
+    assert.ok(turn.peakG > 4);
+    assert.ok(turn.minG > -0.65);
+    assert.ok(turn.bank >= original.bank - MathUtils.degToRad(1));
+    assert.ok(Math.sign(flight.velocity.y) === -Math.sign(dy));
+    assert.ok(Math.sign(flight.velocity.x) === -Math.sign(dx));
+  }
+});
+
+test('straight vertical mouse aim uses signed pitch with minimal bank', () => {
+  for (const [dx, dy] of [[0, 780], [0, -820], [28, 780], [-28, 780]]) {
     const flight = start({ ...scenarios.air, y: 6500, speed: 240, throttle: 0.75 });
     const aim = new MouseAim();
     moveMouse(aim, dx, dy);
     const turn = measureMouseTurn(flight, aim, 12);
-    assert.ok(turn.error < 0.06);
-    assert.ok(turn.peakG > 4);
-    assert.ok(turn.minG > -0.65);
+    assert.ok(turn.error < 0.035);
+    assert.ok(turn.bank < MathUtils.degToRad(14));
+    assert.ok(dy > 0 ? turn.minG < -1.5 : turn.peakG > 4);
+    assert.ok(Math.sign(flight.velocity.y) === -Math.sign(dy));
+  }
+});
+
+test('alternating vertical mouse corrections stay in the same roll hemisphere', () => {
+  const flight = start({ ...scenarios.air, y: 6500, speed: 240, throttle: 0.75 });
+  const aim = new MouseAim();
+  for (const [dx, dy] of [[15, 560], [-29, -1120], [30, 1120], [-32, -1120]]) {
+    const before = flight.velocity.y;
+    moveMouse(aim, dx, dy);
+    const turn = measureMouseTurn(flight, aim, 2.4);
+    assert.ok(turn.bank < MathUtils.degToRad(18));
+    assert.ok(Math.sign(flight.velocity.y - before) === -Math.sign(dy));
+  }
+});
+
+test('keyboard roll can pass through inverted and complete a full turn', () => {
+  const flight = start({ ...scenarios.air, y: 6500, speed: 240, throttle: 0.75 });
+  const aim = new MouseAim();
+  let inverted = false;
+  let completed = false;
+  const controls = { ...neutralControls, ...mouseCommand(aim), roll: 1 };
+  for (let tick = 0; tick < 3.2 / STEP; tick++) {
+    flight.step(controls);
+    if (bankCosine(flight) < -0.995) inverted = true;
+    if (inverted && bankCosine(flight) > 0.995) {
+      completed = true;
+      break;
+    }
+  }
+  assert.ok(completed);
+  assert.equal(flight.failure, '');
+});
+
+test('vertical mouse corrections respect a manually inverted attitude', () => {
+  for (const dy of [-650, 650]) {
+    const flight = start({ ...scenarios.air, y: 6500, speed: 240, throttle: 0.75 });
+    const aim = new MouseAim();
+    const controls = { ...neutralControls, ...mouseCommand(aim), roll: -1 };
+    for (let tick = 0; tick < 2 / STEP && bankCosine(flight) > -0.995; tick++) flight.step(controls);
+    assert.ok(bankCosine(flight) <= -0.995);
+    moveMouse(aim, 0, dy);
+    const turn = measureMouseTurn(flight, aim, 10);
+    assert.ok(turn.error < 0.085);
+    assert.ok(turn.leastBank > MathUtils.degToRad(160));
+    assert.ok(bankCosine(flight) < -0.97);
     assert.ok(Math.sign(flight.velocity.y) === -Math.sign(dy));
   }
 });

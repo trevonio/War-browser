@@ -12,6 +12,10 @@ const tuning = {
   pitchGain: 7.4,
   pitchFeedforward: 0.72,
   yawFeedforward: 0.7,
+  pitchEnterLateral: 0.05,
+  pitchExitLateral: 0.09,
+  levelGain: 1.6,
+  levelRate: 0.72,
 };
 
 export class FlightInstructor {
@@ -24,13 +28,16 @@ export class FlightInstructor {
     this.tangent = new Vector3();
     this.liftDemand = new Vector3();
     this.turnSide = new Vector3();
+    this.levelRight = new Vector3();
     this.reset();
   }
 
   reset() {
     this.turnSide.set(0, 0, 0);
+    this.levelRight.set(0, 0, 0);
     this.lastRollSign = 1;
     this.holdingOpposite = false;
+    this.pitchDominant = false;
   }
 
   update(flight, controls, speed, authority, liftScale, gravity) {
@@ -86,6 +93,29 @@ export class FlightInstructor {
     const demand = this.liftDemand.length();
     let localUp = this.liftDemand.dot(this.lift);
     let localRight = this.liftDemand.dot(this.right);
+    const maxAlpha = lerp(spec.stallAngle - 0.035, spec.stallAngle + 0.01, authority);
+    const attainableLoad = (spec.baseLift + maxAlpha * spec.liftSlope) / liftScale;
+    const turnSpeed = Math.max(60, speed);
+    this.pitchLead = -(flight.g - this.lift.y) * gravity / turnSpeed * tuning.pitchFeedforward;
+    this.yawLead = this.right.y * gravity / turnSpeed * tuning.yawFeedforward;
+
+    if (controls.pitchPriority && this.usePitch(angle)) {
+      const horizon = this.gravity.length();
+      const levelUp = this.gravity.dot(this.lift);
+      const levelSide = Math.sign(levelUp) || 1;
+      const levelRoll = Math.atan2(levelSide * this.gravity.dot(this.right), Math.abs(levelUp));
+      const sidewaysLoad = this.tangent.dot(this.levelRight) * turnLoad;
+      const trimBank = clamp(sidewaysLoad * levelSide * localUp / (1 + localUp ** 2), -0.24, 0.24);
+      // Select the nearer level attitude. Fade across knife edge and near the
+      // vertical so a manual roll or a pitch through the pole stays continuous.
+      const levelWeight = smoothstep(horizon, 0.12, 0.35)
+        * smoothstep(Math.abs(levelUp) / Math.max(horizon, 0.001), 0.07, 0.40);
+      this.roll = clamp((levelRoll + trimBank) * levelWeight * tuning.levelGain - flight.rates.z * tuning.rollDamping,
+        -tuning.levelRate, tuning.levelRate);
+      const load = clamp(localUp, spec.minG * 0.95, Math.min(loadLimit, attainableLoad));
+      this.alpha = (load * liftScale - spec.baseLift) / spec.liftSlope;
+      return;
+    }
 
     // For gentle pushovers use signed lift from an upright attitude. Larger
     // turns bank the lift vector toward the target and pull positively.
@@ -104,15 +134,22 @@ export class FlightInstructor {
     this.roll = clamp(rollError * tuning.rollGain - flight.rates.z * tuning.rollDamping,
       -spec.rollRate, spec.rollRate);
 
-    const maxAlpha = lerp(spec.stallAngle - 0.035, spec.stallAngle + 0.01, authority);
-    const attainableLoad = (spec.baseLift + maxAlpha * spec.liftSlope) / liftScale;
     const load = gentlePush
       ? -Math.min(demand, 1.35)
       : Math.min(loadLimit, attainableLoad, Math.max(0.06, localUp));
     this.alpha = (load * liftScale - spec.baseLift) / spec.liftSlope;
-    const turnSpeed = Math.max(60, speed);
-    this.pitchLead = -(flight.g - this.lift.y) * gravity / turnSpeed * tuning.pitchFeedforward;
-    this.yawLead = this.right.y * gravity / turnSpeed * tuning.yawFeedforward;
+  }
+
+  usePitch(angle) {
+    // Measure sideways steering relative to the horizon, independent of bank.
+    // Keep the last reliable plane when the course is close to vertical.
+    if (this.gravity.lengthSq() > 0.12 ** 2) this.levelRight.crossVectors(this.course, UP).normalize();
+    else if (this.levelRight.lengthSq() === 0) this.levelRight.copy(this.right);
+    const lateral = angle * Math.min(1, Math.abs(this.tangent.dot(this.levelRight)));
+    const vertical = Math.sqrt(Math.max(0, angle ** 2 - lateral ** 2));
+    const threshold = this.pitchDominant ? tuning.pitchExitLateral : tuning.pitchEnterLateral;
+    this.pitchDominant = lateral < threshold && (this.pitchDominant || lateral < 0.008 || vertical >= lateral * 1.3);
+    return this.pitchDominant;
   }
 
   pitchRate(alpha, targetAlpha) {

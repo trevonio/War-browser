@@ -65,7 +65,7 @@ export class Controls {
     this.settings = settings;
     this.held = new Set();
     this.aim = new MouseAim();
-    this.command = { ...neutralControls };
+    this.command = { ...neutralControls, pitchPriority: true };
     this.orbiting = false;
     const options = { signal };
 
