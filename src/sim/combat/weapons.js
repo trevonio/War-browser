@@ -1,0 +1,161 @@
+import { Vector3 } from 'three';
+import { hasLineOfSight } from './radar.js';
+
+// Deliberately game-tuned archetypes for the coastal range. These values
+// describe the fictional simulation and are shared by player and AI.
+export const weapons = {
+  cannon: { label: 'M61A1 · 20 MM' },
+  infrared: {
+    label: 'SIDEWINDER · IR', minRange: 150, maxRange: 2400, acquireArc: 0.955, keeperArc: 0.62,
+    dwell: 0.32, burn: 2.25, boost: 155, speedCap: 580, damping: 0.058,
+    turnRate: 0.92, life: 10.5, fuse: 9, blast: 28, power: 17, decoyBias: 1.0,
+  },
+  radar: {
+    label: 'AMRAAM · ACTIVE', minRange: 480, maxRange: 11900, acquireArc: 0.80, keeperArc: 0.69,
+    dwell: 0.24, burn: 6.4, boost: 166, speedCap: 890, damping: 0.026,
+    turnRate: 0.63, life: 24, fuse: 12, blast: 33, power: 21, decoyBias: 1.04, terminalRange: 2150,
+  },
+};
+
+export function simulatedHeat(flight) {
+  return 0.38 + (flight.thrust > 0 ? flight.spool * 0.48 : 0) + (flight.afterburner ? 0.54 : 0)
+    + (flight.damage.fire ? 0.17 : 0);
+}
+
+export class WeaponRack {
+  constructor(flight, radar, world) {
+    this.flight = flight;
+    this.radar = radar;
+    this.world = world;
+    this.line = new Vector3();
+    this.forward = new Vector3();
+    this.reset(null);
+  }
+
+  reset(loadout, selected = 'cannon') {
+    this.stations = loadout?.stations.map((station) => ({ ...station, used: false })) ?? [];
+    this.flare = loadout?.flare ?? 0;
+    this.chaff = loadout?.chaff ?? 0;
+    this.selected = selected;
+    this.seeker = { infrared: this.blankSeeker(), radar: this.blankSeeker() };
+    this.nextDecoy = { flare: 0, chaff: 0 };
+    this.releaseSide = 1;
+    this.nextAcquire = 0;
+    this.nextLaunch = 0;
+    this.notice = '';
+    this.noticeUntil = 0;
+  }
+
+  blankSeeker() {
+    return { target: null, since: 0, ready: false, range: 0 };
+  }
+
+  station(type) {
+    return this.stations.find((entry) => entry.type === type && !entry.used
+      && this.flight.damage.condition(entry.wing) > 0);
+  }
+
+  count(type) {
+    let available = 0;
+    for (const entry of this.stations) {
+      if (entry.type === type && !entry.used && this.flight.damage.condition(entry.wing) > 0) available++;
+    }
+    return available;
+  }
+
+  select(type) {
+    if (type === 'cannon' || this.stations.some((entry) => entry.type === type)) this.selected = type;
+  }
+
+  cycle() {
+    const options = Object.keys(weapons).filter((type) => type === 'cannon'
+      || this.stations.some((entry) => entry.type === type));
+    this.select(options[(options.indexOf(this.selected) + 1) % options.length]);
+  }
+
+  update(time, contacts) {
+    if (time < this.nextAcquire || this.flight.failure) return;
+    this.nextAcquire = time + 0.10;
+    const own = this.flight;
+    this.forward.set(0, 0, 1).applyQuaternion(own.orientation);
+    this.acquire('infrared', this.station('infrared') ? contacts : [], time);
+    const track = this.radar.track;
+    this.acquire('radar', this.station('radar') && track && time - track.time < 0.43 ? [track] : [], time);
+  }
+
+  acquire(type, contacts, time) {
+    const config = weapons[type];
+    const seeker = this.seeker[type];
+    let selected = null;
+    let selectedRange = 0;
+    let strongest = 0.16;
+    for (const contact of contacts) {
+      const target = type === 'infrared' ? contact : contact.target;
+      if (target.failure) continue;
+      const estimate = type === 'infrared' ? target.position : contact.position;
+      this.line.subVectors(estimate, this.flight.position);
+      const range = this.line.length();
+      if (range < 1 || range > config.maxRange * 1.16) continue;
+      this.line.multiplyScalar(1 / range);
+      const alignment = this.forward.dot(this.line);
+      const cone = target === seeker.target ? config.acquireArc - 0.026 : config.acquireArc;
+      if (alignment < cone) continue;
+      const heat = type === 'infrared' ? simulatedHeat(target) : contact.quality;
+      const score = heat * alignment / (0.70 + range / config.maxRange);
+      if (score < strongest || (type === 'infrared' && !hasLineOfSight(this.world, this.flight.position, estimate))) continue;
+      selected = target;
+      selectedRange = range;
+      strongest = score;
+    }
+    if (seeker.target !== selected) seeker.since = time;
+    seeker.target = selected;
+    seeker.range = selectedRange;
+    seeker.ready = selected !== null && time - seeker.since >= config.dwell
+      && selectedRange >= config.minRange && selectedRange <= config.maxRange;
+  }
+
+  fire(type, time, missiles, hull) {
+    if (type === 'cannon') return false;
+    if (this.launchState(type, time) !== 'CLEARED') {
+      this.message('LAUNCH INHIBITED', time);
+      return false;
+    }
+    const station = this.station(type);
+    const missile = missiles.launch(this, station, this.seeker[type].target, hull);
+    if (!missile) return false;
+    station.used = true;
+    this.nextLaunch = time + 0.60;
+    this.message('MISSILE AWAY', time);
+    return true;
+  }
+
+  launchState(type, time) {
+    if (!this.station(type)) return 'AMMO EMPTY';
+    if (this.flight.failure || this.flight.grounded) return 'INHIBITED';
+    if (time < this.nextLaunch) return 'CYCLING';
+    const seeker = this.seeker[type];
+    if (type === 'radar') {
+      const track = this.radar.track;
+      if (!track || time - track.time > 0.42) return 'STT REQUIRED';
+      if (track.target !== seeker.target) return 'ACQUIRING';
+    }
+    if (!seeker.target || seeker.target.failure) return 'SEARCHING';
+    if (seeker.range < weapons[type].minRange || seeker.range > weapons[type].maxRange) return 'OUT OF RANGE';
+    return seeker.ready ? 'CLEARED' : 'ACQUIRING';
+  }
+
+  deploy(type, time, decoys) {
+    if (this.flight.failure || this[type] <= 0 || time < this.nextDecoy[type]) return false;
+    if (!decoys.release(this.flight, type, this.releaseSide)) return false;
+    this[type]--;
+    this.releaseSide *= -1;
+    this.nextDecoy[type] = time + 0.42;
+    this.message(type === 'flare' ? 'FLARE RELEASED' : 'CHAFF RELEASED', time);
+    return true;
+  }
+
+  message(notice, time) {
+    this.notice = notice;
+    this.noticeUntil = time + 1.3;
+  }
+}

@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { cannonMount } from '../sim/cannon.js';
 import { f16 } from './f16.js';
+import { wingStores } from './f16-ordnance.js';
 import { bindF16Rig, buildF16Rig } from './f16-rig.js';
 
 // Geometry and materials adapted from the supplied procedural F-16 viewer.
@@ -9,7 +10,7 @@ export function createF16Visual() {
   const root = new T.Group();
   const P = new T.Group();
   P.name = 'F-16C airframe';
-  P.scale.setScalar(0.93);
+  P.scale.setScalar(wingStores.scale);
   root.add(P);
   // Textura de chapa: paneles, remaches y suciedad
   const mk = () => {
@@ -311,14 +312,18 @@ export function createF16Visual() {
   const stations = [];
   {
     const a = rkt(2.9, 0.063, 0.45);
-    a.position.set(5.35, -0.22, -2.1);
+    a.position.fromArray(wingStores.wingtip);
     const tip = two(a, arm);
+    a.name = 'wingtip-left';
+    tip.name = 'wingtip-right';
     stations.push({ name: 'wingtip', left: a, right: tip });
     const b = new T.Group();
     b.add(M(new T.BoxGeometry(0.05, 0.22, 1.3), mW, 0, -0.12, 0), rkt(3.66, 0.09, 0.5));
-    b.children[1].position.set(0, -0.35, 0);
-    b.position.set(3.3, -0.3, -2.5);
+    b.children[1].position.set(0, -wingStores.outerDrop, 0);
+    b.position.fromArray(wingStores.outer);
     const outer = two(b, arm);
+    b.children[1].name = 'outer-left';
+    outer.children[1].name = 'outer-right';
     stations.push({ name: 'outer pylon', left: b, right: outer });
     const c = new T.Group();
     c.add(M(new T.BoxGeometry(0.06, 0.3, 1.4), mW, 0, -0.15, 0), tank(4.6, 0.33));

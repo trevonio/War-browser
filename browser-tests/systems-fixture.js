@@ -3,6 +3,7 @@ import { f16 } from '../src/aircraft/f16.js';
 import { createF16Visual, createOpponentVisual } from '../src/aircraft/f16-visual.js';
 import { Ballistics } from '../src/sim/ballistics.js';
 import { Cannon, worldMuzzle } from '../src/sim/cannon.js';
+import { CombatExercise } from '../src/sim/combat/exercise.js';
 import { Dogfight } from '../src/sim/dogfight.js';
 import { Flight, neutralControls, STEP } from '../src/sim/flight.js';
 import { GunComputer } from '../src/sim/gun-computer.js';
@@ -10,6 +11,7 @@ import { PracticeRange } from '../src/sim/practice.js';
 import { range, scenarios } from '../src/sim/range.js';
 import { FlightCamera } from '../src/view/camera.js';
 import { CannonEffects } from '../src/view/cannon-effects.js';
+import { CombatEffects, drawRadar } from '../src/view/combat-view.js';
 import { WorldView } from '../src/view/world.js';
 
 const renderer = new T.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -174,6 +176,11 @@ async function measure(mode) {
     renderer.render(scene, camera.camera);
   };
   render(last);
+  const fps = await sampleFrames(render);
+  return { fps, drawCalls: renderer.info.render.calls, particles: effects.particleCount, rounds: cannon.fired };
+}
+
+async function sampleFrames(render) {
   const warmup = performance.now();
   let now = warmup;
   while (now - warmup < 450) {
@@ -187,12 +194,120 @@ async function measure(mode) {
     render(now);
     frames++;
   }
-  return {
-    fps: Number((frames * 1000 / (now - started)).toFixed(1)),
-    drawCalls: renderer.info.render.calls,
-    particles: effects.particleCount,
-    rounds: cannon.fired,
-  };
+  return Number((frames * 1000 / (now - started)).toFixed(1));
 }
 
-window.flightSystemsTest = { checkRig, checkImpact, measure };
+let combat;
+let ordnance;
+const scope = document.createElement('canvas');
+scope.width = 184;
+scope.height = 108;
+const peak = {};
+
+async function measureAirCombat(mode) {
+  const start = scenarios.intercept;
+  const exercise = opponents[0].fight;
+  if (!combat) {
+    combat = new CombatExercise(exercise, range, {
+      launch() { peak.launches++; },
+      burst(point) {
+        effects.emit('explosion', point, 18);
+        effects.emit('debris', point, 10);
+        peak.bursts++;
+      },
+    });
+    ordnance = new CombatEffects(scene, model, opponents[0].visual, combat, effects);
+  }
+  const active = mode === 'contacts' ? opponents : opponents.slice(0, 1);
+  const distance = mode === 'launch' ? 1720 : mode === 'burst' ? 1270 : 4490;
+  player.reset(start);
+  effects.clear();
+  camera.snap = true;
+  Object.assign(peak, { contacts: 0, missiles: 0, decoys: 0, launches: 0, bursts: 0, particles: 0 });
+  for (const [index, { fight, visual }] of opponents.entries()) {
+    visual.root.visible = active.includes(opponents[index]);
+    if (!visual.root.visible) continue;
+    const x = (index === 0 ? 65 : (index - 1.5) * 1900);
+    const z = distance + index * 410;
+    fight.reset('aggressive', start, {
+      x, y: index * 30, z, speed: 190, heading: Math.PI - Math.atan2(x, z),
+    });
+  }
+  combat.reset('intercept', 'veteran');
+  combat.player.candidates = active.map(({ fight }) => fight.opponent);
+  if (mode !== 'ai') {
+    combat.enemy.radar.togglePower();
+    combat.nextLaunch = Infinity;
+  }
+  combat.player.radar.togglePower();
+  if (mode === 'contacts') combat.player.radar.cycleMode();
+  ordnance.reset();
+  const { radar, rack } = combat.player;
+  let lastLaunch = -Infinity;
+  let nextDecoy = 0;
+  let revision = -1;
+  let burst = false;
+
+  const advance = () => {
+    player.step(neutralControls);
+    for (const { fight } of active) fight.update(fight === exercise ? combat.adjust : null);
+    combat.step(STEP);
+    const time = player.elapsed;
+    if (!radar.locked && radar.contacts.size && ['salvo', 'ai'].includes(mode)) {
+      radar.selectNext();
+      radar.toggleLock();
+    }
+    if (['launch', 'salvo', 'ai'].includes(mode)) {
+      const type = mode === 'launch' ? 'infrared' : 'radar';
+      const desired = mode === 'salvo' ? 2 : 1;
+      if (rack.count(type) > 2 - desired && time - lastLaunch > 0.65 && rack.seeker[type].ready) {
+        if (combat.launch(combat.player, combat.enemy, type)) lastLaunch = time;
+      }
+    }
+    if (mode === 'decoys' && time >= nextDecoy) {
+      for (const side of combat.sides) {
+        side.rack.deploy('flare', time, combat.decoys);
+        side.rack.deploy('chaff', time, combat.decoys);
+      }
+      nextDecoy = time + 0.46;
+    }
+    if (!burst && mode === 'burst' && time > 0.72) {
+      burst = true;
+      const point = player.position.clone().add(new T.Vector3(8, 4, 60));
+      combat.effects.burst(point, true);
+    }
+    ordnance.step(time);
+    peak.contacts = Math.max(peak.contacts, radar.contacts.size);
+    peak.missiles = Math.max(peak.missiles, combat.missiles.pool.filter((item) => item.active).length);
+    peak.decoys = Math.max(peak.decoys, combat.decoys.pool.filter((item) => item.active).length);
+    peak.particles = Math.max(peak.particles, effects.particleCount);
+  };
+  // Warm up the engagement so the measurement includes a real AI launch.
+  if (mode === 'ai') for (let tick = 0; tick < 240; tick++) advance();
+  let last = performance.now();
+  let accumulator = 0;
+  const render = (now) => {
+    const dt = Math.min(0.3, (now - last) / 1000);
+    last = now;
+    accumulator += dt;
+    while (accumulator >= STEP) {
+      accumulator -= STEP;
+      advance();
+    }
+    pose(model, player, now / 1000);
+    for (const { visual, fight } of active) pose(visual, fight.opponent, now / 1000);
+    camera.update(model.root, player.velocity, dt, 'flying', false, 1);
+    world.update(player.position, camera.camera);
+    ordnance.render(1);
+    effects.render(player.elapsed, dt, 1, true);
+    if (revision !== radar.revision) {
+      revision = radar.revision;
+      drawRadar(scope, radar);
+    }
+    renderer.render(scene, camera.camera);
+  };
+  render(last);
+  return { fps: await sampleFrames(render), ...peak, drawCalls: renderer.info.render.calls };
+}
+
+window.flightSystemsTest = { checkRig, checkImpact, measure, measureAirCombat };

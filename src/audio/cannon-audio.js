@@ -92,6 +92,27 @@ export class CannonAudio {
     source.start(time, 0, 0.037);
   }
 
+  cue(kind) {
+    if (this.context?.state !== 'running') return;
+    const { frequency, end, duration } = {
+      acquire: { frequency: 525, end: 755, duration: 0.15 },
+      track: { frequency: 410, end: 525, duration: 0.18 },
+      threat: { frequency: 890, end: 510, duration: 0.22 },
+      launch: { frequency: 170, end: 100, duration: 0.25 },
+    }[kind];
+    const time = this.context.currentTime;
+    const voice = this.context.createOscillator();
+    const gain = this.context.createGain();
+    voice.frequency.setValueAtTime(frequency, time);
+    voice.frequency.exponentialRampToValueAtTime(end, time + duration);
+    gain.gain.setValueAtTime(0.045, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    voice.connect(gain).connect(this.context.destination);
+    voice.onended = () => { voice.disconnect(); gain.disconnect(); };
+    voice.start(time);
+    voice.stop(time + duration);
+  }
+
   voice() {
     const source = this.context.createBufferSource();
     const gain = this.context.createGain();

@@ -1,20 +1,33 @@
 export class CannonTrigger {
   constructor(viewport, { enabled, pressed, released }, signal) {
     this.held = false;
+    this.pointerHeld = false;
+    this.keyHeld = false;
     this.simHeld = false;
     this.transitions = [];
     this.windows = [];
     this.pressed = pressed;
     this.released = released;
     viewport.addEventListener('mousedown', (event) => {
-      if (event.button === 0 && enabled()) this.setHeld(true);
+      if (event.button === 0 && enabled()) {
+        this.pointerHeld = true;
+        this.setHeld(true);
+      }
     }, { signal });
     window.addEventListener('mouseup', (event) => {
-      if (event.button === 0) this.setHeld(false);
+      if (event.button === 0) {
+        this.pointerHeld = false;
+        this.setHeld(this.keyHeld);
+      }
     }, { signal });
     for (const event of ['blur', 'pointercancel']) {
       window.addEventListener(event, () => this.clear(), { signal });
     }
+  }
+
+  setKey(held) {
+    this.keyHeld = held;
+    this.setHeld(held || this.pointerHeld);
   }
 
   setHeld(held) {
@@ -47,6 +60,7 @@ export class CannonTrigger {
   }
 
   clear() {
+    this.pointerHeld = this.keyHeld = false;
     this.transitions.length = 0;
     this.simHeld = false;
     if (this.held) {

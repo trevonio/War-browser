@@ -183,3 +183,34 @@ The visual track estimates range from apparent size and estimates velocity
 from successive observations. **Training Lead** in the cannon range uses
 drone telemetry. The computer displays a cue and leaves the rounds on
 their simulated trajectory.
+
+## Missile exercises
+
+**Missile dogfight** starts a close-range encounter with two IR missiles.
+**BVR intercept** adds two active radar missiles and starts with an inbound
+contact beyond the visual marker range. Rookie, Regular, and Veteran change
+the AI's decision and reaction timing. Both sides use the same launch checks,
+aircraft physics, and quantities.
+
+| Input | Action |
+| --- | --- |
+| 1 / 2 / 3 / 4 | Select cannon / IR / radar missile / cycle |
+| Left click / Space | Fire the selected weapon |
+| P / T / L | Power the radar / select contact / lock or unlock |
+| Y / U / I | Change search mode / scan range / show or hide the scope |
+| J / K | Release a flare / chaff |
+
+The scope shows sampled, approximate observations. Search has a slower scan.
+TWS refreshes multiple contacts, and STT supports one radar missile track at a
+time. **CLEARED** indicates that the selected missile can be launched. The
+radar missile initially uses the aircraft's available track and can coast if
+updates stop. Its active seeker can attempt to acquire the contact later in
+flight. The warning receiver reacts to in-game search, track, and active
+seeker emissions.
+
+The missile envelopes, seeker signals, clutter and countermeasure effects are
+gameplay approximations tuned for the coastal map. Missiles travel as separate
+objects with time-limited boost, steering, and life. Flares and chaff drift and
+fade, and can interfere with their matching seekers. A blast can damage several
+nearby aircraft components. The existing stores toggle controls their
+appearance, and an available hardpoint can fire while its model is hidden.

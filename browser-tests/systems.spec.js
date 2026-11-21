@@ -27,5 +27,18 @@ test('renders rigged surfaces and measures combat with damage and multiple aircr
   expect(timings.damaged.particles).toBeGreaterThan(timings.combat.particles + 5);
   expect(timings.multi.drawCalls).toBeGreaterThan(timings.combat.drawCalls);
   console.log('Stage 2.3 Chromium WebGL, medium 800×450', JSON.stringify(timings));
+  const modern = {};
+  for (const mode of ['scan', 'contacts', 'launch', 'salvo', 'decoys', 'ai', 'burst']) {
+    modern[mode] = await page.evaluate((scenario) => window.flightSystemsTest.measureAirCombat(scenario), mode);
+    expect(modern[mode].fps).toBeGreaterThan(0);
+  }
+  expect(modern.scan.contacts).toBe(1);
+  expect(modern.contacts.contacts).toBe(3);
+  expect(modern.launch.launches).toBeGreaterThan(0);
+  expect(modern.salvo.missiles).toBeGreaterThan(1);
+  expect(modern.decoys.decoys).toBeGreaterThan(3);
+  expect(modern.ai.missiles).toBeGreaterThan(1);
+  expect(modern.burst.particles).toBeGreaterThan(18);
+  console.log('Stage 2.4 Chromium WebGL, medium 800×450', JSON.stringify(modern));
   expect(errors).toEqual([]);
 });

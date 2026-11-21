@@ -7,6 +7,9 @@ export const keyDefaults = {
   throttleUp: 'ShiftLeft', throttleDown: 'ControlLeft', afterburner: 'KeyB', gear: 'KeyG', stores: 'KeyH',
   airbrake: 'KeyX', camera: 'KeyV', freeLook: 'KeyF', pause: 'Escape', restart: 'KeyR',
   sight: 'KeyC', sightMode: 'KeyM',
+  weaponCannon: 'Digit1', weaponInfrared: 'Digit2', weaponRadar: 'Digit3', cycleWeapon: 'Digit4', fireSelected: 'Space',
+  radarPower: 'KeyP', radarTarget: 'KeyT', radarLock: 'KeyL', radarMode: 'KeyY', radarRange: 'KeyU', radarScope: 'KeyI',
+  flares: 'KeyJ', chaff: 'KeyK',
 };
 
 export const keyLabels = {
@@ -15,6 +18,11 @@ export const keyLabels = {
   gear: 'Landing gear', stores: 'External stores', airbrake: 'Airbrake / wheel brakes', camera: 'Switch camera',
   freeLook: 'Free look', pause: 'Pause', restart: 'Restart flight',
   sight: 'Toggle gun computer', sightMode: 'Change gun computer mode',
+  weaponCannon: 'Select cannon', weaponInfrared: 'Select infrared missile', weaponRadar: 'Select radar missile',
+  cycleWeapon: 'Cycle weapons', fireSelected: 'Fire selected weapon',
+  radarPower: 'Radar power', radarTarget: 'Select radar contact', radarLock: 'Lock or unlock radar contact',
+  radarMode: 'Change radar scan mode', radarRange: 'Change radar scan range', radarScope: 'Show or hide radar scope',
+  flares: 'Release flare', chaff: 'Release chaff',
 };
 
 export function keyName(code) {
@@ -40,19 +48,25 @@ export function loadSettings() {
     if (Number.isFinite(saved[option])) config[option] = MathUtils.clamp(saved[option], 0.4, 2.2);
   }
   config.invert = saved.invert === true;
-  for (const action of Object.keys(config.keys)) {
+  const actions = Object.keys(config.keys);
+  const used = new Set();
+  const restored = new Set();
+  for (const action of actions) {
     const code = saved.keys?.[action];
-    if (code === 'Escape' || canBind(code)) config.keys[action] = code;
+    if ((code !== 'Escape' && !canBind(code)) || used.has(code)) continue;
+    config.keys[action] = code;
+    used.add(code);
+    restored.add(action);
   }
-  for (const action of ['sight', 'sightMode']) {
-    if (saved.keys?.[action]) continue;
-    const used = new Set(Object.entries(config.keys).filter(([key]) => key !== action).map(([, code]) => code));
-    if (used.has(config.keys[action])) {
-      config.keys[action] = ['KeyC', 'KeyM', 'KeyJ', 'KeyK', 'KeyL', 'KeyT', 'KeyY', 'Digit1']
-        .find((code) => !used.has(code)) ?? config.keys[action];
-    }
+  const candidates = ['ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((key) => `Key${key}`),
+    '0123456789'.split('').map((key) => `Digit${key}`),
+    ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space']].flat();
+  for (const action of actions) {
+    if (restored.has(action)) continue;
+    const preferred = keyDefaults[action];
+    config.keys[action] = used.has(preferred) ? candidates.find((code) => !used.has(code)) : preferred;
+    used.add(config.keys[action]);
   }
-  if (new Set(Object.values(config.keys)).size !== Object.keys(config.keys).length) config.keys = { ...keyDefaults };
   return config;
 }
 

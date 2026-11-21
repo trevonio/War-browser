@@ -2,7 +2,7 @@ import { Vector3 } from 'three';
 
 const GRAVITY = 9.80665;
 
-function sweepSphere(start, end, collider, startFraction, endFraction) {
+export function sweepSphere(start, end, collider, startFraction = 0, endFraction = 1) {
   const { position, previous, radius } = collider;
   const vx = position.x - previous.x;
   const vy = position.y - previous.y;

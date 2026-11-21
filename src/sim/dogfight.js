@@ -79,7 +79,7 @@ export class Dogfight {
     this.cannon = new Cannon(spec.cannon, cannonMount(spec.cannon), this.ballistics, effects.shot);
   }
 
-  reset(mode, start) {
+  reset(mode, start, opponentStart) {
     this.enabled = Boolean(mode);
     this.notice = '';
     this.noticeUntil = 0;
@@ -90,7 +90,7 @@ export class Dogfight {
     this.playerHull.reset(this.enabled);
     this.opponentHull.reset(false);
     if (!this.enabled) return;
-    const { x, y, z, speed, heading } = spawns[mode];
+    const { x, y, z, speed, heading } = opponentStart ?? spawns[mode];
     const scenario = {
       ...start, x: start.x + x, y: start.y + y, z: start.z + z,
       heading, speed: speed * this.pilot.speedScale,
@@ -100,18 +100,18 @@ export class Dogfight {
     this.pilot.reset(mode, scenario);
   }
 
-  update() {
+  update(adjust) {
     const command = this.pilot.update(this.opponent, this.player, this.cannon.ammo > 0);
     if (this.pilot.burner !== this.opponent.burnerArmed) this.opponent.toggleAfterburner();
-    this.opponent.step(command);
+    this.opponent.step(adjust ? adjust(command) : command);
     this.playerHull.update();
     this.opponentHull.update();
     if (this.player.failure) this.playerHull.activate(false);
     if (this.opponent.failure) this.opponentHull.activate(false);
   }
 
-  fire() {
-    if (!this.opponentHull.incapacitated) this.cannon.step(STEP, this.pilot.fire, this.opponent);
+  fire(allowCannon = true) {
+    if (!this.opponentHull.incapacitated) this.cannon.step(STEP, allowCannon && this.pilot.fire, this.opponent);
     if (this.ballistics.count) this.ballistics.step(STEP, this.opponentTargets);
   }
 

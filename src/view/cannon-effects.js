@@ -9,6 +9,10 @@ const styles = {
   fire: { color: 0xff8c33, life: 0.34, size: 0.98, speed: 10, opacity: 0.85, lift: 4 },
   engineSmoke: { color: 0x343539, life: 1.7, size: 1.8, speed: 6, opacity: 0.62, lift: 5 },
   fuelMist: { color: 0xc6d9d5, life: 0.90, size: 0.53, speed: 4, opacity: 0.45, lift: -2 },
+  rocketTrail: { color: 0xd4d4cf, life: 1.85, size: 1.35, speed: 4, opacity: 0.47, lift: 2 },
+  rocketFlash: { color: 0xffcb75, life: 0.34, size: 2.6, speed: 22, opacity: 0.9, lift: 5 },
+  explosion: { color: 0xffa54d, life: 0.65, size: 4.2, speed: 35, opacity: 0.72, lift: 5 },
+  debris: { color: 0x9d7864, life: 1.0, size: 0.85, speed: 45, opacity: 0.85, lift: -6 },
 };
 for (const style of Object.values(styles)) style.rgb = new T.Color(style.color);
 

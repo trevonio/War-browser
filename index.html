@@ -35,12 +35,21 @@
         <button id="start-runway" type="button" aria-pressed="false">Runway 36</button>
         <button id="start-practice" type="button" aria-pressed="false">Cannon range</button>
         <button id="start-dogfight" type="button" aria-pressed="false">Dogfight</button>
+        <button id="start-short" type="button" aria-pressed="false">Missile dogfight</button>
+        <button id="start-intercept" type="button" aria-pressed="false">BVR intercept</button>
       </div>
       <label id="opponent-choice" for="opponent-mode" hidden>AI opponent
         <select id="opponent-mode" aria-describedby="start-detail">
           <option value="passive">Passive</option>
           <option value="defensive">Defensive</option>
           <option value="aggressive" selected>Aggressive</option>
+        </select>
+      </label>
+      <label id="combat-choice" for="combat-difficulty" hidden>Opponent difficulty
+        <select id="combat-difficulty">
+          <option value="rookie">Rookie</option>
+          <option value="regular" selected>Regular</option>
+          <option value="veteran">Veteran</option>
         </select>
       </label>
       <div id="start-detail" class="start-detail">2,950 FT MSL · 358 KTS</div>
@@ -69,7 +78,7 @@
         </div>
         <div class="instrument">
           <div class="instrument-label" id="cannon-label">M61A1 · 20 MM</div>
-          <output id="cannon-ammo">510</output><span class="unit">RDS</span>
+          <output id="cannon-ammo">510</output><span class="unit" id="cannon-unit">RDS</span>
           <div class="instrument-note" id="cannon-state">READY</div>
         </div>
       </div>
@@ -86,6 +95,7 @@
         </div>
       </div>
       <div id="boresight" class="boresight" title="Fixed cannon sight"></div>
+      <div id="seeker-marker" aria-label="Missile seeker axis" hidden></div>
       <div id="aim-cursor" class="aim-cursor" title="Mouse aim"></div>
       <div id="flight-warning" class="flight-warning" role="status"></div>
       <div id="damage-warning" class="flight-warning" role="status"></div>
@@ -105,6 +115,27 @@
         <span id="sight-state" role="status"></span>
       </div>
       <div id="sight-marker" aria-label="Computed gun solution" hidden></div>
+      <section id="combat-avionics" aria-label="Air combat avionics" hidden>
+        <div id="rwr-panel">
+          <span id="rwr-arrow" aria-hidden="true">↑</span>
+          <div><b>RWR</b> <span id="rwr-contact">CLEAR</span><small id="rwr-bearing"></small></div>
+        </div>
+        <section id="radar-panel" aria-label="Radar scope">
+          <div class="scope-row"><b id="radar-mode">OFF</b><span><output id="radar-range">13.6</output> KM</span></div>
+          <canvas id="radar-scope" width="184" height="108" aria-label="Relative radar contact positions"></canvas>
+          <div class="scope-row"><span id="radar-contacts">0 CONTACTS</span><span id="radar-track">—</span></div>
+          <div id="radar-closure"></div>
+        </section>
+        <div class="scope-row"><span>FLARE <output id="remaining-flare">8</output></span><span>CHAFF <output id="remaining-chaff">8</output></span></div>
+        <div id="missile-telemetry"></div>
+        <div id="launch-feedback" role="status"></div>
+      </section>
+      <div id="combat-shortcuts" aria-label="Air combat shortcuts" hidden>
+        <span><kbd id="key-cycleWeapon">4</kbd> Weapon <kbd id="key-fireSelected">Space</kbd> Fire</span>
+        <span><kbd id="key-radarPower">P</kbd> Radar <kbd id="key-radarTarget">T</kbd> Contact <kbd id="key-radarLock">L</kbd> Lock</span>
+        <span><kbd id="key-radarMode">Y</kbd> Mode <kbd id="key-radarRange">U</kbd> Range <kbd id="key-radarScope">I</kbd> Scope</span>
+        <span><kbd id="key-flares">J</kbd> Flare <kbd id="key-chaff">K</kbd> Chaff</span>
+      </div>
     </section>
 
     <section id="pause-panel" class="briefing" aria-labelledby="pause-title">
