@@ -519,6 +519,9 @@ test('BVR scope finds and locks an inbound contact and supports a radar missile'
   await expect(mode).toHaveText('STT');
   await expect(page.locator('#radar-track')).toHaveText(/^LOCK \d+\.\d KM$/);
   await expect(flightState).toHaveText('CLEARED');
+  const instruments = await page.locator('.readout-right').boundingBox();
+  const avionics = await page.locator('#combat-avionics').boundingBox();
+  expect(instruments.y + instruments.height).toBeLessThan(avionics.y);
   await page.keyboard.press('Space');
   await expect(page.locator('#cannon-ammo')).toHaveText('1');
   await expect(page.locator('#missile-telemetry')).toHaveText('MIDCOURSE · LINK');

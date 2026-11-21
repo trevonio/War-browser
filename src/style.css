@@ -147,6 +147,10 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
   font: .71rem/1.4 var(--mono);
 }
 #combat-avionics { right: clamp(.55rem, 4.5vw, 4rem); width: 13rem; }
+#flight-hud:has(#combat-avionics:not([hidden])) .readout-right {
+  top: clamp(5rem, 15%, 9rem);
+  gap: .88rem;
+}
 #combat-shortcuts { left: 50%; transform: translateX(-50%); display: grid; gap: .27rem; }
 #combat-shortcuts kbd { font-size: .66rem; }
 #rwr-panel { display: flex; align-items: center; gap: .45rem; padding-bottom: .35rem; }
@@ -162,11 +166,17 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
 #radar-closure:empty, #missile-telemetry:empty, #launch-feedback:empty, #rwr-bearing:empty { display: none; }
 @media (max-width: 760px), (max-height: 640px) {
   #combat-avionics { width: 10rem; font-size: .64rem; }
-  #combat-shortcuts { left: auto; right: .55rem; bottom: 18rem; transform: none; font-size: .64rem; }
+}
+@media (max-width: 760px) {
+  #combat-shortcuts { left: .55rem; max-width: calc(100% - 12rem); transform: none; font-size: .64rem; }
+  #flight-hud:has(#combat-shortcuts:not([hidden])) #sight-readout { bottom: 12rem; }
+}
+@media (max-height: 640px) {
+  #combat-shortcuts { display: none; }
+  #flight-hud:has(#combat-shortcuts:not([hidden])) #sight-readout { bottom: 6rem; }
 }
 @media (max-height: 520px) {
-  #combat-shortcuts { display: none; }
-  #combat-avionics { bottom: 5.25rem; }
+  #combat-avionics { bottom: 5.25rem; inset-inline: 50% auto; transform: translateX(-50%); }
   #radar-scope { height: 3.4rem; }
 }
 [data-direct="true"] .aim-cursor, [data-looking="true"] .aim-cursor { display: none; }
