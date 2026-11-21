@@ -582,6 +582,9 @@ test('Outnumbered tracks two opponents, preserves aim in target view, and record
   await page.getByRole('button', { name: 'Outnumbered' }).click();
   await expect(page.locator('#start-detail')).toHaveText(/two incoming F-16Cs.*260 rounds/);
   await page.getByLabel('Opponent difficulty').selectOption('rookie');
+  await page.setViewportSize({ width: 800, height: 520 });
+  await page.locator('#launch').click({ trial: true, timeout: 5000 });
+  await page.setViewportSize({ width: 1280, height: 720 });
   await startFlight(page);
   await page.keyboard.press('p');
   await expect(page.locator('#radar-contacts')).toHaveText('2 CONTACTS');

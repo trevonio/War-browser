@@ -8,6 +8,7 @@
   --muted: #bac8cc;
   --line: #dae7e433;
   --surface: #101a22e8;
+  --topbar-height: 4.5rem;
   --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 }
 * { box-sizing: border-box; }
@@ -36,7 +37,7 @@ output { font-variant-numeric: tabular-nums; }
 .topbar {
   position: absolute; z-index: 1; inset: 0 0 auto;
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-  padding: 1.05rem 2rem; height: 4.5rem; border-bottom: 1px solid var(--line);
+  padding: 1.05rem 2rem; height: var(--topbar-height); border-bottom: 1px solid var(--line);
   background: #111b2850;
 }
 .wordmark { display: flex; align-items: center; gap: .32rem; font-weight: 800; font-size: 1.04rem; letter-spacing: .085em; }
@@ -52,6 +53,14 @@ output { font-variant-numeric: tabular-nums; }
 #open-settings { justify-self: end; }
 #open-settings span { margin-right: .35rem; color: var(--accent); }
 .briefing { position: absolute; inset: 50% auto auto clamp(1.2rem, 6vw, 7rem); transform: translateY(-50%); width: min(28rem, 44vw); }
+#briefing, #pause-panel {
+  inset-block: calc(var(--topbar-height) + .45rem) calc(var(--deck-height, 4.5rem) + .45rem);
+  height: max-content;
+  max-height: max(4rem, calc(100% - var(--topbar-height) - var(--deck-height, 4.5rem) - .9rem));
+  margin-block: auto;
+  overflow-y: auto;
+  transform: none;
+}
 .briefing h1 { margin: .6rem 0 .7rem; font-size: clamp(3.7rem, 7.3vw, 8.25rem); line-height: .87; letter-spacing: -.075em; font-weight: 760; }
 #loading h1, #pause-panel h1 { font-size: clamp(2.6rem, 5.4vw, 6rem); }
 .eyebrow { display: flex; align-items: center; gap: .63rem; margin: 0; color: var(--accent); font: 700 .82rem var(--mono); letter-spacing: .18em; }
@@ -253,7 +262,8 @@ input[type="range"] { max-width: min(29vw,8rem); }
   .flight-actions button { padding-inline: .32rem; }
 }
 @media (max-width: 590px) {
-  .topbar { grid-template-columns: 1fr auto; height: 3.5rem; }
+  :root { --topbar-height: 3.5rem; }
+  .topbar { grid-template-columns: 1fr auto; }
   .range-label, .elapsed, .ready-help { display: none !important; }
   .flight-deck { min-height: 3.5rem; gap: .4rem; padding: .6rem; }
   [data-screen="flying"] .deck-summary { display: none; }
@@ -274,12 +284,15 @@ input[type="range"] { max-width: min(29vw,8rem); }
   .briefing h1 { font-size: clamp(2.55rem,8.2vh,4.5rem); }
   .briefing .description { margin-block: .7rem; }
   .start-detail { margin-bottom: .55rem; }
-  .topbar { height: 3.5rem; }
+  :root { --topbar-height: 3.5rem; }
   .flight-deck { min-height: 3.4rem; padding-block: .45rem; }
   .heading { top: 4rem; }
 }
+@media (max-height: 570px) and (min-width: 591px) {
+  #briefing { width: min(34rem, calc(100vw - 4rem)); }
+  #aircraft-title br { display: none; }
+}
 @media (max-height: 445px) {
-  [data-screen="ready"] .briefing { top: calc(50% + .2rem); }
   #briefing .description { display: none; }
 }
 
