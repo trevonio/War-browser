@@ -2,13 +2,13 @@ import * as T from 'three';
 import { f16 } from './aircraft/f16.js';
 import { createF16Visual, createOpponentVisual } from './aircraft/f16-visual.js';
 import { CannonAudio } from './audio/cannon-audio.js';
+import { attenuation, FlightSound } from './audio/flight-sound.js';
 import { canBind, Controls, keyDefaults, keyLabels, keyName, loadSettings, saveSettings } from './controls.js';
 import { FlightPointerLock } from './pointer-lock.js';
 import { opponentModes } from './sim/ai-pilot.js';
 import { Ballistics } from './sim/ballistics.js';
 import { Cannon } from './sim/cannon.js';
 import { CombatExercise, combatExercises } from './sim/combat/exercise.js';
-import { hasLineOfSight } from './sim/combat/radar.js';
 import { weapons } from './sim/combat/weapons.js';
 import { Dogfight } from './sim/dogfight.js';
 import { Flight, STEP } from './sim/flight.js';
@@ -16,9 +16,13 @@ import { GunComputer, sightInterval, VisualTrack } from './sim/gun-computer.js';
 import { PracticeRange } from './sim/practice.js';
 import { range, scenarios } from './sim/range.js';
 import { CannonTrigger } from './trigger.js';
+import { AirframeEffects } from './view/airframe-effects.js';
+import { FlightTrails } from './view/trails.js';
 import { CannonEffects } from './view/cannon-effects.js';
 import { FlightCamera } from './view/camera.js';
 import { CombatEffects, drawRadar } from './view/combat-view.js';
+import { CombatCamera } from './view/combat-camera.js';
+import { ContactMarker, KnownContacts } from './view/contacts.js';
 import { presets, WorldView } from './view/world.js';
 import './style.css';
 
@@ -35,7 +39,7 @@ const pressed = (id, value) => {
 const debug = import.meta.env.DEV && new URLSearchParams(location.search).has('debug');
 const flightLabels = {
   air: 'FREE FLIGHT', runway: 'FREE FLIGHT', practice: 'CANNON RANGE', dogfight: 'DOGFIGHT',
-  short: 'MISSILE DOGFIGHT', intercept: 'BVR INTERCEPT',
+  short: 'MISSILE DOGFIGHT', intercept: 'BVR INTERCEPT', outnumbered: 'OUTNUMBERED',
 };
 const combatShortcuts = ['cycleWeapon', 'fireSelected', 'radarPower', 'radarTarget', 'radarLock',
   'radarMode', 'radarRange', 'radarScope', 'flares', 'chaff'];
@@ -66,15 +70,20 @@ function boot() {
   const scene = new T.Scene();
   const world = new WorldView(scene, renderer);
   const view = new FlightCamera(range);
+  const combatCamera = new CombatCamera(range);
+  const knownContacts = new KnownContacts(range);
+  const contactMarker = new ContactMarker();
   const flight = new Flight(f16, range);
   const visual = createF16Visual();
   const aircraft = visual.root;
   aircraft.renderMovement = new T.Vector3();
   scene.add(aircraft);
   const opponentVisual = createOpponentVisual(visual);
-  const opponentAircraft = opponentVisual.root;
-  opponentAircraft.visible = false;
-  scene.add(opponentAircraft);
+  const wingmanVisual = createOpponentVisual(visual);
+  for (const { root } of [opponentVisual, wingmanVisual]) {
+    root.visible = false;
+    scene.add(root);
+  }
   const lifecycle = new AbortController();
   const { signal } = lifecycle;
   const capture = new FlightPointerLock(ui.viewport, {
@@ -92,25 +101,45 @@ function boot() {
     flying: () => screen === 'flying' && !ui.settings.open,
     locked: () => capture.locked,
     assisted: () => !keyboardFlight && settings.controlMode === 'assist',
+    observing: () => combatCamera.observing,
   }, view, signal);
   const practice = new PracticeRange();
   const colliders = [...range.structures, ...practice.targets];
   const audio = new CannonAudio(f16.cannon.rpm);
-  const dogfight = new Dogfight(flight, f16, range, {
-    shot: (position, direction, time, count) => weaponEffects.shot(1, position, direction, time, count),
+  const sound = new FlightSound(audio);
+  let listener = view.camera;
+  const blast = (point, launch) => audio.blast(attenuation(listener.position.distanceTo(point), launch ? 225 : 420), launch);
+  const opponentEffects = (index) => ({
+    shot: (position, direction, time, count) => weaponEffects.shot(index, position, direction, time, count),
     impact: (surface, point, time, destroyed, ownHit) => {
       weaponEffects.impact(surface, point, time, destroyed);
       if (ownHit) audio.impact();
+      else if (surface !== 'metal') audio.impact(attenuation(listener.position.distanceTo(point), 36) * 0.44);
     },
   });
+  const dogfight = new Dogfight(flight, f16, range, opponentEffects(1));
+  const wingman = new Dogfight(flight, f16, range, opponentEffects(2), dogfight.playerHull);
+  const opponents = [
+    { fight: dogfight, visual: opponentVisual },
+    { fight: wingman, visual: wingmanVisual },
+  ];
   const ballistics = new Ballistics(f16.cannon, range, (surface, point, collider, impactSpeed) => {
-    const destroyed = collider?.hull ? dogfight.hit(collider, f16.cannon.damage, impactSpeed / f16.cannon.projectileSpeed)
-      : collider?.shape === 'sphere' && practice.hit(collider, f16.cannon.damage, flight.elapsed);
+    let destroyed;
+    if (collider?.hull) {
+      combat.cannonHits++;
+      hitFeedbackUntil = flight.elapsed + 0.39;
+      const scale = impactSpeed / f16.cannon.projectileSpeed;
+      destroyed = combat.enabled ? combat.hit(collider, f16.cannon.damage, scale) : dogfight.hit(collider, f16.cannon.damage, scale);
+      audio.impact(0.34);
+    } else if (collider?.shape === 'sphere') {
+      destroyed = practice.hit(collider, f16.cannon.damage, flight.elapsed);
+    }
     weaponEffects.impact(surface, point, flight.elapsed, destroyed);
   });
   const weaponEffects = new CannonEffects(scene, [
     { muzzle: visual.muzzle, ballistics },
     { muzzle: opponentVisual.muzzle, ballistics: dogfight.ballistics },
+    { muzzle: wingmanVisual.muzzle, ballistics: wingman.ballistics },
   ], practice);
   const cannon = new Cannon(f16.cannon, visual.muzzle, ballistics, (position, direction, time, count) => {
     if (trigger.held) audio.setFiring(true);
@@ -118,13 +147,23 @@ function boot() {
     weaponEffects.shot(0, position, direction, time, count);
   });
   const combat = new CombatExercise(dogfight, range, {
-    launch(own, cue) { if (own) audio.cue(cue); },
+    launch(own, cue, point) {
+      if (own) audio.cue(cue);
+      blast(point, true);
+    },
     burst(point, hit, own) {
       weaponEffects.emit('explosion', point, weaponEffects.budget > 100 ? 18 : 10);
       weaponEffects.emit('debris', point, hit ? 10 : 4);
+      blast(point);
       if (own) audio.impact();
     },
-  });
+  }, undefined, wingman);
+  const activeOpponents = [false, false];
+  const trails = new FlightTrails(scene, combat.missiles.pool, [flight, dogfight.opponent, wingman.opponent]);
+  const playerAirframe = new AirframeEffects(flight, visual, range, weaponEffects, blast);
+  for (const entry of opponents) {
+    entry.airframe = new AirframeEffects(entry.fight.opponent, entry.visual, range, weaponEffects, blast);
+  }
   const selectedWeapon = () => combat.enabled ? combat.player.rack.selected : 'cannon';
   const canFire = () => screen === 'flying' && !ui.settings.open && (capture.locked || keyboardFlight);
   const gunComputer = new GunComputer(f16.cannon, visual.muzzle, range);
@@ -148,13 +187,14 @@ function boot() {
   const directionMarker = new T.Vector3();
   const flightDirection = new T.Vector3();
   const aimDirection = new T.Vector3();
-  const opponentMarker = new T.Vector3();
+  const classicCandidates = [dogfight.opponent];
   const sightProjection = new T.Vector3();
   const sightBearing = new T.Vector3();
   const sightForward = new T.Vector3();
   let sightActive = false;
   let sightMode = 'impact';
   let nextSight = 0;
+  let opticalTarget = null;
   let nextDamageTrail = 0;
   let combatEffects;
   let scopeVisible = true;
@@ -164,6 +204,8 @@ function boot() {
   let warningCueAt = 0;
   let lastClearance = false;
   let lastEffectsTime = 0;
+  let presentationAge = 0;
+  let hitFeedbackUntil = 0;
   let screen = 'loading';
   let startingPosition = 'air';
   let brake = false;
@@ -195,13 +237,15 @@ function boot() {
 
   function changeScreen(next, pauseMessage = 'Your aircraft is holding position.') {
     if (next !== 'flying') capture.release();
+    if (next === 'complete' || next === 'failed') combatCamera.returnToAircraft();
     screen = next;
     document.body.dataset.screen = next;
     const flightLabel = flightLabels[startingPosition];
     text('phase', {
-      ready: 'PREFLIGHT', flying: flightLabel, paused: 'PAUSED', failed: 'FLIGHT ENDED', complete: 'DOGFIGHT ENDED',
+      ready: 'PREFLIGHT', flying: flightLabel, paused: 'PAUSED', failed: 'FLIGHT ENDED', complete: 'MISSION ENDED',
     }[next]);
     text('pause-mode', flightLabel);
+    ui['mission-results'].hidden = next !== 'complete';
     trigger.clear();
     queuedLaunch = null;
     audio.setFiring(false);
@@ -248,13 +292,22 @@ function boot() {
     const exercise = combatExercises[startingPosition];
     flight.reset(start);
     cannon.reset();
+    if (exercise?.cannonLimit) cannon.ammo = exercise.cannonLimit;
     ballistics.clear();
     practice.reset(startingPosition === 'practice');
     dogfight.reset(exercise ? 'aggressive' : startingPosition === 'dogfight' ? ui['opponent-mode'].value : null,
       start, exercise?.opponent);
+    wingman.reset(exercise?.wingman ? 'aggressive' : null, start, exercise?.wingman);
     combat.reset(exercise ? startingPosition : null, ui['combat-difficulty'].value);
-    if (exercise && !combatEffects) combatEffects = new CombatEffects(scene, visual, opponentVisual, combat, weaponEffects);
+    if (exercise && !combatEffects) combatEffects = new CombatEffects(scene, visual, opponentVisual, combat, weaponEffects, [wingmanVisual]);
     combatEffects?.reset();
+    activeOpponents[0] = dogfight.enabled;
+    activeOpponents[1] = wingman.enabled;
+    playerAirframe.reset();
+    for (const entry of opponents) entry.airframe.reset();
+    trails.clear();
+    combatCamera.reset();
+    knownContacts.reset();
     scopeVisible = true;
     radarRevision = -1;
     lastWarning = '';
@@ -262,6 +315,8 @@ function boot() {
     lastClearance = false;
     weaponEffects.clear();
     lastEffectsTime = 0;
+    presentationAge = 0;
+    hitFeedbackUntil = 0;
     nextDamageTrail = 0;
     aircraft.position.copy(flight.position);
     aircraft.quaternion.copy(flight.orientation);
@@ -283,6 +338,7 @@ function boot() {
     pressed('start-dogfight', next === 'dogfight');
     pressed('start-short', next === 'short');
     pressed('start-intercept', next === 'intercept');
+    pressed('start-outnumbered', next === 'outnumbered');
     ui['opponent-choice'].hidden = next !== 'dogfight';
     ui['combat-choice'].hidden = !combatExercises[next];
     text('briefing-mode', flightLabels[next]);
@@ -319,6 +375,9 @@ function boot() {
       text(`key-${action}`, keyName(settings.keys[action]));
     }
     for (const action of combatShortcuts) text(`key-${action}`, keyName(settings.keys[action]));
+    for (const action of ['missileView', 'nextMissile', 'targetView']) text(`key-${action}`, keyName(settings.keys[action]));
+    text('missile-view-hint', keyName(settings.keys.missileView));
+    text('target-view-hint', keyName(settings.keys.targetView));
     text('restart-key', keyName(settings.keys.restart));
     text('help-maneuver', ['pitchUp', 'rollLeft', 'pitchDown', 'rollRight'].map((key) => keyName(settings.keys[key])).join(' '));
     text('help-throttle', [keyName(settings.keys.throttleUp), keyName(settings.keys.throttleDown)].join(' / '));
@@ -327,6 +386,7 @@ function boot() {
   function applyPreset() {
     world.setPreset(presets[settings.preset]);
     weaponEffects.setPreset(presets[settings.preset]);
+    trails.setPreset(presets[settings.preset]);
     resize();
   }
 
@@ -376,7 +436,10 @@ function boot() {
     gear() { if (!flight.grounded) flight.gearDown = !flight.gearDown; },
     stores() { flight.stores = !flight.stores; },
     airbrake() { brake = !brake; },
-    camera() { view.cycle(); },
+    camera() { if (combatCamera.observing) combatCamera.returnToAircraft(); else view.cycle(); },
+    missileView() { combatCamera.cycle(flight, combat.missiles.pool); },
+    nextMissile() { combatCamera.next(flight, combat.missiles.pool); },
+    targetView() { combatCamera.toggleTarget(knownContacts.current); },
     sight() { sightActive = !sightActive; invalidateSight(); },
     sightMode() { sightMode = sightMode === 'impact' ? 'lead' : 'impact'; invalidateSight(); },
     weaponCannon() { changeWeapon('cannon'); },
@@ -389,7 +452,8 @@ function boot() {
       if (!combat.enabled) return;
       const { radar, rack } = combat.player;
       const wasLocked = radar.locked;
-      if (!radar.toggleLock() && !wasLocked) rack.message('SELECT A RADAR CONTACT', flight.elapsed);
+      if (radar.toggleLock() && !wasLocked && radar.locked) audio.cue('locked');
+      else if (!wasLocked && !radar.locked) rack.message('SELECT A RADAR CONTACT', flight.elapsed);
       invalidateSight();
     },
     radarMode() { if (combat.enabled) combat.player.radar.cycleMode(); },
@@ -416,6 +480,7 @@ function boot() {
   ui['start-dogfight'].addEventListener('click', () => selectStart('dogfight'));
   ui['start-short'].addEventListener('click', () => selectStart('short'));
   ui['start-intercept'].addEventListener('click', () => selectStart('intercept'));
+  ui['start-outnumbered'].addEventListener('click', () => selectStart('outnumbered'));
   ui['combat-difficulty'].addEventListener('change', () => selectStart(startingPosition));
   ui['opponent-mode'].addEventListener('change', () => selectStart('dogfight'));
   ui.launch.addEventListener('click', () => { view.snap = true; requestFlight(); });
@@ -545,7 +610,15 @@ function boot() {
     text('stores-state', flight.stores ? 'On' : 'Off');
     text('brake-state', brake ? 'On' : 'Off');
     text('camera-state', view.mode === 'hud' ? 'HUD' : 'Chase');
-    text('camera-name', view.mode === 'hud' ? 'HUD camera' : 'Chase camera');
+    const cameraName = {
+      'missile-chase': 'Missile chase', 'missile-track': 'Missile tracking', target: 'Target view',
+    }[combatCamera.mode] ?? (view.mode === 'hud' ? 'HUD camera' : 'Chase camera');
+    text('camera-name', cameraName);
+    const cameraStatus = screen === 'flying' && combatCamera.observing;
+    ui['camera-status'].hidden = !cameraStatus;
+    if (cameraStatus) text('camera-view-label', combatCamera.missile
+      ? `${cameraName} · MISSILE ${combatCamera.serial}`
+      : `${cameraName} · F-16C ${combatCamera.target === wingman.opponent ? '02' : '01'}`);
     text('elapsed', `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`);
     const warning = flight.stalled ? 'STALL' : flight.stress > 0.28 ? 'STRUCTURAL LOAD'
       : flight.gWarning || (flight.fuel < 200 ? 'LOW FUEL' : '');
@@ -573,6 +646,7 @@ function boot() {
     text('cannon-ammo', ammo);
     text('cannon-unit', guns ? 'RDS' : 'MSL');
     text('cannon-state', state);
+    ui['hit-confirmation'].hidden = screen !== 'flying' || flight.elapsed >= hitFeedbackUntil;
     ui['cannon-state'].classList.toggle('weapon-active', state === 'FIRING' || state === 'CLEARED' || ammo === 0);
     ui['range-status'].hidden = !practice.enabled;
     if (practice.enabled) {
@@ -582,8 +656,9 @@ function boot() {
     ui['dogfight-status'].hidden = !dogfight.enabled || combat.enabled;
     if (dogfight.enabled && !combat.enabled) {
       text('opponent-status', dogfight.pilot.status);
-      text('opponent-distance', (dogfight.opponent.position.distanceTo(flight.position) / 1000).toFixed(2));
-      text('opponent-integrity', dogfight.opponentHull.percentage);
+      const contact = knownContacts.current;
+      text('opponent-distance', contact ? (contact.range / 1000).toFixed(2) : '—');
+      text('opponent-integrity', contact?.label === 'VISUAL' ? dogfight.opponentHull.percentage : '—');
       text('player-integrity', dogfight.playerHull.percentage);
       text('combat-feedback', flight.elapsed < dogfight.noticeUntil ? dogfight.notice : '');
     }
@@ -616,6 +691,7 @@ function boot() {
     if (warning.state) ui['rwr-arrow'].style.setProperty('--bearing', `${warning.bearing}rad`);
     const degrees = Math.round(T.MathUtils.radToDeg(warning.bearing) / 15) * 15;
     text('rwr-bearing', warning.state ? `${String((degrees + 360) % 360).padStart(3, '0')}° REL` : '');
+    if (warning.state === 'SEARCH' && warning.state !== lastWarning) audio.cue('search');
     if ((warning.state !== lastWarning || time >= warningCueAt) && ['TRACK', 'ACTIVE SEEKER'].includes(warning.state)) {
       audio.cue(warning.state === 'TRACK' ? 'track' : 'threat');
       warningCueAt = time + (warning.state === 'TRACK' ? 2.6 : 0.68);
@@ -626,7 +702,8 @@ function boot() {
     text('missile-telemetry', phase === 'MIDCOURSE' ? (radar.track ? 'MIDCOURSE · LINK' : 'MIDCOURSE · COAST')
       : phase === 'ACTIVE' ? (active.seeking ? 'SEEKER ACTIVE' : 'SEEKER SEARCHING')
       : phase === 'INFRARED' ? 'IR MISSILE IN FLIGHT' : '');
-    const notice = time < rack.noticeUntil ? rack.notice : time < dogfight.noticeUntil ? dogfight.notice : '';
+    const latest = wingman.noticeUntil > dogfight.noticeUntil ? wingman : dogfight;
+    const notice = time < rack.noticeUntil ? rack.notice : time < latest.noticeUntil ? latest.notice : '';
     text('launch-feedback', notice);
   }
 
@@ -641,50 +718,48 @@ function boot() {
     const canSee = Math.abs(directionMarker.z) < 1 && x >= 22 && x <= width - 22 && y >= 80 && y <= height - 72;
     const weapon = selectedWeapon();
     const transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
-    ui.boresight.hidden = !canSee || weapon !== 'cannon';
+    ui.boresight.hidden = !canSee || weapon !== 'cannon' || combatCamera.observing;
     ui.boresight.style.transform = transform;
     const seeker = ui['seeker-marker'];
-    seeker.hidden = !canSee || weapon === 'cannon';
+    seeker.hidden = !canSee || weapon === 'cannon' || combatCamera.observing;
     if (!seeker.hidden) {
       seeker.style.transform = transform;
       seeker.dataset.ready = String(combat.player.rack.launchState(weapon, flight.elapsed) === 'CLEARED');
     }
-    if (!keyboardFlight && settings.controlMode === 'assist' && !controls.looking) renderAimMarker(width, height);
+    if (!keyboardFlight && settings.controlMode === 'assist' && !controls.looking && !combatCamera.observing) renderAimMarker(width, height);
     ui['g-effect'].classList.toggle('red', flight.redout > flight.blackout);
     ui['g-effect'].style.opacity = Math.max(flight.blackout, flight.redout);
-    const looking = String(controls.looking);
+    const looking = String(controls.looking || combatCamera.observing);
     if (document.body.dataset.looking !== looking) document.body.dataset.looking = looking;
   }
 
-  function renderOpponent(blend, time) {
-    opponentAircraft.visible = dogfight.enabled && !dogfight.opponentHull.incapacitated;
-    const marker = ui['opponent-marker'];
-    marker.hidden = true;
-    if (!opponentAircraft.visible) return;
-    const opponent = dogfight.opponent;
-    opponentAircraft.position.copy(opponent.previousPosition).lerp(opponent.position, blend);
-    opponentAircraft.quaternion.copy(opponent.previousOrientation).slerp(opponent.orientation, blend);
-    opponentVisual.update(opponent, time, blend);
-    if (screen !== 'flying') return;
-    if (combat.enabled && selectedWeapon() === 'radar') {
-      const radar = combat.player.radar;
-      const track = radar.contacts.get(radar.selected);
-      if (!track) return;
-      opponentMarker.copy(track.position);
-    } else {
-      if (opponent.position.distanceToSquared(flight.position) > 3000 ** 2) return;
-      if (combat.enabled && !hasLineOfSight(range, flight.position, opponent.position)) return;
-      opponentMarker.copy(opponentAircraft.position);
+  function renderOpponents(blend, time, dt) {
+    for (const { fight, visual: model, airframe } of opponents) {
+      if (fight.enabled && airframe.render(dt)) continue;
+      const { opponent } = fight;
+      const { root } = model;
+      root.visible = fight.enabled && !fight.opponentHull.incapacitated;
+      if (!root.visible) continue;
+      root.position.copy(opponent.previousPosition).lerp(opponent.position, blend);
+      root.quaternion.copy(opponent.previousOrientation).slerp(opponent.orientation, blend);
+      model.update(opponent, time, blend);
     }
-    opponentMarker.project(view.camera);
-    if (Math.abs(opponentMarker.x) > 0.94 || Math.abs(opponentMarker.y) > 0.82 || Math.abs(opponentMarker.z) > 1) return;
-    const x = (opponentMarker.x + 1) * viewportWidth * 0.5;
-    const y = (1 - opponentMarker.y) * viewportHeight * 0.5;
-    marker.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) rotate(45deg)`;
-    marker.hidden = false;
+  }
+
+  function renderContact(contact, camera) {
+    const marker = ui['opponent-marker'];
+    marker.hidden = !contact || screen !== 'flying' || Boolean(combatCamera.missile);
+    if (marker.hidden) return;
+    marker.dataset.track = contact.label;
+    marker.style.opacity = T.MathUtils.lerp(0.24, 1, T.MathUtils.smoothstep(contact.freshness, 0, 0.55));
+    const distance = (contact.range / 1000).toFixed(1);
+    const id = contact.target === wingman.opponent ? '02' : '01';
+    text('contact-label', `F-16C ${id} · ${distance} KM · ${contact.label}`);
+    contactMarker.update(marker, contact.position, camera, viewportWidth, viewportHeight);
   }
 
   function invalidateSight() {
+    opticalTarget = null;
     visualTrack.reset();
     gunComputer.valid = false;
     nextSight = 0;
@@ -717,11 +792,14 @@ function boot() {
       droneTrack.velocity.subVectors(nearest.position, nearest.previous).multiplyScalar(1 / STEP);
       return droneTrack;
     }
-    if (!dogfight.enabled || !opponentAircraft.visible || !trackVisible(dogfight.opponent.position)) {
+    const target = knownContacts.current?.label === 'VISUAL' ? knownContacts.current.target : null;
+    if (opticalTarget !== target) visualTrack.reset();
+    opticalTarget = target;
+    if (!target || !trackVisible(target.position)) {
       visualTrack.reset();
       return null;
     }
-    const contact = dogfight.opponent.position;
+    const contact = target.position;
     sightBearing.subVectors(contact, origin);
     const distance = sightBearing.length();
     sightBearing.multiplyScalar(1 / Math.max(1, distance));
@@ -735,7 +813,7 @@ function boot() {
       return null;
     }
     const span = f16.opticalSpan;
-    const aspect = Math.abs(dogfight.opponent.forward.dot(sightBearing));
+    const aspect = Math.abs(target.forward.dot(sightBearing));
     const apparentSize = span * (0.92 + aspect * 0.08) / (2 * distance);
     return visualTrack.observe(flight.elapsed, origin, sightBearing, apparentSize, span);
   }
@@ -753,7 +831,7 @@ function boot() {
       if (sightMode === 'impact') gunComputer.impact(flight);
       else gunComputer.lead(flight, acquireTrack());
     }
-    const visible = gunComputer.valid && trackVisible(gunComputer.point);
+    const visible = !combatCamera.observing && gunComputer.valid && trackVisible(gunComputer.point);
     marker.hidden = !visible;
     if (visible) {
       const x = (sightProjection.x + 1) * viewportWidth * 0.5;
@@ -770,10 +848,19 @@ function boot() {
   function finishDogfight(result) {
     const won = result === 'win';
     const draw = result === 'draw';
-    text('pause-title', draw ? 'Mutual loss' : won ? 'Dogfight won' : 'Dogfight lost');
-    text('pause-description', draw ? 'Both aircraft were lost on the same pass.'
-      : won ? `Opponent lost · ${dogfight.opponent.failure}`
+    const label = combat.enabled ? 'Mission' : 'Dogfight';
+    text('pause-title', draw ? 'Mutual loss' : won ? `${label} won` : `${label} lost`);
+    text('pause-description', draw ? 'Your aircraft and all opponents were lost.'
+      : won ? (combat.enabled ? 'All opponents were defeated.' : `Opponent lost · ${dogfight.opponent.failure}`)
       : flight.failure || 'Your airframe took critical damage.');
+    const components = Object.values(flight.damage.health);
+    const damaged = components.filter((health) => health < 1).length;
+    text('result-enemies', `${combat.enabled ? combat.enemiesDown : Number(dogfight.opponentHull.incapacitated)} / ${combat.enemies.length}`);
+    text('result-guns', `${cannon.fired} fired · ${combat.cannonHits} hits`);
+    text('result-missiles', `${combat.missilesLaunched} launched · ${combat.missileHits} hits`);
+    text('result-damage', `${damaged} of ${components.length} components`);
+    const elapsed = Math.floor(flight.elapsed);
+    text('result-time', `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`);
     changeScreen('complete');
   }
 
@@ -823,9 +910,12 @@ function boot() {
         const tickStart = time / 1000 - accumulator;
         flight.step(command);
         accumulator -= STEP;
-        if (dogfight.enabled) dogfight.update(combat.enabled ? combat.adjust : null);
+        if (combat.enabled) {
+          for (const side of combat.enemies) side.fight.update(side.adjust);
+        } else if (dogfight.enabled) dogfight.update();
         else practice.step(flight.elapsed);
         if (flight.failure) {
+          playerAirframe.step();
           if (!dogfight.enabled) {
             text('pause-title', flight.failure);
             text('pause-description', 'Flight ended. Restart from the selected starting position.');
@@ -843,36 +933,61 @@ function boot() {
           combatEffects.step(flight.elapsed);
         }
         if (!flight.failure && selectedWeapon() === 'cannon') cannon.step(STEP, firing, flight);
-        if (dogfight.enabled) dogfight.fire(!combat.enabled || combat.enemyCannon);
-        if (ballistics.count) ballistics.step(STEP, dogfight.enabled ? dogfight.playerTargets : colliders);
-        if (dogfight.enabled && flight.elapsed >= nextDamageTrail && (flight.damage.active || dogfight.opponent.damage.active)) {
+        if (combat.enabled) {
+          for (const side of combat.enemies) side.fight.fire(combat.canFireCannon(side));
+        } else if (dogfight.enabled) dogfight.fire();
+        const targets = combat.enabled ? combat.shotTargets : dogfight.enabled ? dogfight.playerTargets : colliders;
+        if (ballistics.count) ballistics.step(STEP, targets);
+        if (flight.elapsed >= nextDamageTrail) {
           nextDamageTrail = flight.elapsed + 0.075;
           weaponEffects.damageTrail(flight);
-          weaponEffects.damageTrail(dogfight.opponent);
+          for (const { fight } of opponents) {
+            if (fight.enabled && !fight.opponent.failure) weaponEffects.damageTrail(fight.opponent);
+          }
         }
-        if (dogfight.enabled && dogfight.finish()) {
-          finishDogfight(dogfight.result);
+        trails.step(flight.elapsed, activeOpponents);
+        playerAirframe.step();
+        for (const { fight, airframe } of opponents) if (fight.enabled) airframe.step();
+        const result = combat.enabled ? combat.finish() : dogfight.enabled && dogfight.finish();
+        if (result) {
+          finishDogfight(result);
           break;
         }
       }
       if (cannon.ammo === 0) audio.setFiring(false);
     }
     const blend = screen === 'flying' ? accumulator / STEP : 1;
-    aircraft.position.copy(flight.previousPosition).lerp(flight.position, blend);
-    aircraft.quaternion.copy(flight.previousOrientation).slerp(flight.orientation, blend);
+    if (!playerAirframe.failed) {
+      aircraft.position.copy(flight.previousPosition).lerp(flight.position, blend);
+      aircraft.quaternion.copy(flight.previousOrientation).slerp(flight.orientation, blend);
+    }
     aircraft.renderMovement.copy(aircraft.position).sub(previousRenderPosition);
     previousRenderPosition.copy(aircraft.position);
     visual.update(flight, time / 1000, blend);
-    aircraft.visible = view.mode === 'chase' || screen === 'ready';
+    aircraft.visible = view.mode === 'chase' || screen === 'ready' || flight.failure;
     const aim = !keyboardFlight && settings.controlMode === 'assist' ? controls.aim : null;
     view.update(aircraft, flight.velocity, dt, screen, controls.looking, settings.cameraSmoothing, aim, settings.cameraTurnResponse);
-    renderOpponent(blend, time / 1000);
+    const contact = screen === 'flying' && dogfight.enabled
+      ? knownContacts.update(flight, view.camera, combat.enabled ? combat.player.candidates : classicCandidates,
+        combat.enabled ? combat.player.radar : null) : null;
+    const observed = combatCamera.target ? knownContacts.forTarget(flight,
+      combat.enabled ? combat.player.radar : null, combatCamera.target) : contact;
+    const camera = combatCamera.update(view.camera, aircraft, observed, blend, dt);
+    listener = camera;
+    const ended = screen === 'complete' || screen === 'failed';
+    const moving = screen === 'flying' || ended;
+    playerAirframe.render(moving ? dt : 0);
+    renderOpponents(blend, time / 1000, moving ? dt : 0);
+    sound.update(flight, camera, combatCamera.observing ? combatCamera.mode : view.mode, combat.missiles.pool, screen === 'flying');
+    renderContact(contact, camera);
     combatEffects?.render(blend);
     renderSight();
-    world.update(aircraft.position, view.camera);
+    world.update(combatCamera.missile ? camera.position : aircraft.position, camera);
     const effectStep = Math.max(0, flight.elapsed - lastEffectsTime);
     lastEffectsTime = flight.elapsed;
-    weaponEffects.render(flight.elapsed, effectStep, blend, screen === 'flying');
+    if (ended) presentationAge += dt;
+    weaponEffects.render(flight.elapsed, ended ? dt : effectStep, blend, screen === 'flying');
+    trails.render(flight.elapsed + presentationAge, camera);
     if (screen === 'flying') {
       renderFlightMarkers();
       updateWeaponHud();
@@ -884,7 +999,7 @@ function boot() {
       updateCombatHud();
       lastHudTime = time;
     }
-    renderer.render(scene, view.camera);
+    renderer.render(scene, camera);
     if (debug && realDt > 0) updateMetrics(realDt);
   }
 

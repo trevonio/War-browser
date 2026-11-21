@@ -10,6 +10,8 @@ import { GunComputer } from '../src/sim/gun-computer.js';
 import { PracticeRange } from '../src/sim/practice.js';
 import { range, scenarios } from '../src/sim/range.js';
 import { FlightCamera } from '../src/view/camera.js';
+import { CombatCamera } from '../src/view/combat-camera.js';
+import { FlightTrails } from '../src/view/trails.js';
 import { CannonEffects } from '../src/view/cannon-effects.js';
 import { CombatEffects, drawRadar } from '../src/view/combat-view.js';
 import { WorldView } from '../src/view/world.js';
@@ -199,13 +201,15 @@ async function sampleFrames(render) {
 
 let combat;
 let ordnance;
+let trails;
+const combatCamera = new CombatCamera(range);
 const scope = document.createElement('canvas');
 scope.width = 184;
 scope.height = 108;
 const peak = {};
 
 async function measureAirCombat(mode) {
-  const start = scenarios.intercept;
+  const start = mode === 'trails' ? { ...scenarios.intercept, y: 5100 } : scenarios.intercept;
   const exercise = opponents[0].fight;
   if (!combat) {
     combat = new CombatExercise(exercise, range, {
@@ -217,13 +221,17 @@ async function measureAirCombat(mode) {
       },
     });
     ordnance = new CombatEffects(scene, model, opponents[0].visual, combat, effects);
+    trails = new FlightTrails(scene, combat.missiles.pool, [player, ...opponents.map(({ fight }) => fight.opponent)]);
   }
-  const active = mode === 'contacts' ? opponents : opponents.slice(0, 1);
+  const active = ['contacts', 'trails'].includes(mode) ? opponents : opponents.slice(0, 1);
   const distance = mode === 'launch' ? 1720 : mode === 'burst' ? 1270 : 4490;
   player.reset(start);
   effects.clear();
   camera.snap = true;
-  Object.assign(peak, { contacts: 0, missiles: 0, decoys: 0, launches: 0, bursts: 0, particles: 0 });
+  combatCamera.reset();
+  trails.clear();
+  const activeAircraft = opponents.map((entry) => active.includes(entry));
+  Object.assign(peak, { contacts: 0, missiles: 0, decoys: 0, launches: 0, bursts: 0, particles: 0, ribbons: 0, missileCamera: false });
   for (const [index, { fight, visual }] of opponents.entries()) {
     visual.root.visible = active.includes(opponents[index]);
     if (!visual.root.visible) continue;
@@ -253,13 +261,13 @@ async function measureAirCombat(mode) {
     for (const { fight } of active) fight.update(fight === exercise ? combat.adjust : null);
     combat.step(STEP);
     const time = player.elapsed;
-    if (!radar.locked && radar.contacts.size && ['salvo', 'ai'].includes(mode)) {
+    if (!radar.locked && radar.contacts.size && ['salvo', 'ai', 'trails', 'camera'].includes(mode)) {
       radar.selectNext();
       radar.toggleLock();
     }
-    if (['launch', 'salvo', 'ai'].includes(mode)) {
+    if (['launch', 'salvo', 'ai', 'trails', 'camera'].includes(mode)) {
       const type = mode === 'launch' ? 'infrared' : 'radar';
-      const desired = mode === 'salvo' ? 2 : 1;
+      const desired = ['salvo', 'trails'].includes(mode) ? 2 : 1;
       if (rack.count(type) > 2 - desired && time - lastLaunch > 0.65 && rack.seeker[type].ready) {
         if (combat.launch(combat.player, combat.enemy, type)) lastLaunch = time;
       }
@@ -277,13 +285,14 @@ async function measureAirCombat(mode) {
       combat.effects.burst(point, true);
     }
     ordnance.step(time);
+    trails.step(time, activeAircraft);
     peak.contacts = Math.max(peak.contacts, radar.contacts.size);
     peak.missiles = Math.max(peak.missiles, combat.missiles.pool.filter((item) => item.active).length);
     peak.decoys = Math.max(peak.decoys, combat.decoys.pool.filter((item) => item.active).length);
     peak.particles = Math.max(peak.particles, effects.particleCount);
   };
   // Warm up the engagement so the measurement includes a real AI launch.
-  if (mode === 'ai') for (let tick = 0; tick < 240; tick++) advance();
+  if (['ai', 'camera', 'trails'].includes(mode)) for (let tick = 0; tick < 240; tick++) advance();
   let last = performance.now();
   let accumulator = 0;
   const render = (now) => {
@@ -297,14 +306,19 @@ async function measureAirCombat(mode) {
     pose(model, player, now / 1000);
     for (const { visual, fight } of active) pose(visual, fight.opponent, now / 1000);
     camera.update(model.root, player.velocity, dt, 'flying', false, 1);
-    world.update(player.position, camera.camera);
+    if (mode === 'camera' && !combatCamera.observing) combatCamera.cycle(player, combat.missiles.pool);
+    const view = combatCamera.update(camera.camera, model.root, null, 1, dt);
+    peak.missileCamera ||= combatCamera.observing;
+    world.update(combatCamera.missile ? view.position : player.position, view);
+    trails.render(player.elapsed, view);
+    if (trails.mesh.visible) peak.ribbons = Math.max(peak.ribbons, trails.geometry.drawRange.count / 6);
     ordnance.render(1);
     effects.render(player.elapsed, dt, 1, true);
     if (revision !== radar.revision) {
       revision = radar.revision;
       drawRadar(scope, radar);
     }
-    renderer.render(scene, camera.camera);
+    renderer.render(scene, view);
   };
   render(last);
   return { fps: await sampleFrames(render), ...peak, drawCalls: renderer.info.render.calls };

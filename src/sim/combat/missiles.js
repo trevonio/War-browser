@@ -24,6 +24,7 @@ export class MissilePool {
     this.bearing = new Vector3();
     this.point = new Vector3();
     this.fuse = { previous: null, position: null, radius: 0 };
+    this.serial = 0;
   }
 
   clear() {
@@ -36,6 +37,7 @@ export class MissilePool {
     const { flight, radar } = rack;
     const config = weapons[station.type];
     missile.active = true;
+    missile.serial = ++this.serial;
     missile.type = station.type;
     missile.config = config;
     missile.target = target;

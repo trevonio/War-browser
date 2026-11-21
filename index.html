@@ -37,6 +37,7 @@
         <button id="start-dogfight" type="button" aria-pressed="false">Dogfight</button>
         <button id="start-short" type="button" aria-pressed="false">Missile dogfight</button>
         <button id="start-intercept" type="button" aria-pressed="false">BVR intercept</button>
+        <button id="start-outnumbered" type="button" aria-pressed="false">Outnumbered</button>
       </div>
       <label id="opponent-choice" for="opponent-mode" hidden>AI opponent
         <select id="opponent-mode" aria-describedby="start-detail">
@@ -80,6 +81,7 @@
           <div class="instrument-label" id="cannon-label">M61A1 · 20 MM</div>
           <output id="cannon-ammo">510</output><span class="unit" id="cannon-unit">RDS</span>
           <div class="instrument-note" id="cannon-state">READY</div>
+          <span id="hit-confirmation" hidden>HIT CONFIRMED</span>
         </div>
       </div>
       <div class="readout readout-right">
@@ -109,7 +111,11 @@
         <span>OPPONENT <output id="opponent-integrity">100</output>%</span>
         <span>AIRFRAME <output id="player-integrity">100</output>%</span>
       </div>
-      <span id="opponent-marker" aria-hidden="true" hidden></span>
+      <div id="opponent-marker" hidden><span class="contact-symbol" aria-hidden="true"></span><span id="contact-label"></span></div>
+      <div id="camera-status" hidden>
+        <b id="camera-view-label"></b>
+        <span><kbd id="key-missileView">N</kbd> Cycle view <kbd id="key-nextMissile">O</kbd> Next missile <kbd id="key-targetView">Z</kbd> Target view</span>
+      </div>
       <div id="sight-readout" hidden>
         <b id="sight-mode">CCIP</b>
         <span id="sight-state" role="status"></span>
@@ -135,6 +141,7 @@
         <span><kbd id="key-radarPower">P</kbd> Radar <kbd id="key-radarTarget">T</kbd> Contact <kbd id="key-radarLock">L</kbd> Lock</span>
         <span><kbd id="key-radarMode">Y</kbd> Mode <kbd id="key-radarRange">U</kbd> Range <kbd id="key-radarScope">I</kbd> Scope</span>
         <span><kbd id="key-flares">J</kbd> Flare <kbd id="key-chaff">K</kbd> Chaff</span>
+        <span><kbd id="missile-view-hint">N</kbd> Missile view <kbd id="target-view-hint">Z</kbd> Target view</span>
       </div>
     </section>
 
@@ -142,6 +149,13 @@
       <p class="eyebrow"><b id="pause-mode">FREE FLIGHT</b> <span></span> F-16C</p>
       <h1 id="pause-title">Paused</h1>
       <p id="pause-description" class="description" role="status">Your aircraft is holding position.</p>
+      <dl id="mission-results" class="mission-results" hidden>
+        <div><dt>Enemies down</dt><dd id="result-enemies"></dd></div>
+        <div><dt>Cannon rounds</dt><dd id="result-guns"></dd></div>
+        <div><dt>Missiles</dt><dd id="result-missiles"></dd></div>
+        <div><dt>Airframe damage</dt><dd id="result-damage"></dd></div>
+        <div><dt>Mission time</dt><dd id="result-time"></dd></div>
+      </dl>
       <button id="resume" class="primary-button" type="button">Resume flight <kbd>Enter</kbd></button>
       <button id="keyboard-flight" class="secondary-button" type="button" hidden>Fly with keyboard</button>
       <button id="restart" class="secondary-button" type="button">Restart flight <kbd id="restart-key">R</kbd></button>

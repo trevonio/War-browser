@@ -188,7 +188,11 @@ their simulated trajectory.
 
 **Missile dogfight** starts a close-range encounter with two IR missiles.
 **BVR intercept** adds two active radar missiles and starts with an inbound
-contact beyond the visual marker range. Rookie, Regular, and Veteran change
+contact beyond the visual marker range. **Outnumbered** starts two inbound
+F-16Cs with staggered arrivals and gives the player 260 cannon rounds, one IR
+missile, one radar missile, four flares, and four chaff releases. Destroy both
+opponents to win. **Dogfight** remains the guns-only exercise. Rookie, Regular,
+and Veteran change
 the AI's decision and reaction timing. Both sides use the same launch checks,
 aircraft physics, and quantities.
 
@@ -199,6 +203,8 @@ aircraft physics, and quantities.
 | P / T / L | Power the radar / select contact / lock or unlock |
 | Y / U / I | Change search mode / scan range / show or hide the scope |
 | J / K | Release a flare / chaff |
+| N / O | Cycle missile views / switch between your active missiles |
+| Z / V | Toggle selected-target view / return to aircraft view |
 
 The scope shows sampled, approximate observations. Search has a slower scan.
 TWS refreshes multiple contacts, and STT supports one radar missile track at a
@@ -214,3 +220,9 @@ objects with time-limited boost, steering, and life. Flares and chaff drift and
 fade, and can interfere with their matching seekers. A blast can damage several
 nearby aircraft components. The existing stores toggle controls their
 appearance, and an available hardpoint can fire while its model is hidden.
+
+Target markers use radar or recent visual observations. A fading edge arrow
+indicates the last known direction until the observation expires. The optional
+target and missile cameras leave flight and keyboard controls active. Combat
+results report opponents down, rounds fired and hits, missiles launched and hits,
+damaged aircraft components, and mission time.

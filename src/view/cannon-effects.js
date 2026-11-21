@@ -9,7 +9,6 @@ const styles = {
   fire: { color: 0xff8c33, life: 0.34, size: 0.98, speed: 10, opacity: 0.85, lift: 4 },
   engineSmoke: { color: 0x343539, life: 1.7, size: 1.8, speed: 6, opacity: 0.62, lift: 5 },
   fuelMist: { color: 0xc6d9d5, life: 0.90, size: 0.53, speed: 4, opacity: 0.45, lift: -2 },
-  rocketTrail: { color: 0xd4d4cf, life: 1.85, size: 1.35, speed: 4, opacity: 0.47, lift: 2 },
   rocketFlash: { color: 0xffcb75, life: 0.34, size: 2.6, speed: 22, opacity: 0.9, lift: 5 },
   explosion: { color: 0xffa54d, life: 0.65, size: 4.2, speed: 35, opacity: 0.72, lift: 5 },
   debris: { color: 0x9d7864, life: 1.0, size: 0.85, speed: 45, opacity: 0.85, lift: -6 },
@@ -81,7 +80,12 @@ export class CannonEffects {
       `,
     }));
     this.points.frustumCulled = false;
-    scene.add(this.points);
+    this.debris = new T.InstancedMesh(new T.BoxGeometry(1, 0.4, 1.5),
+      new T.MeshBasicMaterial({ color: 0x756859 }), this.particles.length);
+    this.debris.instanceMatrix.setUsage(T.DynamicDrawUsage);
+    this.debris.frustumCulled = false;
+    this.fragment = new T.Object3D();
+    scene.add(this.points, this.debris);
     this.drones = makeDrones(scene, practice.targets);
     this.damageOrigin = new T.Vector3();
     this.budget = 112;
@@ -93,6 +97,7 @@ export class CannonEffects {
     for (const gun of this.guns) gun.lastShot = -Infinity;
     this.lastImpact = -Infinity;
     this.particleCount = 0;
+    this.debris.count = 0;
     this.fullCursor = 0;
   }
 
@@ -108,7 +113,7 @@ export class CannonEffects {
 
   shot(gun, position, direction, time, count) {
     this.guns[gun].lastShot = time;
-    if (count % 8 === 1) this.emit('smoke', position, 1, direction);
+    if (count % 7 === 1) this.emit('smoke', position, 2, direction);
   }
 
   impact(kind, position, time, destroyed) {
@@ -119,6 +124,7 @@ export class CannonEffects {
     if (time - this.lastImpact < 0.035) return;
     this.lastImpact = time;
     this.emit(kind, position, this.budget > 100 ? 5 : 3);
+    if (kind === 'metal') this.emit('smoke', position, 2);
   }
 
   damageTrail(flight) {
@@ -133,6 +139,7 @@ export class CannonEffects {
     if (damage.leak > 0 && flight.fuel > 0) {
       this.damageOrigin.fromArray(emitters.fuel).applyQuaternion(flight.orientation).add(flight.position);
       this.emit('fuelMist', this.damageOrigin, 1);
+      if (damage.fire) this.emit('fire', this.damageOrigin, 1);
     }
   }
 
@@ -161,9 +168,9 @@ export class CannonEffects {
     let vertices = 0;
     for (const { flash, ballistics, lastShot } of this.guns) {
       const flashAge = time - lastShot;
-      flash.visible = active && flashAge < 0.023;
+      flash.visible = active && flashAge < 0.028;
       if (flash.visible) {
-        const size = 0.60 - Math.max(0, flashAge) * 14;
+        const size = 0.86 - Math.max(0, flashAge) * 20;
         flash.scale.set(size, size, 1);
       }
       for (let i = 0; i < ballistics.count; i++) {
@@ -172,7 +179,7 @@ export class CannonEffects {
         const x = T.MathUtils.lerp(round.previous.x, round.position.x, blend);
         const y = T.MathUtils.lerp(round.previous.y, round.position.y, blend);
         const z = T.MathUtils.lerp(round.previous.z, round.position.z, blend);
-        const tail = Math.min(0.009, round.travel / Math.max(1, round.velocity.length()) * 0.8);
+        const tail = Math.min(0.012, round.travel / Math.max(1, round.velocity.length()) * 0.8);
         tracerPosition.setXYZ(vertices++, x - round.velocity.x * tail, y - round.velocity.y * tail, z - round.velocity.z * tail);
         tracerPosition.setXYZ(vertices++, x, y, z);
       }
@@ -182,6 +189,8 @@ export class CannonEffects {
     if (vertices) tracerPosition.needsUpdate = true;
 
     const attributes = this.particleGeometry.attributes;
+    let points = 0;
+    this.debris.count = 0;
     for (let i = 0; i < this.particleCount;) {
       const particle = this.particles[i];
       particle.age += dt;
@@ -190,17 +199,29 @@ export class CannonEffects {
         this.particles[this.particleCount] = particle;
         continue;
       }
-      particle.position.addScaledVector(particle.velocity, dt);
       const fraction = particle.age / particle.life;
       const { rgb, size, opacity } = particle.style;
-      attributes.position.setXYZ(i, particle.position.x, particle.position.y, particle.position.z);
-      attributes.appearance.setXYZW(i, rgb.r, rgb.g, rgb.b, opacity * (1 - fraction));
-      attributes.size.setX(i, size * (1 + fraction * 2.9));
+      if (particle.style === styles.debris) {
+        particle.velocity.y -= 14 * dt;
+        particle.position.addScaledVector(particle.velocity, dt);
+        this.fragment.position.copy(particle.position);
+        this.fragment.rotation.set(particle.velocity.x * fraction * 0.4, particle.velocity.z * fraction * 0.7, fraction * 9);
+        this.fragment.scale.setScalar(size * Math.min(1, (1 - fraction) * 4));
+        this.fragment.updateMatrix();
+        this.debris.setMatrixAt(this.debris.count++, this.fragment.matrix);
+      } else {
+        particle.position.addScaledVector(particle.velocity, dt);
+        attributes.position.setXYZ(points, particle.position.x, particle.position.y, particle.position.z);
+        attributes.appearance.setXYZW(points, rgb.r, rgb.g, rgb.b, opacity * (1 - fraction));
+        attributes.size.setX(points++, size * (1 + fraction * 2.9));
+      }
       i++;
     }
-    this.points.visible = this.particleCount > 0;
-    this.particleGeometry.setDrawRange(0, this.particleCount);
-    if (this.particleCount) {
+    this.debris.visible = this.debris.count > 0;
+    if (this.debris.count) this.debris.instanceMatrix.needsUpdate = true;
+    this.points.visible = points > 0;
+    this.particleGeometry.setDrawRange(0, points);
+    if (points) {
       attributes.position.needsUpdate = true;
       attributes.appearance.needsUpdate = true;
       attributes.size.needsUpdate = true;

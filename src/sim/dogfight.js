@@ -64,11 +64,12 @@ class Hull {
 }
 
 export class Dogfight {
-  constructor(player, spec, world, effects) {
+  constructor(player, spec, world, effects, sharedPlayerHull = null) {
     this.player = player;
     this.opponent = new Flight(spec, world);
     this.pilot = new AIPilot(world, spec);
-    this.playerHull = new Hull(player);
+    this.playerHull = sharedPlayerHull ?? new Hull(player);
+    this.managesPlayerHull = !sharedPlayerHull;
     this.opponentHull = new Hull(this.opponent);
     this.playerTargets = [...world.structures, ...this.opponentHull.colliders];
     this.opponentTargets = [...world.structures, ...this.playerHull.colliders];
@@ -87,7 +88,7 @@ export class Dogfight {
     this.result = '';
     this.cannon.reset();
     this.ballistics.clear();
-    this.playerHull.reset(this.enabled);
+    if (this.managesPlayerHull) this.playerHull.reset(this.enabled);
     this.opponentHull.reset(false);
     if (!this.enabled) return;
     const { x, y, z, speed, heading } = opponentStart ?? spawns[mode];
@@ -101,10 +102,15 @@ export class Dogfight {
   }
 
   update(adjust) {
+    if (this.opponentHull.incapacitated) {
+      if (this.managesPlayerHull) this.playerHull.update();
+      if (this.player.failure) this.playerHull.activate(false);
+      return;
+    }
     const command = this.pilot.update(this.opponent, this.player, this.cannon.ammo > 0);
     if (this.pilot.burner !== this.opponent.burnerArmed) this.opponent.toggleAfterburner();
     this.opponent.step(adjust ? adjust(command) : command);
-    this.playerHull.update();
+    if (this.managesPlayerHull) this.playerHull.update();
     this.opponentHull.update();
     if (this.player.failure) this.playerHull.activate(false);
     if (this.opponent.failure) this.opponentHull.activate(false);

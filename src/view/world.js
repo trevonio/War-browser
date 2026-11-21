@@ -2,9 +2,9 @@ import * as T from 'three';
 import { hangars, landMinimumX, runway, shoreAt, terrainHeight } from '../sim/range.js';
 
 export const presets = {
-  low: { pixels: 0.8, terrain: 24, cloudCount: 20, waterDetail: 0, effectParticles: 56 },
-  medium: { pixels: 1.0, terrain: 36, cloudCount: 48, waterDetail: 1, effectParticles: 112 },
-  high: { pixels: 1.45, terrain: 48, cloudCount: 76, waterDetail: 1, effectParticles: 192 },
+  low: { pixels: 0.8, terrain: 24, cloudCount: 20, waterDetail: 0, effectParticles: 56, trailDetail: 0.59 },
+  medium: { pixels: 1.0, terrain: 36, cloudCount: 48, waterDetail: 1, effectParticles: 112, trailDetail: 0.85 },
+  high: { pixels: 1.45, terrain: 48, cloudCount: 76, waterDetail: 1, effectParticles: 192, trailDetail: 1 },
 };
 
 const tileSize = 4000;

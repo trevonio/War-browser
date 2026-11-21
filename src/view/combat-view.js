@@ -5,10 +5,10 @@ const mountNames = ['wingtip-left', 'wingtip-right', 'outer-left', 'outer-right'
 const axis = new T.Vector3(0, 0, 1);
 
 export class CombatEffects {
-  constructor(scene, own, enemy, exercise, effects) {
+  constructor(scene, own, enemy, exercise, effects, additional = []) {
     this.exercise = exercise;
     this.effects = effects;
-    this.mounts = [own, enemy].map((aircraft) => mountNames.map((name) => aircraft.arm.getObjectByName(name)));
+    this.mounts = [own, enemy, ...additional].map((aircraft) => mountNames.map((name) => aircraft.arm.getObjectByName(name)));
     this.active = false;
     const glows = [0xffc874, 0xd2e0ef].map((color) => new T.MeshBasicMaterial({ color, toneMapped: false }));
     const dot = new T.IcosahedronGeometry(1, 0);
@@ -50,7 +50,7 @@ export class CombatEffects {
 
   updateMounts() {
     for (let index = 0; index < this.mounts.length; index++) {
-      const rack = this.exercise.sides[index].rack;
+      const rack = (index === 0 ? this.exercise.player : this.exercise.allEnemies[index - 1]).rack;
       for (const mount of this.mounts[index]) {
         mount.visible = !this.active || rack.stations.some((item) => item.name === mount.name && !item.used);
       }
@@ -62,8 +62,7 @@ export class CombatEffects {
     this.nextTrail = time + 0.085;
     for (const missile of this.exercise.missiles.pool) {
       if (!missile.active || missile.age > missile.config.burn) continue;
-      this.effects.emit('rocketTrail', missile.position, 1);
-      if (missile.age < 0.17) this.effects.emit('rocketFlash', missile.position, 2);
+      if (missile.age < 0.12) this.effects.emit('rocketFlash', missile.position, 4);
     }
   }
 
@@ -76,7 +75,14 @@ export class CombatEffects {
       if (!missile.active) continue;
       model.children[0].visible = missile.config.model === 'wingtip';
       model.children[1].visible = missile.config.model === 'outer';
-      model.children[2].visible = missile.age < missile.config.burn;
+      const motor = model.children[2];
+      motor.visible = missile.age < missile.config.burn;
+      if (motor.visible) {
+        const burn = T.MathUtils.smoothstep(missile.config.burn - missile.age, 0, 0.26);
+        const ignition = 1 + 1.5 * Math.exp(-missile.age * 15);
+        const flare = Math.max(0.12, burn * ignition);
+        motor.scale.set(0.33 * flare, 0.33 * flare, 1.25 * flare);
+      }
       model.position.copy(missile.previous).lerp(missile.position, blend);
       model.quaternion.setFromUnitVectors(axis, missile.direction);
     }

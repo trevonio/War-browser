@@ -525,6 +525,13 @@ test('BVR scope finds and locks an inbound contact and supports a radar missile'
   await page.keyboard.press('Space');
   await expect(page.locator('#cannon-ammo')).toHaveText('1');
   await expect(page.locator('#missile-telemetry')).toHaveText('MIDCOURSE · LINK');
+  await page.keyboard.press('n');
+  await expect(page.locator('#camera-view-label')).toHaveText(/^Missile chase · MISSILE \d+$/);
+  await page.keyboard.press('n');
+  await expect(page.locator('#camera-view-label')).toHaveText(/^Missile tracking · MISSILE \d+$/);
+  await page.keyboard.press('v');
+  await expect(page.locator('#camera-status')).toBeHidden();
+  expect(await locked(page)).toBe('viewport');
   await page.keyboard.press('l');
   await expect(mode).toHaveText('TWS');
   await expect(page.locator('#missile-telemetry')).toHaveText('MIDCOURSE · COAST');
@@ -562,5 +569,44 @@ test('close-range missile exercise spends a store and releases finite countermea
   await page.keyboard.press('2');
   await expect(page.locator('#cannon-label')).toHaveText('SIDEWINDER · IR');
   await expect(page.locator('#sight-mode')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('Outnumbered tracks two opponents, preserves aim in target view, and records real results', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('war-browser:settings', JSON.stringify({ preset: 'low' })));
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Outnumbered' }).click();
+  await expect(page.locator('#start-detail')).toHaveText(/two incoming F-16Cs.*260 rounds/);
+  await page.getByLabel('Opponent difficulty').selectOption('rookie');
+  await startFlight(page);
+  await page.keyboard.press('p');
+  await expect(page.locator('#radar-contacts')).toHaveText('2 CONTACTS');
+  await page.keyboard.press('t');
+  await expect(page.locator('#contact-label')).toHaveText(/F-16C 01 · .* KM · SEARCH/);
+  await page.keyboard.press('z');
+  await expect(page.locator('#camera-view-label')).toHaveText('Target view · F-16C 01');
+  await relativeMouse(page, 950, -350);
+  expect(await locked(page)).toBe('viewport');
+  await page.keyboard.press('v');
+  await expect(page.locator('#camera-status')).toBeHidden();
+  const { x, y } = await aimState(page);
+  expect(Math.abs(x - 0.5)).toBeLessThan(0.12);
+  expect(Math.abs(y - 0.5)).toBeLessThan(0.14);
+
+  await page.keyboard.press('1');
+  await expect(page.locator('#cannon-ammo')).toHaveText('260');
+  await page.keyboard.down('Space');
+  await expect(page.locator('#cannon-ammo')).not.toHaveText('260');
+  await page.keyboard.up('Space');
+  await relativeMouse(page, 0, 750);
+  await expect(page.getByRole('heading', { name: 'Mission lost' })).toBeVisible({ timeout: 36000 });
+  await expect(page.locator('#result-enemies')).toHaveText('0 / 2');
+  await expect(page.locator('#result-guns')).toHaveText(/^[1-9]\d* fired · 0 hits$/);
+  await expect(page.locator('#result-missiles')).toHaveText('0 launched · 0 hits');
+  await expect(page.locator('#result-time')).toHaveText(/^\d+:\d{2}$/);
+  await page.getByRole('button', { name: 'Back to briefing' }).click();
+  await expect(page.getByRole('button', { name: 'Outnumbered' })).toHaveAttribute('aria-pressed', 'true');
   expect(errors).toEqual([]);
 });

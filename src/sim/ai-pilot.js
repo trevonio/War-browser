@@ -150,7 +150,13 @@ export class AIPilot {
 
     this.status = trailing ? 'PURSUIT' : 'INTERCEPT';
     this.aim.copy(player.position).addScaledVector(player.velocity, clamp(distance / 460, 0.25, 2));
-    if (!firingPass) this.aim.addScaledVector(this.playerForward, trailing ? -125 : -240);
+    if (!firingPass) {
+      const lowEnergy = speed < flight.spec.controlSpeed * 1.55
+        || (flight.spool < 0.65 && player.position.y - flight.position.y > 180);
+      const offset = trailing ? -125 - (lowEnergy ? 110 : 0) : -240 + clamp(closing, -60, 100);
+      this.aim.addScaledVector(this.playerForward, offset);
+      if (lowEnergy) this.aim.y = Math.min(this.aim.y, flight.position.y + distance * 0.08);
+    }
     if (overrun) {
       this.status = 'REPOSITIONING';
       this.aim.y += 160;

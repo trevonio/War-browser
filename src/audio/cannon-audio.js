@@ -4,6 +4,7 @@ export class CannonAudio {
     this.firing = false;
     this.lastPulse = -Infinity;
     this.lastImpact = -Infinity;
+    this.lastBlast = -Infinity;
   }
 
   unlock() {
@@ -80,21 +81,35 @@ export class CannonAudio {
     source.start(time, 0, 0.02);
   }
 
-  impact() {
-    if (this.context?.state !== 'running' || !this.buffer) return;
+  impact(level = 1) {
+    if (level < 0.012 || this.context?.state !== 'running' || !this.buffer) return;
     const time = this.context.currentTime;
     if (time - this.lastImpact < 0.12) return;
     this.lastImpact = time;
     const { source, gain } = this.voice();
     source.playbackRate.value = 0.43;
-    gain.gain.value = 0.27;
+    gain.gain.value = 0.27 * level;
     gain.gain.setTargetAtTime(0, time + 0.012, 0.023);
     source.start(time, 0, 0.037);
+  }
+
+  blast(level, launch = false) {
+    if (level < 0.003 || this.context?.state !== 'running' || !this.buffer) return;
+    const time = this.context.currentTime;
+    if (time - this.lastBlast < 0.08) return;
+    this.lastBlast = time;
+    const { source, gain } = this.voice();
+    source.playbackRate.value = launch ? 0.71 : 0.27;
+    gain.gain.value = Math.min(0.31, level * (launch ? 0.25 : 0.38));
+    gain.gain.setTargetAtTime(0, time + 0.025, launch ? 0.10 : 0.19);
+    source.start(time, 0, launch ? 0.27 : 0.34);
   }
 
   cue(kind) {
     if (this.context?.state !== 'running') return;
     const { frequency, end, duration } = {
+      search: { frequency: 270, end: 210, duration: 0.11 },
+      locked: { frequency: 620, end: 675, duration: 0.10 },
       acquire: { frequency: 525, end: 755, duration: 0.15 },
       track: { frequency: 410, end: 525, duration: 0.18 },
       threat: { frequency: 890, end: 510, duration: 0.22 },

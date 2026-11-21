@@ -16,5 +16,6 @@ const long = pair('radar', 'outer', [wingStores.outer[0], wingStores.outer[1] - 
 
 export const f16CombatLoadouts = {
   short: { stations: short, flare: 8, chaff: 4 },
+  outnumbered: { stations: [short[0], long[1]], flare: 4, chaff: 4 },
   intercept: { stations: [...short, ...long], flare: 8, chaff: 8 },
 };

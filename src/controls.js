@@ -10,6 +10,7 @@ export const keyDefaults = {
   weaponCannon: 'Digit1', weaponInfrared: 'Digit2', weaponRadar: 'Digit3', cycleWeapon: 'Digit4', fireSelected: 'Space',
   radarPower: 'KeyP', radarTarget: 'KeyT', radarLock: 'KeyL', radarMode: 'KeyY', radarRange: 'KeyU', radarScope: 'KeyI',
   flares: 'KeyJ', chaff: 'KeyK',
+  missileView: 'KeyN', nextMissile: 'KeyO', targetView: 'KeyZ',
 };
 
 export const keyLabels = {
@@ -23,6 +24,7 @@ export const keyLabels = {
   radarPower: 'Radar power', radarTarget: 'Select radar contact', radarLock: 'Lock or unlock radar contact',
   radarMode: 'Change radar scan mode', radarRange: 'Change radar scan range', radarScope: 'Show or hide radar scope',
   flares: 'Release flare', chaff: 'Release chaff',
+  missileView: 'Cycle missile camera or return', nextMissile: 'View next launched missile', targetView: 'Toggle selected target view',
 };
 
 export function keyName(code) {
@@ -95,7 +97,7 @@ export class Controls {
     }, options);
     window.addEventListener('pointercancel', () => this.clear(), options);
     document.addEventListener('mousemove', (event) => {
-      if (!session.flying()) return;
+      if (!session.flying() || session.observing?.()) return;
       if (this.looking && (session.locked() || viewport.contains(event.target))) {
         camera.orbit(event.movementX, event.movementY, settings.cameraSensitivity);
       } else if (session.locked() && session.assisted()) {
