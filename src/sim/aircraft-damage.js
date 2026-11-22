@@ -1,18 +1,19 @@
+import { ComponentHealth } from './component-health.js';
+
 const jamAt = 0.23;
 const controlAuthority = (condition) => condition > jamAt ? 0.25 + 0.75 * condition : 0;
 
-export class AircraftDamage {
+export class AircraftDamage extends ComponentHealth {
   constructor(components = {}, engines = [{ component: 'engine', share: 1 }]) {
-    this.components = components;
+    super(components);
     this.engines = engines;
     this.engineFires = new Set();
-    this.health = Object.fromEntries(Object.keys(components).map((key) => [key, 1]));
     this.surfaceAuthority = {};
     this.reset();
   }
 
   reset() {
-    for (const key of Object.keys(this.components)) this.health[key] = 1;
+    super.reset();
     this.active = false;
     this.engineFires.clear();
     this.fire = false;
@@ -20,18 +21,6 @@ export class AircraftDamage {
     this.failure = '';
     this.report = '';
     this.recalculate();
-  }
-
-  condition(key) {
-    return this.health[key] ?? 1;
-  }
-
-  wear(key, amount) {
-    const component = this.components[key];
-    if (!component) return 0;
-    const available = this.health[key] * component.capacity;
-    this.health[key] = Math.max(0, available - amount) / component.capacity;
-    return Math.max(0, amount - available);
   }
 
   hit(key, amount) {

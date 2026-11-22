@@ -10,6 +10,7 @@ export const f16 = {
   role: 'Multirole fighter',
   description: 'A compact single-engine fighter with quick roll response and responsive fly-by-wire controls.',
   engines: [{ component: 'engine', lateral: 0, share: 1, exhaust: [0, 0.10, -6.55] }],
+  weaponDomains: ['air', 'ground'],
   hardpoints: f16CombatLoadouts.intercept.stations,
   loadouts: f16CombatLoadouts,
   radar: standardRadar,

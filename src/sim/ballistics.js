@@ -123,8 +123,10 @@ export class Ballistics {
     round.travel = 0;
   }
 
+  // A battlefield can provide nearby colliders for each swept segment.
   step(dt, colliders) {
     const config = this.config;
+    const query = typeof colliders === 'function' ? colliders : null;
     for (let i = 0; i < this.count;) {
       const round = this.rounds[i];
       const startFraction = round.delay / dt;
@@ -134,7 +136,7 @@ export class Ballistics {
       const { previous, position } = round;
       let firstHit = sweepSurface(previous, position, this.world.maxTerrainHeight, this.world.surfaceAt);
       let struck = null;
-      for (const collider of colliders) {
+      for (const collider of query ? query(previous, position) : colliders) {
         if (collider.active === false) continue;
         const hit = collider.shape === 'sphere'
           ? sweepSphere(previous, position, collider, startFraction, startFraction + travelTime / dt)

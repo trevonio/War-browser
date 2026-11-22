@@ -62,6 +62,7 @@ export class Flight {
     this.wheelSpin = 0;
     this.brake = 0;
     this.stores = true;
+    this.setPayload(0, 0);
     this.fuel = this.spec.fuelCapacity * 0.73;
     this.throttle = throttle;
     this.spool = throttle;
@@ -191,7 +192,7 @@ export class Flight {
     const waveDrag = spec.waveDrag * smoothstep(mach, 0.76, 1.07) * (1 - 0.37 * smoothstep(mach, 1.10, 1.70));
     const dragCoefficient = spec.baseDrag + spec.inducedDrag * liftCoefficient ** 2 + waveDrag
       + speedLimitDrag + separation * 0.48 + 0.035 * this.gear + 0.088 * this.brake + (this.stores ? 0.006 : 0)
-      + 0.28 * sideslip ** 2 + damage.drag;
+      + 0.28 * sideslip ** 2 + damage.drag + this.payloadDrag;
     this.fuel = Math.max(0, this.fuel - (burn + damage.leak) * dt);
 
     this.airDirection.copy(this.velocity).normalize();
@@ -254,7 +255,14 @@ export class Flight {
     this.failure ||= damage.failure;
   }
 
-  get mass() { return this.spec.emptyMass + this.fuel + (this.stores ? this.spec.storesMass : 0); }
+  setPayload(mass, drag) {
+    this.payloadMass = mass;
+    this.payloadDrag = drag;
+  }
+
+  get mass() {
+    return this.spec.emptyMass + this.fuel + (this.stores ? this.spec.storesMass : 0) + this.payloadMass;
+  }
 
   updateInstruments() {
     this.forward.copy(FORWARD).applyQuaternion(this.orientation);

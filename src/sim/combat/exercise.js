@@ -121,7 +121,7 @@ export class CombatExercise {
 
   launch(side, opponent, type = side.rack.selected) {
     if (side === this.player && type !== 'cannon') {
-      opponent = this.enemies.find((enemy) => enemy.flight === side.rack.seeker[type].target);
+      opponent = this.enemies.find((enemy) => enemy.flight === side.rack.seeker[type]?.target);
     }
     const launched = side.rack.fire(type, side.flight.elapsed, this.missiles, opponent?.hull);
     if (launched) {

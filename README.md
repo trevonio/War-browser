@@ -262,3 +262,7 @@ model while retaining the same flight and combat configuration. The hangar
 reuses the main WebGL renderer to generate previews. Within a session,
 templates share geometry and materials across aircraft, distant opponents
 use simpler silhouettes, and switching releases the outgoing effects pools.
+
+The [close air support architecture notes](docs/close-air-support.md)
+describe how a future ground battle can connect to the aircraft registry,
+store payloads, sensors, and mission lifecycle.

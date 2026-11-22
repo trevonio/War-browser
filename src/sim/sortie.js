@@ -35,7 +35,9 @@ export function createSortie(scene, world, practice, player, opponents, events) 
       events.playerHit(flight.elapsed);
       const scale = impactSpeed / spec.cannon.projectileSpeed;
       destroyed = combat.enabled ? combat.hit(collider, spec.cannon.damage, scale) : primary.hit(collider, spec.cannon.damage, scale);
-    } else if (collider?.shape === 'sphere') {
+    } else if (collider?.damageTarget) {
+      destroyed = collider.damageTarget.hit(collider.component, spec.cannon.damage);
+    } else if (collider && practice.targets.includes(collider)) {
       destroyed = practice.hit(collider, spec.cannon.damage, flight.elapsed);
     }
     weaponEffects.impact(surface, point, flight.elapsed, destroyed);

@@ -45,6 +45,7 @@ export const f15 = {
     limits: { Flap: [0, 35], SpeedBrake: [0, 48], LeftFlaperon: [-20, 20], RightFlaperon: [-20, 20] },
   },
   cannon: { ...f16.cannon, capacity: 940, muzzle: [-1.49, 0.32, 3.03] },
+  weaponDomains: ['air'],
   hardpoints: [...infrared, ...radar],
   loadouts: {
     short: { stations: infrared, flare: 10, chaff: 6 },
