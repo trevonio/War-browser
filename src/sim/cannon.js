@@ -13,6 +13,8 @@ export function worldMuzzle(mount, orientation, position, origin, bore) {
   bore.set(0, 0, 1).applyQuaternion(mount.quaternion).applyQuaternion(orientation);
 }
 
+export const cannonRoundMass = 0.18;
+
 export class Cannon {
   constructor(config, mount, ballistics, onShot) {
     this.config = config;
@@ -51,6 +53,7 @@ export class Cannon {
       this.velocity.copy(this.direction).multiplyScalar(this.config.projectileSpeed)
         .addScaledVector(flight.previousVelocity, 1 - at).addScaledVector(flight.velocity, at);
       this.ammo--;
+      if (flight.customStores) flight.ammunitionMass = this.ammo * cannonRoundMass;
       const tracer = this.fired++ % this.config.tracerEvery === 0;
       this.ballistics.spawn(this.position, this.velocity, tracer, this.cooldown);
       this.onShot(this.position, this.direction, flight.elapsed - dt + this.cooldown, this.fired);

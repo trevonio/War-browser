@@ -5,6 +5,7 @@ const airStart = { x: -1170, y: 900, z: -5950, speed: 192, pitch: 0.052, throttl
 export const scenarios = {
   air: airStart,
   practice: { ...airStart },
+  groundRange: { ...airStart, x: -910, y: 380, z: -3500, speed: 148, pitch: 0.035, throttle: 0.46 },
   dogfight: { ...airStart, x: -4150, y: 1450, z: -6250 },
   short: { ...airStart, x: -5050, y: 1800, z: -6500, speed: 192 },
   outnumbered: { ...airStart, x: -6800, y: 3350, z: -9700, speed: 216 },

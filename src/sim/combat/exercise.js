@@ -1,3 +1,4 @@
+import { availablePresets, missionLoadout } from '../loadouts.js';
 import { Vector3 } from 'three';
 import { Countermeasures } from './countermeasures.js';
 import { MissilePool } from './missiles.js';
@@ -76,7 +77,11 @@ export class CombatExercise {
     this.player.warning.reset();
     this.profile = profiles[difficulty] ?? profiles.regular;
     for (const [index, side] of this.allEnemies.entries()) {
-      side.rack.reset((this.loadouts ?? side.flight.spec.loadouts)?.[exercise], setup?.initialWeapon);
+      const spec = side.flight.spec;
+      const preset = (index === 0 ? setup?.opponent : setup?.wingman)?.loadoutPreset;
+      const assignment = preset && availablePresets(spec)[preset];
+      const loadout = assignment && missionLoadout(spec, assignment, exercise);
+      side.rack.reset(loadout || (this.loadouts ?? spec.loadouts)?.[exercise], setup?.initialWeapon);
       side.radar.reset(bvr && this.enemies.includes(side), 2);
       side.warning.reset();
       side.emitters = [this.player.radar];

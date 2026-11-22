@@ -1,4 +1,4 @@
-import { MathUtils, Vector3 } from 'three';
+import { Euler, MathUtils, Vector3 } from 'three';
 import { staticImpact, sweepSphere } from '../ballistics.js';
 import { hasLineOfSight } from './radar.js';
 import { simulatedHeat, weapons } from './weapons.js';
@@ -20,6 +20,7 @@ export class MissilePool {
     this.onBurst = onBurst;
     this.pool = Array.from({ length: 12 }, createMissile);
     this.course = new Vector3();
+    this.mountRotation = new Euler();
     this.turnAxis = new Vector3();
     this.bearing = new Vector3();
     this.point = new Vector3();
@@ -46,8 +47,11 @@ export class MissilePool {
     missile.radar = radar;
     missile.station = station.name;
     missile.position.fromArray(station.offset).applyQuaternion(flight.orientation).add(flight.position);
+    if (station.release) missile.position.add(this.point.fromArray(station.release).applyQuaternion(flight.orientation));
     missile.previous.copy(missile.position);
-    missile.direction.set(0, 0, 1).applyQuaternion(flight.orientation);
+    missile.direction.set(0, 0, 1);
+    if (station.rotation) missile.direction.applyEuler(this.mountRotation.fromArray(station.rotation));
+    missile.direction.applyQuaternion(flight.orientation);
     missile.phase = station.type === 'radar' ? 'MIDCOURSE' : 'INFRARED';
     missile.speed = Math.min(config.speedCap, flight.velocity.length() + 38);
     missile.age = 0;

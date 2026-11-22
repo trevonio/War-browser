@@ -366,3 +366,34 @@ input[type="range"] { max-width: min(29vw,8rem); }
   #open-aircraft { padding-block: .25rem; margin-bottom: .38rem; }
   .test-options { margin-top: .3rem; }
 }
+
+#open-loadouts { margin-bottom: .7rem; }
+.hangar-actions, .ground-release-options { display: flex; flex-wrap: wrap; gap: .4rem; }
+.ground-release-options { margin-top: .55rem; font-size: .82rem; }
+.ground-release-options select { margin-left: .23rem; min-width: auto; }
+.stage-ground-status { bottom: max(5rem, calc(var(--deck-height, 0px) + .65rem)); }
+#ground-feedback { color: var(--accent); }
+#ground-feedback:empty, #external-fuel:empty, #ground-remaining:empty { display: none; }
+#loadout-dialog { width: min(64rem, calc(100vw - 2rem)); }
+.loadout-body {
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1rem;
+  max-height: calc(min(86dvh, 50rem) - 5rem); overflow: auto; padding: 1rem 1.4rem 1.2rem;
+}
+.loadout-display { padding: .65rem; border: 1px solid var(--line); border-radius: 4px; background: #172a38; align-self: start; }
+#loadout-preview { display: block; width: 100%; height: auto; aspect-ratio: 640/260; object-fit: contain; background: #182a36; margin-bottom: .5rem; }
+.loadout-display p { margin: .42rem 0 .24rem; color: var(--muted); font-size: .82rem; line-height: 1.4; }
+.loadout-display #loadout-totals { color: #e8efbf; font: 700 .77rem var(--mono); }
+.loadout-control label, .loadout-library label, .loadout-stations label, .loadout-name { display: flex; justify-content: space-between; align-items: center; gap: .45rem; }
+.loadout-library { display: grid; gap: .38rem; margin-bottom: .55rem; }
+.loadout-stations { display: grid; gap: .32rem; padding: .52rem 0; border-block: 1px solid var(--line); }
+.loadout-stations label, .loadout-library label, .loadout-name { font-size: .82rem; }
+.loadout-stations label span { text-transform: capitalize; }
+.loadout-body select, #loadout-name { width: min(14rem, 60%); color: var(--text); }
+#loadout-name { padding: .4rem .45rem; background: #23343c; border: 1px solid var(--line); border-radius: 3px; }
+.loadout-name { margin: .55rem 0; }
+.loadout-actions { display: flex; gap: .35rem; flex-wrap: wrap; font-size: .75rem; }
+#loadout-status { color: #efca93; min-height: 1.25rem; margin: .45rem 0; font-size: .79rem; }
+#loadout-apply { margin-top: .3rem; }
+@media (max-width: 730px) {
+  .loadout-body { grid-template-columns: 1fr; padding-inline: .65rem; }
+}

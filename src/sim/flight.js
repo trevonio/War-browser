@@ -9,6 +9,7 @@ export const STEP = 1 / 120;
 const GRAVITY = 9.80665;
 const FORWARD = new Vector3(0, 0, 1);
 const UP = new Vector3(0, 1, 0);
+const noTanks = [];
 const MPS_TO_KNOTS = 1.943844;
 const METERS_TO_FEET = 3.28084;
 
@@ -63,6 +64,9 @@ export class Flight {
     this.brake = 0;
     this.stores = true;
     this.setPayload(0, 0);
+    this.customStores = false;
+    this.ammunitionMass = 0;
+    this.setExternalTanks(noTanks);
     this.fuel = this.spec.fuelCapacity * 0.73;
     this.throttle = throttle;
     this.spool = throttle;
@@ -85,7 +89,7 @@ export class Flight {
   }
 
   toggleAfterburner() {
-    this.burnerArmed = !this.burnerArmed && this.fuel > 0 && this.engines.canBurn;
+    this.burnerArmed = !this.burnerArmed && this.totalFuel > 0 && this.engines.canBurn;
     if (this.burnerArmed) this.throttle = 1;
   }
 
@@ -98,7 +102,7 @@ export class Flight {
     this.previousOrientation.copy(this.orientation);
 
     this.throttle = clamp(this.throttle + controls.throttle * 0.36 * dt, 0, 1);
-    if (this.throttle < 0.97 || !this.fuel || !this.engines.canBurn) this.burnerArmed = false;
+    if (this.throttle < 0.97 || !this.totalFuel || !this.engines.canBurn) this.burnerArmed = false;
     const gearMovement = dt / spec.gearTime;
     if (!this.grounded) this.gear = clamp(this.gear + (this.gearDown ? gearMovement : -gearMovement), 0, 1);
     this.brake = clamp(this.brake + (controls.brakes ? dt * 3 : -dt * 3), 0, 1);
@@ -110,7 +114,7 @@ export class Flight {
     const mach = speed / Math.sqrt(1.4 * 287.05 * temperature);
     const dynamicPressure = 0.5 * density * speed * speed;
     const mass = this.mass;
-    this.engines.step(this.throttle, this.fuel, this.burnerArmed, density, mach, dt);
+    this.engines.step(this.throttle, this.totalFuel, this.burnerArmed, density, mach, dt);
     const { thrust, spool, afterburner, yawMoment, burn } = this.engines;
     this.thrust = thrust;
     this.spool = spool;
@@ -191,9 +195,9 @@ export class Flight {
     const speedLimitDrag = spec.maxMach ? 0.24 * smoothstep(mach, spec.maxMach * 0.94, spec.maxMach * 1.08) : 0;
     const waveDrag = spec.waveDrag * smoothstep(mach, 0.76, 1.07) * (1 - 0.37 * smoothstep(mach, 1.10, 1.70));
     const dragCoefficient = spec.baseDrag + spec.inducedDrag * liftCoefficient ** 2 + waveDrag
-      + speedLimitDrag + separation * 0.48 + 0.035 * this.gear + 0.088 * this.brake + (this.stores ? 0.006 : 0)
+      + speedLimitDrag + separation * 0.48 + 0.035 * this.gear + 0.088 * this.brake + (this.stores && !this.customStores ? 0.006 : 0)
       + 0.28 * sideslip ** 2 + damage.drag + this.payloadDrag;
-    this.fuel = Math.max(0, this.fuel - (burn + damage.leak) * dt);
+    this.consumeFuel(burn, damage.leak, dt);
 
     this.airDirection.copy(this.velocity).normalize();
     this.liftDirection.copy(this.up).addScaledVector(this.airDirection, -this.up.dot(this.airDirection)).normalize();
@@ -251,7 +255,7 @@ export class Flight {
     const excess = Math.max(0, this.g - this.spec.maxG * damage.loadLimit, this.spec.minG * damage.loadLimit - this.g);
     this.stress = clamp(this.stress + (excess * 0.27 - 0.10) * dt, 0, 1);
     if (this.stress >= 1) this.failure = 'Structural failure';
-    damage.progress(dt, this.fuel, excess);
+    damage.progress(dt, this.totalFuel, excess);
     this.failure ||= damage.failure;
   }
 
@@ -260,8 +264,37 @@ export class Flight {
     this.payloadDrag = drag;
   }
 
+  setExternalTanks(tanks) {
+    this.externalTanks = tanks;
+    this.externalFuel = 0;
+    this.externalCapacity = 0;
+    for (const tank of tanks) {
+      this.externalFuel += tank.fuel;
+      this.externalCapacity += tank.fuelCapacity;
+    }
+  }
+
+  consumeFuel(burn, leak, dt) {
+    if (!this.externalFuel) {
+      this.fuel = Math.max(0, this.fuel - (burn + leak) * dt);
+      return;
+    }
+    let remaining = burn * dt;
+    for (const tank of this.externalTanks) {
+      const used = Math.min(remaining, tank.fuel);
+      tank.fuel -= used;
+      this.externalFuel -= used;
+      remaining -= used;
+    }
+    this.externalFuel = Math.max(0, this.externalFuel);
+    this.fuel = Math.max(0, this.fuel - remaining - leak * dt);
+  }
+
+  get totalFuel() { return this.fuel + this.externalFuel; }
+
   get mass() {
-    return this.spec.emptyMass + this.fuel + (this.stores ? this.spec.storesMass : 0) + this.payloadMass;
+    return this.spec.emptyMass + this.totalFuel + (this.stores && !this.customStores ? this.spec.storesMass : 0)
+      + this.payloadMass + this.ammunitionMass;
   }
 
   updateInstruments() {

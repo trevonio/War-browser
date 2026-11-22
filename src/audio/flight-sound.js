@@ -50,7 +50,7 @@ export class FlightSound {
     const near = playing ? attenuation(distance, 140) : 0;
     const inside = mode === 'hud' ? 0.56 : 1;
     const voice = flight.spec.audio ?? { pitch: 1, gain: 1 };
-    const motor = flight.failure || !flight.fuel ? 0 : flight.damage.enginePower * flight.spool;
+    const motor = flight.failure || !flight.totalFuel ? 0 : flight.damage.enginePower * flight.spool;
     const burner = flight.afterburner ? motor : 0;
     const pressure = MathUtils.clamp(flight.airspeed / 660, 0, 1);
     this.mix(0, time, (30 + motor * 45 + burner * 14) * voice.pitch, 170 + motor * 360, near * inside * motor * 0.105 * voice.gain);

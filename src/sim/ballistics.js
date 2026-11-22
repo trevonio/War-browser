@@ -68,6 +68,24 @@ export function sweepSurface(start, end, impactY, surfaceAt) {
   return far;
 }
 
+export function sweepColliders(world, start, end, colliders, output, startFraction = 0, endFraction = 1) {
+  let fraction = sweepSurface(start, end, world.maxTerrainHeight, world.surfaceAt);
+  let struck = null;
+  for (const collider of colliders) {
+    if (collider.active === false) continue;
+    const hit = collider.shape === 'sphere'
+      ? sweepSphere(start, end, collider, startFraction, endFraction)
+      : sweepBox(start, end, collider);
+    if (hit < fraction) {
+      fraction = hit;
+      struck = collider;
+    }
+  }
+  output.fraction = fraction;
+  output.collider = struck;
+  return output;
+}
+
 export function staticImpact(world, start, end, colliders = world.structures) {
   let first = sweepSurface(start, end, world.maxTerrainHeight, world.surfaceAt);
   for (const collider of colliders) {
@@ -101,6 +119,7 @@ export class Ballistics {
     this.world = world;
     this.onImpact = onImpact;
     this.impact = new Vector3();
+    this.collision = {};
     this.rounds = Array.from({ length: Math.min(config.capacity, Math.ceil(config.rpm * (config.lifetime + 1 / 60) / 60) + 1) }, () => ({
       position: new Vector3(), previous: new Vector3(), velocity: new Vector3(),
       age: 0, travel: 0, delay: 0, tracer: false,
@@ -134,18 +153,8 @@ export class Ballistics {
       round.delay = 0;
 
       const { previous, position } = round;
-      let firstHit = sweepSurface(previous, position, this.world.maxTerrainHeight, this.world.surfaceAt);
-      let struck = null;
-      for (const collider of query ? query(previous, position) : colliders) {
-        if (collider.active === false) continue;
-        const hit = collider.shape === 'sphere'
-          ? sweepSphere(previous, position, collider, startFraction, startFraction + travelTime / dt)
-          : sweepBox(previous, position, collider);
-        if (hit < firstHit) {
-          firstHit = hit;
-          struck = collider;
-        }
-      }
+      const { fraction: firstHit, collider: struck } = sweepColliders(this.world, previous, position,
+        query ? query(previous, position) : colliders, this.collision, startFraction, startFraction + travelTime / dt);
 
       if (firstHit < Infinity) {
         this.impact.copy(previous).lerp(position, firstHit);

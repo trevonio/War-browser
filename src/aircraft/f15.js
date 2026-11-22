@@ -1,3 +1,4 @@
+import { centerFuelStation, storeStationPair } from '../sim/loadouts.js';
 import { f16 } from './f16.js';
 
 const paired = (type, names, coordinates) => coordinates.flatMap(([x, y, z], index) =>
@@ -47,6 +48,11 @@ export const f15 = {
   cannon: { ...f16.cannon, capacity: 940, muzzle: [-1.49, 0.32, 3.03] },
   weaponDomains: ['air'],
   hardpoints: [...infrared, ...radar],
+  storeStations: {
+    extra: [...storeStationPair('reserve', 'fuel pylon', [2.70, -0.67, -1.24], ['tank'], 820),
+      { ...centerFuelStation, offset: [0, -0.96, -0.24] }],
+    tankLimit: 2,
+  },
   loadouts: {
     short: { stations: infrared, flare: 10, chaff: 6 },
     intercept: { stations: [...infrared, ...radar], flare: 10, chaff: 12 },

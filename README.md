@@ -266,3 +266,37 @@ use simpler silhouettes, and switching releases the outgoing effects pools.
 The [close air support architecture notes](docs/close-air-support.md)
 describe how a future ground battle can connect to the aircraft registry,
 store payloads, sensors, and mission lifecycle.
+
+## Custom loadouts and ground attack range
+
+Open **Loadout** from mission preparation or **Configure loadout** in aircraft
+selection. Choose a preset or mount stores by station, then apply the loadout.
+Saved names and the active configuration live in the browser. **Restore
+mission default** restores the original mission equipment.
+
+The F-16C has seven configurable stations. Its wingtips take infrared
+missiles, the outer pylons take radar missiles or range bombs, the inboard
+pylons take bombs, rocket pods, or tanks, and the centerline takes a fuel
+tank. The F-15C has eight air-to-air missile stations and three possible
+fuel tank locations. The simulator validates station capacity and clearance.
+Air combat missions retain their existing equipment restrictions. Outnumbered
+uses its fixed mission loadout.
+
+Custom loads replace the legacy aggregate store terms with attached mass,
+drag, remaining rocket and cannon ammunition, and external fuel. Tanks feed
+the aircraft before its internal supply. Press **8** to jettison one tank.
+The stores visibility toggle hides the models and leaves custom store mass
+and drag attached. The shared solver accounts for total mass and drag.
+Asymmetric store placement has no separate inertia or center-of-mass model.
+
+Choose **Ground attack range** with the F-16C to practice on two trucks, two
+armored targets, and a shelter. Use **5** for bombs, **6** for rockets, and
+**1** for the cannon. **C** toggles the impact cue and **Space** releases the
+selected weapon. Set single, paired, ripple, or salvo release in the
+briefing. **9** rearms the range weapons without clearing the mission tally.
+The first ground impact comes from the same fixed-step movement and collision
+calculation used by prediction. The mission tracks actual releases, rounds,
+targets hit, and targets disabled. Ground equipment, payload restrictions,
+projectile behavior, and effects use simulator tuning for this map. The
+[CAS extension notes](docs/close-air-support.md) describe the next steps for
+ground AI, sensors, additional weapon families, and battlefield objectives.

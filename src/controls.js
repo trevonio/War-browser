@@ -10,6 +10,7 @@ export const keyDefaults = {
   weaponCannon: 'Digit1', weaponInfrared: 'Digit2', weaponRadar: 'Digit3', cycleWeapon: 'Digit4', fireSelected: 'Space',
   radarPower: 'KeyP', radarTarget: 'KeyT', radarLock: 'KeyL', radarMode: 'KeyY', radarRange: 'KeyU', radarScope: 'KeyI',
   flares: 'KeyJ', chaff: 'KeyK',
+  weaponBomb: 'Digit5', weaponRocket: 'Digit6', jettisonTank: 'Digit8', rearmGround: 'Digit9',
   missileView: 'KeyN', nextMissile: 'KeyO', targetView: 'KeyZ',
 };
 
@@ -24,6 +25,7 @@ export const keyLabels = {
   radarPower: 'Radar power', radarTarget: 'Select radar contact', radarLock: 'Lock or unlock radar contact',
   radarMode: 'Change radar scan mode', radarRange: 'Change radar scan range', radarScope: 'Show or hide radar scope',
   flares: 'Release flare', chaff: 'Release chaff',
+  weaponBomb: 'Select bombs', weaponRocket: 'Select rockets', jettisonTank: 'Drop external tank', rearmGround: 'Rearm range weapons',
   missileView: 'Cycle missile camera or return', nextMissile: 'View next launched missile', targetView: 'Toggle selected target view',
 };
 

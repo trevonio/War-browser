@@ -1,3 +1,4 @@
+import { stores } from '../loadouts.js';
 import { Vector3 } from 'three';
 import { hasLineOfSight } from './radar.js';
 
@@ -5,6 +6,8 @@ import { hasLineOfSight } from './radar.js';
 // describe the fictional simulation and are shared by player and AI.
 export const weapons = {
   cannon: { label: 'M61A1 · 20 MM' },
+  bomb: { label: 'RANGE BOMB' },
+  rocket: { label: 'RANGE ROCKET' },
   infrared: {
     label: 'SIDEWINDER · IR', minRange: 150, maxRange: 2400, acquireArc: 0.955, keeperArc: 0.62,
     dwell: 0.32, model: 'wingtip', launchCue: 'launch', mass: 1, burn: 2.25, thrust: 155, speedCap: 580, damping: 0.058,
@@ -39,7 +42,8 @@ export class WeaponRack {
     const domains = this.flight.spec.weaponDomains ?? airOnly;
     this.stations = (loadout?.stations ?? [])
       .filter((station) => domains.includes(station.domain ?? 'air'))
-      .map((station) => ({ ...station, used: false }));
+      .map((station) => ({ ...station, remaining: station.quantity ?? 1, fuelCapacity: station.fuel ?? 0, used: false }));
+    this.flight.customStores = Boolean(loadout?.physical);
     this.payloadStations = this.stations.filter(({ payload }) => payload);
     this.syncPayload();
     this.flare = loadout?.flare ?? 0;
@@ -58,12 +62,16 @@ export class WeaponRack {
   syncPayload() {
     let mass = 0;
     let drag = 0;
+    const tanks = [];
     for (const station of this.payloadStations) {
-      if (!attached(station, this.flight.damage)) continue;
-      mass += station.payload.mass;
+      station.attached = attached(station, this.flight.damage);
+      if (!station.attached) continue;
+      mass += station.payload.mass + (station.roundMass ?? 0) * station.remaining;
+      if (station.fuelCapacity) tanks.push(station);
       drag += station.payload.drag;
     }
     this.flight.setPayload(mass, drag);
+    this.flight.setExternalTanks(tanks);
   }
 
   blankSeeker() {
@@ -71,19 +79,19 @@ export class WeaponRack {
   }
 
   station(type) {
-    return this.stations.find((entry) => entry.type === type && attached(entry, this.flight.damage));
+    return this.stations.find((entry) => entry.type === type && entry.remaining > 0 && attached(entry, this.flight.damage));
   }
 
   count(type) {
     let available = 0;
     for (const entry of this.stations) {
-      if (entry.type === type && attached(entry, this.flight.damage)) available++;
+      if (entry.type === type && entry.remaining > 0 && attached(entry, this.flight.damage)) available += entry.remaining;
     }
     return available;
   }
 
   select(type) {
-    if (type === 'cannon' || Object.hasOwn(this.seeker, type) && this.stations.some((entry) => entry.type === type)) {
+    if (type === 'cannon' || Object.hasOwn(weapons, type) && this.stations.some((entry) => entry.type === type)) {
       this.selected = type;
     }
   }
@@ -97,7 +105,7 @@ export class WeaponRack {
   update(time, contacts) {
     if (time < this.nextAcquire || this.flight.failure) return;
     this.nextAcquire = time + 0.10;
-    if (this.payloadStations.length) this.syncPayload();
+    if (this.payloadStations.some((station) => station.attached !== attached(station, this.flight.damage))) this.syncPayload();
     const own = this.flight;
     this.forward.set(0, 0, 1).applyQuaternion(own.orientation);
     this.acquire('infrared', this.station('infrared') ? contacts : [], time);
@@ -137,7 +145,7 @@ export class WeaponRack {
   }
 
   fire(type, time, missiles, hull) {
-    if (type === 'cannon') return false;
+    if (!Object.hasOwn(this.seeker, type)) return false;
     if (this.launchState(type, time) !== 'CLEARED') {
       this.message('LAUNCH INHIBITED', time);
       return false;
@@ -145,14 +153,29 @@ export class WeaponRack {
     const station = this.station(type);
     const missile = missiles.launch(this, station, this.seeker[type].target, hull);
     if (!missile) return false;
-    station.used = true;
-    if (station.payload) this.syncPayload();
+    this.consume(station);
     this.nextLaunch = time + 0.60;
     this.message('MISSILE AWAY', time);
     return true;
   }
 
+  consume(station) {
+    station.remaining--;
+    if (!station.remaining && station.type !== 'rocket') station.used = true;
+    if (station.payload) this.syncPayload();
+  }
+
+  releaseState(type) {
+    if (!this.station(type)) return 'AMMO EMPTY';
+    const { flight } = this;
+    const limits = stores[type];
+    if (flight.failure || flight.grounded) return 'INHIBITED';
+    if (flight.mach > (limits.releaseMach ?? 1.05) || Math.abs(flight.g) > (limits.releaseG ?? 5)) return 'OUTSIDE ENVELOPE';
+    return 'READY';
+  }
+
   launchState(type, time) {
+    if (type === 'bomb' || type === 'rocket') return this.releaseState(type);
     if (!Object.hasOwn(this.seeker, type)) return 'INHIBITED';
     if (!this.station(type)) return 'AMMO EMPTY';
     if (this.flight.failure || this.flight.grounded) return 'INHIBITED';

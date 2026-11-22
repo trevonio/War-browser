@@ -31,10 +31,12 @@
       <h1 id="aircraft-title"><span id="aircraft-title-first">Fighting</span><br> <span id="aircraft-title-second">Falcon</span></h1>
       <p class="description" id="aircraft-briefing-description">Fly over a coastal range. Practice energy management, landings, and cannon fire.</p>
       <button id="open-aircraft" class="utility-button" type="button">Choose aircraft <b id="aircraft-current">F-16C</b></button>
+      <button id="open-loadouts" class="utility-button" type="button">Loadout</button>
       <div class="start-choice" role="group" aria-label="Starting position">
         <button id="start-air" type="button" aria-pressed="true">Air start</button>
         <button id="start-runway" type="button" aria-pressed="false">Runway 36</button>
         <button id="start-practice" type="button" aria-pressed="false">Cannon range</button>
+        <button id="start-ground-range" type="button" aria-pressed="false">Ground attack range</button>
         <button id="start-dogfight" type="button" aria-pressed="false">Dogfight</button>
         <button id="start-short" type="button" aria-pressed="false">Missile dogfight</button>
         <button id="start-intercept" type="button" aria-pressed="false">BVR intercept</button>
@@ -64,6 +66,10 @@
         <label><input type="checkbox" id="test-protect"> Disable structural wear</label>
         <label><input type="checkbox" id="test-ammo"> Refill cannon</label>
       </fieldset>
+      <div id="ground-release-options" class="ground-release-options" hidden>
+        <label>Bomb release <select id="bomb-mode"><option value="single">Single</option><option value="pair">Paired</option><option value="burst">Ripple</option></select></label>
+        <label>Rocket release <select id="rocket-mode"><option value="single">Single</option><option value="burst">Salvo</option></select></label>
+      </div>
       <div id="start-detail" class="start-detail">2,950 FT MSL · 358 KTS</div>
       <button class="primary-button" id="launch" type="button">Start flight <kbd>Enter</kbd></button>
     </section>
@@ -106,6 +112,7 @@
           <div class="instrument-label">FUEL</div>
           <output id="fuel">00</output><span class="unit">%</span>
           <div class="instrument-note"><span id="g-force">1.0</span> G</div>
+          <div class="instrument-note" id="fuel-external" hidden></div>
         </div>
       </div>
       <div id="boresight" class="boresight" title="Fixed cannon sight"></div>
@@ -148,6 +155,14 @@
         <div id="missile-telemetry"></div>
         <div id="launch-feedback" role="status"></div>
       </section>
+      <div id="ground-status" class="range-status stage-ground-status" hidden>
+        <b id="ground-range-caption">GROUND RANGE</b>
+        <span id="ground-remaining"></span>
+        <span id="ground-feedback"></span>
+        <span id="external-fuel"></span>
+        <span><kbd id="key-weaponBomb">5</kbd> Bombs <kbd id="key-weaponRocket">6</kbd> Rockets <kbd id="key-jettisonTank">8</kbd> Drop tank</span>
+        <span id="ground-rearm-hint" hidden><kbd id="key-rearmGround">9</kbd> Rearm range weapons</span>
+      </div>
       <div id="combat-shortcuts" aria-label="Air combat shortcuts" hidden>
         <span><kbd id="key-cycleWeapon">4</kbd> Weapon <kbd id="key-fireSelected">Space</kbd> Fire</span>
         <span><kbd id="key-radarPower">P</kbd> Radar <kbd id="key-radarTarget">T</kbd> Contact <kbd id="key-radarLock">L</kbd> Lock</span>
@@ -175,10 +190,13 @@
       <h1 id="pause-title">Paused</h1>
       <p id="pause-description" class="description" role="status">Your aircraft is holding position.</p>
       <dl id="mission-results" class="mission-results" hidden>
-        <div><dt>Enemies down</dt><dd id="result-enemies"></dd></div>
+        <div id="result-enemies-row"><dt>Enemies down</dt><dd id="result-enemies"></dd></div>
         <div><dt>Cannon rounds</dt><dd id="result-guns"></dd></div>
-        <div><dt>Missiles</dt><dd id="result-missiles"></dd></div>
-        <div><dt>Airframe damage</dt><dd id="result-damage"></dd></div>
+        <div id="result-missiles-row"><dt>Missiles</dt><dd id="result-missiles"></dd></div>
+        <div id="result-bombs-row" hidden><dt>Bombs released</dt><dd id="result-bombs"></dd></div>
+        <div id="result-rockets-row" hidden><dt>Rockets fired</dt><dd id="result-rockets"></dd></div>
+        <div id="result-targets-row" hidden><dt>Ground targets</dt><dd id="result-targets"></dd></div>
+        <div id="result-airframe-row"><dt>Airframe damage</dt><dd id="result-damage"></dd></div>
         <div><dt>Mission time</dt><dd id="result-time"></dd></div>
       </dl>
       <button id="resume" class="primary-button" type="button">Resume flight <kbd>Enter</kbd></button>
@@ -212,7 +230,8 @@
     <dialog id="aircraft-dialog" aria-labelledby="aircraft-dialog-title">
       <header class="dialog-header">
         <h2 id="aircraft-dialog-title">Choose aircraft</h2>
-        <button id="close-aircraft" class="utility-button" type="button">Close</button>
+        <div class="hangar-actions"><button id="aircraft-loadouts" class="utility-button" type="button">Configure loadout</button>
+        <button id="close-aircraft" class="utility-button" type="button">Close</button></div>
       </header>
       <div class="hangar-body">
         <section class="hangar-preview" aria-label="Aircraft preview">
@@ -241,6 +260,34 @@
       </template>
     </dialog>
 
+    <dialog id="loadout-dialog" aria-labelledby="loadout-title">
+      <header class="dialog-header"><h2 id="loadout-title">Aircraft loadout</h2>
+        <button type="button" id="close-loadouts" class="utility-button">Close</button></header>
+      <div class="loadout-body">
+        <section class="loadout-display" aria-label="Payload preview">
+          <img id="loadout-preview" alt="Aircraft and mounted stores" width="640" height="260">
+          <button type="button" id="loadout-rotate" class="utility-button">Rotate preview</button>
+          <p id="loadout-totals"></p>
+          <p id="loadout-ammo"></p>
+          <p id="loadout-store-info">Select a station to inspect its compatible stores.</p>
+        </section>
+        <section class="loadout-controls" aria-label="Hardpoints and saved configurations">
+          <div class="loadout-library">
+            <label>Preset <select id="loadout-preset"></select></label>
+            <label>Saved <select id="loadout-saved"></select></label>
+          </div>
+          <div id="loadout-stations" class="loadout-stations"></div>
+          <label class="loadout-name">Name <input id="loadout-name" maxlength="32" autocomplete="off" placeholder="My loadout"></label>
+          <div class="loadout-actions">
+            <button type="button" class="utility-button" id="loadout-save">Save</button>
+            <button type="button" class="utility-button" id="loadout-delete">Delete saved</button>
+            <button type="button" class="utility-button" id="loadout-default">Restore mission default</button>
+          </div>
+          <p id="loadout-status" role="status"></p>
+          <button type="button" class="primary-button" id="loadout-apply">Apply to aircraft</button>
+        </section>
+      </div>
+    </dialog>
     <dialog id="settings" aria-labelledby="settings-title">
       <header class="dialog-header">
         <div><p class="eyebrow">FLIGHT DECK</p><h2 id="settings-title">Settings</h2></div>

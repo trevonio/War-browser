@@ -1,3 +1,4 @@
+import { centerFuelStation, storeStationPair } from '../sim/loadouts.js';
 import { f16CombatLoadouts } from './f16-ordnance.js';
 import { standardRadar } from '../sim/combat/radar.js';
 
@@ -12,6 +13,14 @@ export const f16 = {
   engines: [{ component: 'engine', lateral: 0, share: 1, exhaust: [0, 0.10, -6.55] }],
   weaponDomains: ['air', 'ground'],
   hardpoints: f16CombatLoadouts.intercept.stations,
+  storeStations: {
+    overrides: {
+      'outer-left': { allowed: ['radar', 'bomb'], limit: 275 },
+      'outer-right': { allowed: ['radar', 'bomb'], limit: 275 },
+    },
+    extra: [...storeStationPair('inboard', 'inboard', [1.77, -0.76, -1.75], ['bomb', 'rocket', 'tank'], 820), centerFuelStation],
+    tankLimit: 2,
+  },
   loadouts: f16CombatLoadouts,
   radar: standardRadar,
   audio: { pitch: 1, gain: 1 },

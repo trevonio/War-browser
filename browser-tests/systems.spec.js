@@ -59,3 +59,19 @@ test('profiles both player airframes and four mixed aircraft at 1080p', async ({
   expect(errors).toEqual([]);
   console.log('Stage 2.6 software WebGL', JSON.stringify(report));
 });
+
+test('profiles clean and loaded flight, release, salvos, and the ground range', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Measure scenarios on one software renderer.');
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('http://127.0.0.1:4174/browser-tests/systems-fixture.html');
+  await page.waitForFunction(() => Boolean(window.flightSystemsTest), undefined, { timeout: 25000 });
+  const { report, changes, changeMs } = await page.evaluate(() => window.flightSystemsTest.measureGroundStores());
+  expect(report.bombRelease.active).toBe(2);
+  expect(report.rocketSalvo.active).toBeGreaterThan(2);
+  expect(report.explosions.impacts).toBe(3);
+  expect(report.explosions.particles).toBeGreaterThan(20);
+  expect(new Set(changes.map(String)).size).toBe(1);
+  expect(errors).toEqual([]);
+  console.log('Stage 2.7 Chromium WebGL, medium 800×450', JSON.stringify({ report, changes, changeMs }));
+});
