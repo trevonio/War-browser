@@ -20,6 +20,7 @@ export class AIPilot {
   constructor(world, spec) {
     this.world = world;
     this.cannon = spec.cannon;
+    this.tactics = spec.tactics;
     this.speedScale = spec.controlSpeed / 120;
     this.aim = new Vector3();
     this.toPlayer = new Vector3();
@@ -146,7 +147,7 @@ export class AIPilot {
     const closing = this.relativeVelocity.subVectors(flight.velocity, player.velocity).dot(this.toPlayer);
     const trailing = playerFacing > 0.48 && facing > 0.35;
     const firingPass = distance < 870 && facing > 0.86;
-    const overrun = trailing && distance < 175 && closing > 15;
+    const overrun = trailing && distance < (this.tactics?.extendAt ?? 175) && closing > 15;
 
     this.status = trailing ? 'PURSUIT' : 'INTERCEPT';
     this.aim.copy(player.position).addScaledVector(player.velocity, clamp(distance / 460, 0.25, 2));
@@ -154,7 +155,7 @@ export class AIPilot {
       const lowEnergy = speed < flight.spec.controlSpeed * 1.55
         || (flight.spool < 0.65 && player.position.y - flight.position.y > 180);
       const offset = trailing ? -125 - (lowEnergy ? 110 : 0) : -240 + clamp(closing, -60, 100);
-      this.aim.addScaledVector(this.playerForward, offset);
+      this.aim.addScaledVector(this.playerForward, offset - (this.tactics?.pursuitLag ?? 0));
       if (lowEnergy) this.aim.y = Math.min(this.aim.y, flight.position.y + distance * 0.08);
     }
     if (overrun) {
@@ -181,8 +182,8 @@ export class AIPilot {
     }
 
     const playerSpeed = player.velocity.length();
-    const wanted = trailing ? playerSpeed + clamp((distance - 360) / 17, -40, 55)
-      : lerp(172, 245, clamp((distance - 300) / 1250, 0, 1)) * this.speedScale;
+    const wanted = (trailing ? playerSpeed + clamp((distance - 360) / 17, -40, 55)
+      : lerp(172, 245, clamp((distance - 300) / 1250, 0, 1)) * this.speedScale) * (this.tactics?.energySpeed ?? 1);
     this.burner = distance > 1150 && facing > 0.36 && speed < wanted - 22;
     return clamp(wanted, 150 * this.speedScale, 285 * this.speedScale);
   }

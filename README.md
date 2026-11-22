@@ -226,3 +226,39 @@ indicates the last known direction until the observation expires. The optional
 target and missile cameras leave flight and keyboard controls active. Combat
 results report opponents down, rounds fired and hits, missiles launched and hits,
 damaged aircraft components, and mission time.
+
+## Aircraft selection and flight testing
+
+Use **Choose aircraft** in the briefing to compare and rotate the F-16C and
+F-15C. The selected airframe persists in the browser. Combat briefings also
+let you assign either type to the opposing side and choose the second
+opponent independently in Outnumbered. Restarting a mission keeps those
+choices. Free flight includes air and runway starts, with optional live mass,
+thrust, angle-of-attack, heading-rate, engine and fuel measurements. Test
+options can refill the cannon and disable structural wear. Terrain and runway
+collisions still end a failed flight.
+
+The F-16C has faster roll response. The heavier F-15C uses two engines, a
+slower roll response, different lift and drag, greater combined thrust and a
+different radar scan profile. The Eagle’s cannon carries 940 rounds at full
+capacity. Its intercept loadout carries four IR and four radar missiles,
+while Outnumbered limits both aircraft to 260 cannon rounds, one missile of
+each type, four flares and four chaff releases. These quantities and all
+displayed performance figures describe this simulation. Public descriptions
+of the Eagle anchor the airframe’s twin-engine layout and general dimensions.
+[U.S. Air Force F-15 fact sheet](https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104501/f-15-eagle/)
+
+Aircraft entries in `src/aircraft/registry.js` pair configuration with a
+lazy-loaded visual adapter. The shared flight solver, instructor, weapons,
+sensor, damage and AI systems consume those profiles. Each engine tracks
+its own spool, thrust, fuel consumption, burner and component damage.
+Unequal thrust creates a yaw moment. The visual adapters bind the final
+simulated surface positions and gear state to their respective models.
+
+The Eagle is an original procedural prototype. Its ailerons, stabilators,
+rudders, flaps, speed brake, gear and exhaust move, with simplified linkage
+geometry and no cockpit interior. The visual adapter can accept a replacement
+model while retaining the same flight and combat configuration. The hangar
+reuses the main WebGL renderer to generate previews. Within a session,
+templates share geometry and materials across aircraft, distant opponents
+use simpler silhouettes, and switching releases the outgoing effects pools.

@@ -1,0 +1,63 @@
+import * as T from 'three';
+
+export class AircraftPreview {
+  constructor(renderer) {
+    this.renderer = renderer;
+    this.scene = new T.Scene();
+    this.scene.background = new T.Color(0x182a36);
+    this.camera = new T.PerspectiveCamera(35, 1, 0.5, 160);
+    this.size = new T.Vector2();
+    this.scene.add(new T.HemisphereLight(0xe6f2f4, 0x536676, 2.35));
+    const key = new T.DirectionalLight(0xffe8c6, 3.3);
+    key.position.set(4, 9, 6);
+    this.scene.add(key);
+  }
+
+  draw(assets, angle, width, height) {
+    const renderer = this.renderer;
+    const ratio = renderer.getPixelRatio();
+    renderer.getSize(this.size);
+    this.camera.aspect = width / height;
+    this.camera.position.set(Math.sin(angle) * 27, 12, Math.cos(angle) * 27);
+    this.camera.lookAt(0, 0, 0);
+    this.camera.updateProjectionMatrix();
+    const root = assets.own.root;
+    this.scene.add(root);
+    try {
+      renderer.setPixelRatio(1);
+      renderer.setSize(width, height, false);
+      renderer.render(this.scene, this.camera);
+      return renderer.domElement.toDataURL('image/jpeg', 0.88);
+    } finally {
+      root.removeFromParent();
+      renderer.setPixelRatio(ratio);
+      renderer.setSize(this.size.x, this.size.y, false);
+    }
+  }
+}
+
+export function describeAircraft(spec, card) {
+  const locale = (value) => value.toLocaleString('en-US');
+  const facts = [
+    ['Manufacturer', spec.manufacturer],
+    ['Engines', `${spec.engines.length} · ${Math.round(spec.afterburnerThrust / 1000)} kN total with afterburner`],
+    ['Empty mass', `${locale(spec.emptyMass)} kg`],
+    ['Internal fuel', `${locale(spec.fuelCapacity)} kg`],
+    ['Weapons', `${spec.cannon.name} · ${spec.cannon.capacity} rounds · IR and radar missiles`],
+    ['Radar', `${spec.radar.label} · ${spec.radar.ranges.at(-1) / 1000} km game scope`],
+    ['Roll authority', `${Math.round(T.MathUtils.radToDeg(spec.rollRate))}°/s control-rate limit`],
+  ];
+  card.querySelector('h3').textContent = spec.name;
+  card.querySelector('.aircraft-role').textContent = spec.role;
+  card.querySelector('.aircraft-description').textContent = spec.description;
+  const list = card.querySelector('dl');
+  for (const [label, value] of facts) {
+    const row = document.createElement('div');
+    const term = document.createElement('dt');
+    const detail = document.createElement('dd');
+    term.textContent = label;
+    detail.textContent = value;
+    row.append(term, detail);
+    list.append(row);
+  }
+}

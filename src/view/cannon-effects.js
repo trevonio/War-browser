@@ -1,4 +1,5 @@
 import * as T from 'three';
+import { disposeObjects } from './resources.js';
 
 const styles = {
   smoke: { color: 0xb7b4ac, life: 0.40, size: 0.44, speed: 3, opacity: 0.27, lift: 1 },
@@ -93,6 +94,8 @@ export class CannonEffects {
     this.clear();
   }
 
+  dispose() { disposeObjects(this.tracers, this.points, this.debris, ...this.drones, ...this.guns.map(({ flash }) => flash)); }
+
   clear() {
     for (const gun of this.guns) gun.lastShot = -Infinity;
     this.lastImpact = -Infinity;
@@ -131,10 +134,13 @@ export class CannonEffects {
     const emitters = flight.spec.damageEmitters;
     const { damage } = flight;
     if (!emitters || flight.failure) return;
-    if (damage.fire || (damage.enginePower > 0 && damage.enginePower < 0.63)) {
-      this.damageOrigin.fromArray(emitters.engine).applyQuaternion(flight.orientation).add(flight.position);
+    for (const { config, power } of flight.engines.states) {
+      const burning = damage.engineFires.has(config.component);
+      const exhaust = config.exhaust ?? emitters.engine;
+      if (!exhaust || !(burning || (power > 0 && power < 0.63))) continue;
+      this.damageOrigin.fromArray(exhaust).applyQuaternion(flight.orientation).add(flight.position);
       this.emit('engineSmoke', this.damageOrigin, 2);
-      if (damage.fire) this.emit('fire', this.damageOrigin, 2);
+      if (burning) this.emit('fire', this.damageOrigin, 2);
     }
     if (damage.leak > 0 && flight.fuel > 0) {
       this.damageOrigin.fromArray(emitters.fuel).applyQuaternion(flight.orientation).add(flight.position);

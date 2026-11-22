@@ -1,7 +1,19 @@
+import { f16CombatLoadouts } from './f16-ordnance.js';
+import { standardRadar } from '../sim/combat/radar.js';
+
 // Public dimensions and nominal engine ratings anchor the model. Aerodynamic,
 // handling, fuel-flow and loaded-mass values are tuned game approximations.
 export const f16 = {
   id: 'f16c',
+  shortName: 'F-16C',
+  manufacturer: 'General Dynamics',
+  role: 'Multirole fighter',
+  description: 'A compact single-engine fighter with quick roll response and responsive fly-by-wire controls.',
+  engines: [{ component: 'engine', lateral: 0, share: 1, exhaust: [0, 0.10, -6.55] }],
+  hardpoints: f16CombatLoadouts.intercept.stations,
+  loadouts: f16CombatLoadouts,
+  radar: standardRadar,
+  audio: { pitch: 1, gain: 1 },
   name: 'F-16C Fighting Falcon',
   emptyMass: 8700,
   fuelCapacity: 3100,

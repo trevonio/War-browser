@@ -1,24 +1,20 @@
 import * as T from 'three';
-import { f16 } from './aircraft/f16.js';
-import { createF16Visual, createOpponentVisual } from './aircraft/f16-visual.js';
+import { aircraftRegistry, defaultAircraft } from './aircraft/registry.js';
 import { CannonAudio } from './audio/cannon-audio.js';
 import { attenuation, FlightSound } from './audio/flight-sound.js';
 import { canBind, Controls, keyDefaults, keyLabels, keyName, loadSettings, saveSettings } from './controls.js';
 import { FlightPointerLock } from './pointer-lock.js';
 import { opponentModes } from './sim/ai-pilot.js';
-import { Ballistics } from './sim/ballistics.js';
-import { Cannon } from './sim/cannon.js';
-import { CombatExercise, combatExercises } from './sim/combat/exercise.js';
+import { createSortie } from './sim/sortie.js';
+import { combatExercises } from './sim/combat/exercise.js';
 import { weapons } from './sim/combat/weapons.js';
-import { Dogfight } from './sim/dogfight.js';
-import { Flight, STEP } from './sim/flight.js';
-import { GunComputer, sightInterval, VisualTrack } from './sim/gun-computer.js';
+import { STEP } from './sim/flight.js';
+import { sightInterval, VisualTrack } from './sim/gun-computer.js';
 import { PracticeRange } from './sim/practice.js';
 import { range, scenarios } from './sim/range.js';
 import { CannonTrigger } from './trigger.js';
-import { AirframeEffects } from './view/airframe-effects.js';
-import { FlightTrails } from './view/trails.js';
-import { CannonEffects } from './view/cannon-effects.js';
+import { AircraftHangar } from './view/aircraft-hangar.js';
+import { AircraftPreview, describeAircraft } from './view/aircraft-picker.js';
 import { FlightCamera } from './view/camera.js';
 import { CombatEffects, drawRadar } from './view/combat-view.js';
 import { CombatCamera } from './view/combat-camera.js';
@@ -44,9 +40,9 @@ const flightLabels = {
 const combatShortcuts = ['cycleWeapon', 'fireSelected', 'radarPower', 'radarTarget', 'radarLock',
   'radarMode', 'radarRange', 'radarScope', 'flares', 'chaff'];
 
-requestAnimationFrame(() => {
+requestAnimationFrame(async () => {
   try {
-    boot();
+    await boot();
   } catch (error) {
     console.error(error);
     unavailable('A WebGL 2 browser with hardware acceleration is needed to render the flight deck.');
@@ -61,7 +57,7 @@ function unavailable(message) {
   ui['open-settings'].disabled = true;
 }
 
-function boot() {
+async function boot() {
   const settings = loadSettings();
   const renderer = new T.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
   renderer.toneMapping = T.ACESFilmicToneMapping;
@@ -73,17 +69,23 @@ function boot() {
   const combatCamera = new CombatCamera(range);
   const knownContacts = new KnownContacts(range);
   const contactMarker = new ContactMarker();
-  const flight = new Flight(f16, range);
-  const visual = createF16Visual();
-  const aircraft = visual.root;
-  aircraft.renderMovement = new T.Vector3();
-  scene.add(aircraft);
-  const opponentVisual = createOpponentVisual(visual);
-  const wingmanVisual = createOpponentVisual(visual);
-  for (const { root } of [opponentVisual, wingmanVisual]) {
-    root.visible = false;
-    scene.add(root);
+  const hangar = new AircraftHangar();
+  let aircraftId = defaultAircraft;
+  try {
+    const remembered = localStorage.getItem('war-browser:aircraft');
+    if (Object.hasOwn(aircraftRegistry, remembered)) aircraftId = remembered;
+  } catch {
+    // Storage access does not affect aircraft selection in this session.
   }
+  const initialAssets = await hangar.load(aircraftId);
+  const defaultAssets = await hangar.load(defaultAircraft);
+  const preview = new AircraftPreview(renderer);
+  let sortie;
+  let flight, visual, aircraft, opponents, ballistics, weaponEffects, cannon, combat, trails, playerAirframe, gunComputer;
+  let dogfight, wingman, opponentVisual, wingmanVisual;
+  let activeOpponents, classicCandidates;
+  let enemyId = defaultAircraft;
+  let wingmanId = defaultAircraft;
   const lifecycle = new AbortController();
   const { signal } = lifecycle;
   const capture = new FlightPointerLock(ui.viewport, {
@@ -105,68 +107,52 @@ function boot() {
   }, view, signal);
   const practice = new PracticeRange();
   const colliders = [...range.structures, ...practice.targets];
-  const audio = new CannonAudio(f16.cannon.rpm);
+  const audio = new CannonAudio(aircraftRegistry[aircraftId].spec.cannon.rpm);
   const sound = new FlightSound(audio);
   let listener = view.camera;
   const blast = (point, launch) => audio.blast(attenuation(listener.position.distanceTo(point), launch ? 225 : 420), launch);
-  const opponentEffects = (index) => ({
-    shot: (position, direction, time, count) => weaponEffects.shot(index, position, direction, time, count),
-    impact: (surface, point, time, destroyed, ownHit) => {
-      weaponEffects.impact(surface, point, time, destroyed);
+
+  const sortieEvents = {
+    enemyImpact(surface, point, ownHit) {
       if (ownHit) audio.impact();
       else if (surface !== 'metal') audio.impact(attenuation(listener.position.distanceTo(point), 36) * 0.44);
     },
-  });
-  const dogfight = new Dogfight(flight, f16, range, opponentEffects(1));
-  const wingman = new Dogfight(flight, f16, range, opponentEffects(2), dogfight.playerHull);
-  const opponents = [
-    { fight: dogfight, visual: opponentVisual },
-    { fight: wingman, visual: wingmanVisual },
-  ];
-  const ballistics = new Ballistics(f16.cannon, range, (surface, point, collider, impactSpeed) => {
-    let destroyed;
-    if (collider?.hull) {
-      combat.cannonHits++;
-      hitFeedbackUntil = flight.elapsed + 0.39;
-      const scale = impactSpeed / f16.cannon.projectileSpeed;
-      destroyed = combat.enabled ? combat.hit(collider, f16.cannon.damage, scale) : dogfight.hit(collider, f16.cannon.damage, scale);
+    playerHit(time) {
+      hitFeedbackUntil = time + 0.39;
       audio.impact(0.34);
-    } else if (collider?.shape === 'sphere') {
-      destroyed = practice.hit(collider, f16.cannon.damage, flight.elapsed);
-    }
-    weaponEffects.impact(surface, point, flight.elapsed, destroyed);
-  });
-  const weaponEffects = new CannonEffects(scene, [
-    { muzzle: visual.muzzle, ballistics },
-    { muzzle: opponentVisual.muzzle, ballistics: dogfight.ballistics },
-    { muzzle: wingmanVisual.muzzle, ballistics: wingman.ballistics },
-  ], practice);
-  const cannon = new Cannon(f16.cannon, visual.muzzle, ballistics, (position, direction, time, count) => {
-    if (trigger.held) audio.setFiring(true);
-    else audio.pulse();
-    weaponEffects.shot(0, position, direction, time, count);
-  });
-  const combat = new CombatExercise(dogfight, range, {
+    },
+    playerShot() {
+      if (trigger.held) audio.setFiring(true);
+      else audio.pulse();
+    },
     launch(own, cue, point) {
       if (own) audio.cue(cue);
       blast(point, true);
     },
-    burst(point, hit, own) {
-      weaponEffects.emit('explosion', point, weaponEffects.budget > 100 ? 18 : 10);
-      weaponEffects.emit('debris', point, hit ? 10 : 4);
+    burst(point, own) {
       blast(point);
       if (own) audio.impact();
     },
-  }, undefined, wingman);
-  const activeOpponents = [false, false];
-  const trails = new FlightTrails(scene, combat.missiles.pool, [flight, dogfight.opponent, wingman.opponent]);
-  const playerAirframe = new AirframeEffects(flight, visual, range, weaponEffects, blast);
-  for (const entry of opponents) {
-    entry.airframe = new AirframeEffects(entry.fight.opponent, entry.visual, range, weaponEffects, blast);
+    blast,
+  };
+
+  function installSortie(playerAssets, enemyAssets, wingmanAssets) {
+    combatEffects?.dispose();
+    combatEffects = null;
+    sortie?.dispose();
+    const instantiate = (id, assets, hostile = false) => ({ spec: aircraftRegistry[id].spec, visual: hangar.instantiate(assets, hostile) });
+    sortie = createSortie(scene, range, practice, instantiate(aircraftId, playerAssets), [
+      instantiate(enemyId, enemyAssets, true), instantiate(wingmanId, wingmanAssets, true),
+    ], sortieEvents);
+    ({ flight, visual, enemies: opponents, ballistics, weaponEffects, cannon, combat, trails, playerAirframe, gunComputer } = sortie);
+    aircraft = visual.root;
+    [{ fight: dogfight, visual: opponentVisual }, { fight: wingman, visual: wingmanVisual }] = opponents;
+    activeOpponents = [false, false];
+    classicCandidates = [dogfight.opponent];
+    audio.setRate(flight.spec.cannon.rpm);
   }
   const selectedWeapon = () => combat.enabled ? combat.player.rack.selected : 'cannon';
   const canFire = () => screen === 'flying' && !ui.settings.open && (capture.locked || keyboardFlight);
-  const gunComputer = new GunComputer(f16.cannon, visual.muzzle, range);
   const visualTrack = new VisualTrack();
   const droneTrack = { position: null, velocity: new T.Vector3() };
   const trigger = new CannonTrigger(ui.viewport, {
@@ -182,12 +168,16 @@ function boot() {
       updateWeaponHud();
     },
   }, signal);
-  signal.addEventListener('abort', () => audio.dispose(), { once: true });
+  signal.addEventListener('abort', () => {
+    audio.dispose();
+    combatEffects?.dispose();
+    sortie?.dispose();
+    hangar.dispose();
+  }, { once: true });
   const previousRenderPosition = new T.Vector3();
   const directionMarker = new T.Vector3();
   const flightDirection = new T.Vector3();
   const aimDirection = new T.Vector3();
-  const classicCandidates = [dogfight.opponent];
   const sightProjection = new T.Vector3();
   const sightBearing = new T.Vector3();
   const sightForward = new T.Vector3();
@@ -219,6 +209,8 @@ function boot() {
   let frameCount = 0;
   let frameWindow = 0;
   let stopped = false;
+  let switchingAircraft = false;
+  installSortie(initialAssets, defaultAssets, defaultAssets);
 
   renderer.domElement.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
@@ -272,7 +264,7 @@ function boot() {
   }
 
   function requestFlight() {
-    if (stopped || ui.settings.open) return;
+    if (stopped || switchingAircraft || ui.settings.open || ui['aircraft-dialog'].open) return;
     keyboardFlight = false;
     audio.unlock();
     capture.request();
@@ -291,6 +283,9 @@ function boot() {
     const start = scenarios[startingPosition];
     const exercise = combatExercises[startingPosition];
     flight.reset(start);
+    const testing = startingPosition === 'air' || startingPosition === 'runway';
+    flight.protectedAirframe = testing && ui['test-protect'].checked;
+    ui['test-options'].hidden = !testing;
     cannon.reset();
     if (exercise?.cannonLimit) cannon.ammo = exercise.cannonLimit;
     ballistics.clear();
@@ -323,11 +318,146 @@ function boot() {
     previousRenderPosition.copy(flight.position);
     brake = false;
     view.mode = 'chase';
+    view.distance = flight.spec.chaseDistance ?? 31;
     view.azimuth = 0;
     view.elevation = 0;
     view.snap = true;
     invalidateSight();
     changeScreen(next);
+  }
+
+  function updateAircraftIdentity() {
+    const { spec } = flight;
+    const title = spec.name.substring(spec.shortName.length + 1).split(' ');
+    ui.briefing.dataset.aircraft = aircraftId;
+    text('aircraft-title-first', title[0]);
+    text('aircraft-title-second', title.slice(1).join(' '));
+    text('briefing-aircraft', spec.shortName);
+    text('pause-aircraft', spec.shortName);
+    text('aircraft-current', spec.shortName);
+    text('aircraft-briefing-description', spec.description);
+  }
+
+  function combatBriefing(mission) {
+    const spec = flight.spec;
+    const loadout = spec.loadouts[mission];
+    const name = aircraftRegistry[enemyId].spec.shortName;
+    const second = aircraftRegistry[wingmanId].spec.shortName;
+    if (mission === 'outnumbered') {
+      const incoming = name === second ? `two incoming ${name}s` : `an incoming ${name} and ${second}`;
+      return `Defeat ${incoming} · ${combatExercises.outnumbered.cannonLimit} rounds · 1 radar and 1 IR missile · ${loadout.flare} flares and ${loadout.chaff} chaff`;
+    }
+    const ir = loadout.stations.filter(({ type }) => type === 'infrared').length;
+    const radar = loadout.stations.length - ir;
+    return mission === 'short' ? `Defeat one ${name} with guns or short-range missiles · ${ir} IR missiles`
+      : `Track and intercept one inbound ${name} · ${radar} radar and ${ir} IR missiles`;
+  }
+
+  async function selectFleet(next, primary = enemyId, second = wingmanId) {
+    if (switchingAircraft || stopped) return false;
+    if (next === aircraftId && primary === enemyId && second === wingmanId) return true;
+    switchingAircraft = true;
+    ui.launch.disabled = true;
+    try {
+      const assets = await Promise.all([next, primary, second].map((id) => hangar.load(id)));
+      if (stopped) return false;
+      aircraftId = next;
+      enemyId = primary;
+      wingmanId = second;
+      installSortie(...assets);
+      updateAircraftIdentity();
+      selectStart(startingPosition);
+      applyPreset();
+      try { localStorage.setItem('war-browser:aircraft', aircraftId); } catch { /* Selection remains active. */ }
+      return true;
+    } catch (error) {
+      console.error(error);
+      text('aircraft-status', 'Aircraft could not be loaded. Try again.');
+      return false;
+    } finally {
+      switchingAircraft = false;
+      ui.launch.disabled = false;
+    }
+  }
+
+  function initAircraftSelector() {
+    const dialog = ui['aircraft-dialog'];
+    const cards = new Map();
+    const assetsById = new Map();
+    let inspected = aircraftId;
+    let angle = 0.71;
+    let rotateFrame = 0;
+    const draw = () => {
+      rotateFrame = 0;
+      const assets = assetsById.get(inspected);
+      if (!assets || !dialog.open) return;
+      const spec = aircraftRegistry[inspected].spec;
+      text('preview-name', spec.name);
+      ui['hangar-preview'].src = preview.draw(assets, angle, 510, 190);
+      ui['hangar-preview'].alt = `Rotatable preview of ${spec.name}`;
+    };
+    const rotate = (amount) => {
+      angle += amount;
+      if (!rotateFrame) rotateFrame = requestAnimationFrame(draw);
+    };
+    for (const [id, { spec }] of Object.entries(aircraftRegistry)) {
+      for (const select of [ui['opponent-aircraft'], ui['wingman-aircraft']]) select.add(new Option(spec.name, id));
+      const card = ui['aircraft-card-template'].content.firstElementChild.cloneNode(true);
+      const inspect = card.querySelector('.card-preview');
+      const choose = card.querySelector('.aircraft-select');
+      inspect.setAttribute('aria-label', `Preview ${spec.name}`);
+      choose.textContent = `Fly ${spec.shortName}`;
+      describeAircraft(spec, card);
+      cards.set(id, { card, inspect, choose });
+      inspect.addEventListener('click', () => {
+        inspected = id;
+        angle = 0.71;
+        draw();
+      }, { signal });
+      choose.addEventListener('click', async () => {
+        if (aircraftId === id || await selectFleet(id)) dialog.close();
+      }, { signal });
+      ui['aircraft-cards'].append(card);
+    }
+    const updateEnemy = async () => {
+      const first = ui['opponent-aircraft'];
+      const second = ui['wingman-aircraft'];
+      first.disabled = second.disabled = true;
+      if (!await selectFleet(aircraftId, first.value, second.value)) {
+        first.value = enemyId;
+        second.value = wingmanId;
+      }
+      first.disabled = second.disabled = false;
+    };
+    ui['opponent-aircraft'].addEventListener('change', updateEnemy, { signal });
+    ui['wingman-aircraft'].addEventListener('change', updateEnemy, { signal });
+    ui['open-aircraft'].addEventListener('click', async () => {
+      inspected = aircraftId;
+      angle = 0.71;
+      text('aircraft-status', '');
+      for (const [id, { choose }] of cards) choose.setAttribute('aria-pressed', String(id === aircraftId));
+      dialog.showModal();
+      for (const [id, { inspect }] of cards) {
+        if (assetsById.has(id)) continue;
+        try {
+          const assets = await hangar.load(id);
+          assetsById.set(id, assets);
+          inspect.querySelector('img').src = preview.draw(assets, 0.71, 240, 118);
+          if (id === inspected) draw();
+        } catch {
+          text('aircraft-status', 'An aircraft preview could not be loaded.');
+        }
+      }
+      draw();
+    }, { signal });
+    ui['close-aircraft'].addEventListener('click', () => dialog.close(), { signal });
+    ui['preview-left'].addEventListener('click', () => rotate(-0.24), { signal });
+    ui['preview-right'].addEventListener('click', () => rotate(0.24), { signal });
+    const image = ui['hangar-preview'];
+    image.addEventListener('pointerdown', (event) => image.setPointerCapture(event.pointerId), { signal });
+    image.addEventListener('pointermove', (event) => {
+      if (image.hasPointerCapture(event.pointerId)) rotate(event.movementX * 0.012);
+    }, { signal });
   }
 
   function selectStart(next) {
@@ -340,13 +470,15 @@ function boot() {
     pressed('start-intercept', next === 'intercept');
     pressed('start-outnumbered', next === 'outnumbered');
     ui['opponent-choice'].hidden = next !== 'dogfight';
+    ui['opponent-aircraft-choice'].hidden = next !== 'dogfight' && !combatExercises[next];
+    ui['wingman-choice'].hidden = next !== 'outnumbered';
     ui['combat-choice'].hidden = !combatExercises[next];
     text('briefing-mode', flightLabels[next]);
     reset('ready');
     text('start-detail', next === 'runway' ? 'GROUND START · GEAR DOWN'
-      : next === 'practice' ? `3 AERIAL DRONES · ${f16.cannon.capacity} ROUNDS`
-      : next === 'dogfight' ? opponentModes[ui['opponent-mode'].value].briefing
-      : combatExercises[next] ? combatExercises[next].description
+      : next === 'practice' ? `3 AERIAL DRONES · ${flight.spec.cannon.capacity} ROUNDS`
+      : next === 'dogfight' ? `One ${aircraftRegistry[enemyId].spec.shortName} · Guns only · ${opponentModes[ui['opponent-mode'].value].briefing}`
+      : combatExercises[next] ? combatBriefing(next)
       : `2,950 FT MSL · ${Math.round(flight.airspeed)} KTS`);
   }
 
@@ -481,6 +613,9 @@ function boot() {
   ui['start-short'].addEventListener('click', () => selectStart('short'));
   ui['start-intercept'].addEventListener('click', () => selectStart('intercept'));
   ui['start-outnumbered'].addEventListener('click', () => selectStart('outnumbered'));
+  ui['test-protect'].addEventListener('change', () => {
+    if (startingPosition === 'air' || startingPosition === 'runway') flight.protectedAirframe = ui['test-protect'].checked;
+  }, { signal });
   ui['combat-difficulty'].addEventListener('change', () => selectStart(startingPosition));
   ui['opponent-mode'].addEventListener('change', () => selectStart('dogfight'));
   ui.launch.addEventListener('click', () => { view.snap = true; requestFlight(); });
@@ -527,7 +662,7 @@ function boot() {
 
   window.addEventListener('keydown', (event) => {
     const { code } = event;
-    if (event.metaKey || event.isComposing) return;
+    if (event.metaKey || event.isComposing || ui['aircraft-dialog'].open) return;
     if (ui.settings.open) {
       if (!rebinding) return;
       event.preventDefault();
@@ -598,6 +733,18 @@ function boot() {
     const degrees = (value) => String((Math.round(value) + 360) % 360).padStart(3, '0');
     const vertical = Math.round(flight.verticalSpeed);
     const elapsed = Math.floor(flight.elapsed);
+    const testOverlay = screen === 'flying' && (startingPosition === 'air' || startingPosition === 'runway') && ui['test-overlay-toggle'].checked;
+    ui['test-overlay'].hidden = !testOverlay;
+    if (testOverlay) {
+      text('test-mass', Math.round(flight.mass).toLocaleString('en-US'));
+      text('test-turn', flight.turnRate.toFixed(1));
+      text('test-alpha', T.MathUtils.radToDeg(flight.alpha).toFixed(1));
+      text('test-fuel', Math.round(flight.fuel).toLocaleString('en-US'));
+      text('test-thrust', (flight.thrust / 1000).toFixed(1));
+      for (const [index, engine] of flight.engines.states.entries()) {
+        text('test-engine-' + index, engine.power === 0 ? 'OFF' : `${Math.round(engine.spool * 100)}% · ${(engine.thrust / 1000).toFixed(1)} kN`);
+      }
+    }
     const gearMoving = flight.gear > 0.01 && flight.gear < 0.99;
     text('heading', degrees(flight.heading));
     text('heading-before', degrees(flight.heading - 15));
@@ -605,11 +752,14 @@ function boot() {
     text('airspeed', Math.round(flight.airspeed));
     text('mach', flight.mach.toFixed(2));
     text('throttle', Math.round(flight.throttle * 100));
+    const operating = flight.engines.states.reduce((count, engine) => count + Number(engine.power > 0), 0);
+    ui['test-engine-2-row'].hidden = flight.engines.states.length < 2;
+    text('engine-count', flight.engines.states.length > 1 ? `${operating} / ${flight.engines.states.length} ENGINES` : '');
     text('engine-state', flight.damage.enginePower === 0 ? 'ENGINE OUT'
       : flight.afterburner ? 'AFTERBURNER' : flight.burnerArmed ? 'ENGINE SPOOLING' : flight.spool > 0.97 ? 'MIL POWER' : 'DRY THRUST');
     text('altitude', Math.round(flight.altitude).toLocaleString('en-US'));
     text('vertical-speed', vertical > 0 ? `+${vertical}` : vertical);
-    text('fuel', Math.round(flight.fuel / f16.fuelCapacity * 100));
+    text('fuel', Math.round(flight.fuel / flight.spec.fuelCapacity * 100));
     text('g-force', flight.g.toFixed(1));
     text('gear-state', gearMoving ? 'In transit' : flight.gear > 0.98 ? 'Down' : 'Up');
     text('burner-state', flight.afterburner ? 'On' : flight.burnerArmed ? 'Spooling' : 'Off');
@@ -624,7 +774,7 @@ function boot() {
     ui['camera-status'].hidden = !cameraStatus;
     if (cameraStatus) text('camera-view-label', combatCamera.missile
       ? `${cameraName} · MISSILE ${combatCamera.serial}`
-      : `${cameraName} · F-16C ${combatCamera.target === wingman.opponent ? '02' : '01'}`);
+      : `${cameraName} · ${combatCamera.target?.spec.shortName} ${combatCamera.target === wingman.opponent ? '02' : '01'}`);
     text('elapsed', `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`);
     const warning = flight.stalled ? 'STALL' : flight.stress > 0.28 ? 'STRUCTURAL LOAD'
       : flight.gWarning || (flight.fuel < 200 ? 'LOW FUEL' : '');
@@ -648,7 +798,7 @@ function boot() {
     const guns = weapon === 'cannon';
     const ammo = guns ? cannon.ammo : rack.count(weapon);
     const state = guns ? (ammo === 0 ? 'AMMO EMPTY' : firing ? 'FIRING' : 'READY') : rack.launchState(weapon, flight.elapsed);
-    text('cannon-label', weapons[weapon].label);
+    text('cannon-label', guns ? `${flight.spec.cannon.name} · ${flight.spec.cannon.caliber} MM` : weapons[weapon].label);
     text('cannon-ammo', ammo);
     text('cannon-unit', guns ? 'RDS' : 'MSL');
     text('cannon-state', state);
@@ -748,7 +898,9 @@ function boot() {
       if (!root.visible) continue;
       root.position.copy(opponent.previousPosition).lerp(opponent.position, blend);
       root.quaternion.copy(opponent.previousOrientation).slerp(opponent.orientation, blend);
-      model.update(opponent, time, blend);
+      const distant = root.position.distanceToSquared(listener.position) > 1150 ** 2;
+      model.setDistant(distant);
+      if (!distant) model.update(opponent, time, blend);
     }
   }
 
@@ -760,7 +912,7 @@ function boot() {
     marker.style.opacity = T.MathUtils.lerp(0.24, 1, T.MathUtils.smoothstep(contact.freshness, 0, 0.55));
     const distance = (contact.range / 1000).toFixed(1);
     const id = contact.target === wingman.opponent ? '02' : '01';
-    text('contact-label', `F-16C ${id} · ${distance} KM · ${contact.label}`);
+    text('contact-label', `${contact.target.spec.shortName} ${id} · ${distance} KM · ${contact.label}`);
     contactMarker.update(marker, contact.position, camera, viewportWidth, viewportHeight);
   }
 
@@ -818,7 +970,7 @@ function boot() {
       visualTrack.reset();
       return null;
     }
-    const span = f16.opticalSpan;
+    const span = target.spec.opticalSpan;
     const aspect = Math.abs(target.forward.dot(sightBearing));
     const apparentSize = span * (0.92 + aspect * 0.08) / (2 * distance);
     return visualTrack.observe(flight.elapsed, origin, sightBearing, apparentSize, span);
@@ -960,7 +1112,10 @@ function boot() {
           break;
         }
       }
-      if (cannon.ammo === 0) audio.setFiring(false);
+      if (cannon.ammo === 0) {
+        audio.setFiring(false);
+        if (ui['test-ammo'].checked && (startingPosition === 'air' || startingPosition === 'runway')) cannon.ammo = cannon.config.capacity;
+      }
     }
     const blend = screen === 'flying' ? accumulator / STEP : 1;
     if (!playerAirframe.failed) {
@@ -1009,9 +1164,10 @@ function boot() {
     if (debug && realDt > 0) updateMetrics(realDt);
   }
 
-  text('cannon-label', `${f16.cannon.name} · ${f16.cannon.caliber} MM`);
   renderBindings();
   updateSettings();
+  updateAircraftIdentity();
+  initAircraftSelector();
   selectStart('air');
   applyPreset();
   requestAnimationFrame(frame);

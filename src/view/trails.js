@@ -70,6 +70,12 @@ export class FlightTrails {
     this.interval = this.detail < 0.7 ? 0.10 : 0.06;
   }
 
+  dispose() {
+    this.mesh.removeFromParent();
+    this.geometry.dispose();
+    this.mesh.material.dispose();
+  }
+
   clear() {
     for (const trail of this.trails) {
       trail.count = trail.cursor = 0;
@@ -111,7 +117,7 @@ export class FlightTrails {
       const contrail = airborne && flight.position.y >= 4300 && flight.spool > 0.32;
       const vaporizing = airborne && this.detail >= 0.85 && flight.g > 5.5 && flight.alpha > 0.12 && flight.position.y < 4300;
       for (const [side, sign] of [1, -1].entries()) {
-        if (contrail) this.point.set(sign * 4.65, -0.17, -2.15).applyQuaternion(flight.orientation).add(flight.position);
+        if (contrail) this.point.set(sign * (flight.spec.opticalSpan ?? 9.8) * 0.4745, -0.17, -2.15).applyQuaternion(flight.orientation).add(flight.position);
         this.sample(wings[side], this.point, time, contrail);
         if (vaporizing) this.point.set(sign * 2.35, 0.13, -0.65).applyQuaternion(flight.orientation).add(flight.position);
         this.sample(vapor[side], this.point, time, vaporizing);

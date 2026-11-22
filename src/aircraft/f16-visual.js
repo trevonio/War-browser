@@ -353,10 +353,10 @@ export function createF16Visual() {
   return { ...animate(root, muzzle, gear, arm, ab, strobe), stations, paint: [mF, mW, mW2] };
 }
 
-export function createOpponentVisual(source) {
+export function createOpponentVisual(source, hostile = true) {
   const root = source.root.clone();
   const colors = [0xab7770, 0xbd8a75, 0xe9ab82];
-  const palette = new Map(source.paint.map((material, index) => {
+  const palette = new Map((hostile ? source.paint : []).map((material, index) => {
     const paint = material.clone();
     paint.color.setHex(colors[index]);
     return [material, paint];
@@ -365,11 +365,13 @@ export function createOpponentVisual(source) {
     if (palette.has(object.material)) object.material = palette.get(object.material);
   });
   const ab = root.getObjectByName(source.ab.name);
-  ab.remove(ab.children[2]);
+  if (hostile && ab.children[2]) ab.remove(ab.children[2]);
   const muzzle = root.getObjectByName(source.muzzle.name);
   muzzle.clear();
-  return animate(root, muzzle, root.getObjectByName(source.gear.name),
-    root.getObjectByName(source.arm.name), ab, root.getObjectByName(source.strobe.name));
+  return { ...animate(root, muzzle, root.getObjectByName(source.gear.name),
+    root.getObjectByName(source.arm.name), ab, root.getObjectByName(source.strobe.name)),
+    paint: hostile ? [...palette.values()] : source.paint };
+
 }
 
 function animate(root, muzzle, gear, arm, ab, strobe) {
@@ -377,6 +379,7 @@ function animate(root, muzzle, gear, arm, ab, strobe) {
   const updateRig = bindF16Rig(root);
   return {
     root,
+    airframe: root.getObjectByName('F-16C airframe'),
     muzzle,
     gear,
     arm,

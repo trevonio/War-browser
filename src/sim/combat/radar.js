@@ -5,6 +5,10 @@ const rightAxis = new Vector3(-1, 0, 0);
 const UP = new Vector3(0, 1, 0);
 
 export const scopeRanges = [3200, 7600, 13600];
+export const standardRadar = {
+  label: 'APG-68 inspired', ranges: scopeRanges, bearing: 0.86, lockBearing: 1.02,
+  elevation: 0.64, searchInterval: 0.58, twsInterval: 0.34, lockInterval: 0.15, capacity: 6,
+};
 
 export function hasLineOfSight(world, from, to) {
   if (Math.min(from.y, to.y) > world.maxTerrainHeight) return true;
@@ -24,6 +28,7 @@ export class Radar {
   constructor(world, own) {
     this.world = world;
     this.own = own;
+    this.config = own.spec?.radar ?? standardRadar;
     this.contacts = new Map();
     this.emissions = new Map();
     this.line = new Vector3();
@@ -56,7 +61,7 @@ export class Radar {
   }
 
   get range() {
-    return scopeRanges[this.rangeIndex];
+    return this.config.ranges[this.rangeIndex];
   }
 
   get track() {
@@ -69,7 +74,7 @@ export class Radar {
   }
 
   cycleRange() {
-    this.rangeIndex = (this.rangeIndex + 1) % scopeRanges.length;
+    this.rangeIndex = (this.rangeIndex + 1) % this.config.ranges.length;
     for (const [target, contact] of this.contacts) {
       if (contact.range > this.range) this.drop(target);
     }
@@ -117,7 +122,8 @@ export class Radar {
 
   update(time, candidates, countermeasures) {
     if (!this.power || this.own.failure || time < this.nextSweep) return;
-    const interval = this.locked ? 0.15 : this.scanMode === 'TWS' ? 0.34 : 0.58;
+    const config = this.config;
+    const interval = this.locked ? config.lockInterval : this.scanMode === 'TWS' ? config.twsInterval : config.searchInterval;
     this.nextSweep = time + interval;
     this.revision++;
     const { position, orientation, velocity } = this.own;
@@ -135,7 +141,7 @@ export class Radar {
       const ahead = this.line.dot(this.forward);
       const bearing = Math.atan2(this.line.dot(this.right), ahead);
       const elevation = Math.asin(clamp(this.line.dot(this.up), -1, 1));
-      if (Math.abs(bearing) > (this.locked ? 1.02 : 0.86) || Math.abs(elevation) > 0.64
+      if (Math.abs(bearing) > (this.locked ? config.lockBearing : config.bearing) || Math.abs(elevation) > config.elevation
         || !hasLineOfSight(this.world, position, target.position)) continue;
       this.emissions.set(target, this.locked ? 'TRACK' : 'SEARCH');
 
@@ -148,6 +154,7 @@ export class Radar {
       if (quality < (this.locked ? 0.38 : 0.43)) continue;
       let contact = this.contacts.get(target);
       if (!contact) {
+        if (this.contacts.size >= config.capacity && !this.locked) continue;
         contact = { target, position: new Vector3(), velocity: new Vector3() };
         this.contacts.set(target, contact);
       }

@@ -28,7 +28,8 @@ export class Countermeasures {
     decoy.config = config;
     decoy.age = 0;
     decoy.signature = config.influence;
-    decoy.position.copy(this.position.set(lane * 1.3, -0.68, -3.7).applyQuaternion(flight.orientation).add(flight.position));
+    const [x, y, z] = flight.spec?.dispensers ?? [1.3, -0.68, -3.7];
+    decoy.position.copy(this.position.set(lane * x, y, z).applyQuaternion(flight.orientation).add(flight.position));
     decoy.previous.copy(decoy.position);
     decoy.velocity.copy(this.velocity.set(lane * 22, -18, -23).applyQuaternion(flight.orientation)).add(flight.velocity);
     return decoy;

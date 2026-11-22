@@ -1,5 +1,4 @@
 import { Vector3 } from 'three';
-import { f16CombatLoadouts } from '../../aircraft/f16-ordnance.js';
 import { Countermeasures } from './countermeasures.js';
 import { MissilePool } from './missiles.js';
 import { hasLineOfSight, Radar } from './radar.js';
@@ -8,17 +7,17 @@ import { WeaponRack, weapons } from './weapons.js';
 
 export const combatExercises = {
   short: {
-    label: 'Missile dogfight', description: 'Defeat one opponent with guns or short-range missiles · 2 IR missiles',
+    label: 'Missile dogfight',
     initialWeapon: 'infrared', opponent: { x: 108, y: 15, z: 2110, speed: 186, heading: Math.PI - 0.051 },
   },
   outnumbered: {
-    label: 'Outnumbered', description: 'Defeat two incoming F-16Cs · 260 rounds · 1 radar and 1 IR missile · 4 flares and 4 chaff',
+    label: 'Outnumbered',
     initialWeapon: 'radar', cannonLimit: 260,
     opponent: { x: -480, y: -100, z: 5490, speed: 209, heading: Math.PI + 0.087 },
     wingman: { x: 1620, y: 285, z: 7940, speed: 206, heading: Math.PI - 0.202 },
   },
   intercept: {
-    label: 'BVR intercept', description: 'Track and intercept one inbound F-16C · 2 radar and 2 IR missiles',
+    label: 'BVR intercept',
     initialWeapon: 'radar', opponent: { x: 630, y: 70, z: 9660, speed: 204, heading: Math.PI - 0.065 },
   },
 };
@@ -38,13 +37,14 @@ function combatant(world, hull, other) {
 }
 
 export class CombatExercise {
-  constructor(dogfight, world, effects, loadouts = f16CombatLoadouts, wingman = null) {
+  constructor(dogfight, world, effects, loadouts = null, wingman = null) {
     this.dogfight = dogfight;
     this.effects = effects;
     this.loadouts = loadouts;
     const { playerHull, opponentHull } = dogfight;
     this.player = combatant(world, playerHull, opponentHull);
-    this.allEnemies = (wingman ? [dogfight, wingman] : [dogfight]).map((fight) => {
+    const alliesOfOpponent = Array.isArray(wingman) ? wingman : wingman ? [wingman] : [];
+    this.allEnemies = [dogfight, ...alliesOfOpponent].map((fight) => {
       const side = combatant(world, fight.opponentHull, playerHull);
       return Object.assign(side, {
         fight, escape: new Vector3(), approach: new Vector3(), override: {},
@@ -52,8 +52,7 @@ export class CombatExercise {
       });
     });
     [this.enemy] = this.allEnemies;
-    this.singleTargets = dogfight.playerTargets;
-    this.groupTargets = wingman ? [...this.singleTargets, ...wingman.opponentHull.colliders] : this.singleTargets;
+    this.structures = world.structures;
     this.decoys = new Countermeasures();
     this.missiles = new MissilePool(world, this.decoys, (missile, point, hull, part) => this.burst(missile, point, hull, part));
     this.line = new Vector3();
@@ -63,21 +62,21 @@ export class CombatExercise {
     this.reset(null);
   }
 
-  reset(exercise, difficulty = 'regular') {
+  reset(exercise, difficulty = 'regular', opponentCount) {
     this.enabled = Boolean(exercise);
     const setup = combatExercises[exercise];
-    this.enemies = setup?.wingman ? this.allEnemies : [this.enemy];
+    this.enemies = this.allEnemies.slice(0, opponentCount ?? (setup?.wingman ? 2 : 1));
     this.sides = [this.player, ...this.enemies];
     this.player.candidates = this.enemies.map((side) => side.flight);
     this.player.emitters = this.enemies.map((side) => side.radar);
-    this.shotTargets = this.enemies.length > 1 ? this.groupTargets : this.singleTargets;
-    this.player.rack.reset(this.loadouts[exercise], setup?.initialWeapon);
+    this.shotTargets = [...this.structures, ...this.enemies.flatMap((side) => side.hull.colliders)];
+    this.player.rack.reset((this.loadouts ?? this.player.flight.spec.loadouts)?.[exercise], setup?.initialWeapon);
     const bvr = exercise === 'intercept' || exercise === 'outnumbered';
     this.player.radar.reset(false, bvr ? 2 : 0);
     this.player.warning.reset();
     this.profile = profiles[difficulty] ?? profiles.regular;
     for (const [index, side] of this.allEnemies.entries()) {
-      side.rack.reset(this.loadouts[exercise], setup?.initialWeapon);
+      side.rack.reset((this.loadouts ?? side.flight.spec.loadouts)?.[exercise], setup?.initialWeapon);
       side.radar.reset(bvr && this.enemies.includes(side), 2);
       side.warning.reset();
       side.emitters = [this.player.radar];

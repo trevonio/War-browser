@@ -1,5 +1,6 @@
 import * as T from 'three';
-import { wingStores } from '../aircraft/f16-ordnance.js';
+import { missileVisuals } from '../aircraft/missile-visual.js';
+import { disposeObjects } from './resources.js';
 
 const mountNames = ['wingtip-left', 'wingtip-right', 'outer-left', 'outer-right'];
 const axis = new T.Vector3(0, 0, 1);
@@ -8,19 +9,18 @@ export class CombatEffects {
   constructor(scene, own, enemy, exercise, effects, additional = []) {
     this.exercise = exercise;
     this.effects = effects;
-    this.mounts = [own, enemy, ...additional].map((aircraft) => mountNames.map((name) => aircraft.arm.getObjectByName(name)));
+    this.mounts = [own, enemy, ...additional].map((aircraft, index) => {
+      const side = index === 0 ? exercise.player : exercise.allEnemies[index - 1];
+      return (side.flight.spec.hardpoints?.map((point) => point.name) ?? mountNames)
+        .map((name) => aircraft.arm.getObjectByName(name)).filter(Boolean);
+    });
     this.active = false;
     const glows = [0xffc874, 0xd2e0ef].map((color) => new T.MeshBasicMaterial({ color, toneMapped: false }));
     const dot = new T.IcosahedronGeometry(1, 0);
-    this.models = this.mounts[0].filter((_, index) => index % 2 === 0).map((model) => model.clone());
+    const models = Object.values(missileVisuals());
     this.missiles = exercise.missiles.pool.map(() => {
       const root = new T.Group();
-      for (const model of this.models) {
-        const copy = model.clone();
-        copy.position.set(0, 0, 0);
-        copy.scale.setScalar(wingStores.scale);
-        root.add(copy);
-      }
+      for (const model of models) root.add(model.clone());
       const motor = new T.Mesh(dot, glows[0]);
       motor.scale.set(0.19, 0.19, 0.42);
       motor.position.z = -1.55;
@@ -40,6 +40,8 @@ export class CombatEffects {
     this.nextTrail = 0;
   }
 
+  dispose() { disposeObjects(...this.missiles, this.flares, this.chaff); }
+
   reset() {
     this.active = this.exercise.enabled;
     this.nextTrail = 0;
@@ -52,7 +54,7 @@ export class CombatEffects {
     for (let index = 0; index < this.mounts.length; index++) {
       const rack = (index === 0 ? this.exercise.player : this.exercise.allEnemies[index - 1]).rack;
       for (const mount of this.mounts[index]) {
-        mount.visible = !this.active || rack.stations.some((item) => item.name === mount.name && !item.used);
+        mount.visible = !this.active || rack.stations.some((item) => item.name === mount.name && !item.used && rack.flight.damage.condition(item.wing) > 0);
       }
     }
   }
@@ -73,8 +75,8 @@ export class CombatEffects {
       const model = this.missiles[index];
       model.visible = missile.active;
       if (!missile.active) continue;
-      model.children[0].visible = missile.config.model === 'wingtip';
-      model.children[1].visible = missile.config.model === 'outer';
+      model.children[0].visible = missile.type === 'infrared';
+      model.children[1].visible = missile.type === 'radar';
       const motor = model.children[2];
       motor.visible = missile.age < missile.config.burn;
       if (motor.visible) {
@@ -108,7 +110,7 @@ export function drawRadar(canvas, radar) {
   const center = width * 0.5;
   const base = height - 12;
   const extent = height - 24;
-  const halfAngle = 1.03;
+  const halfAngle = radar.config.lockBearing + 0.01;
   ctx.clearRect(0, 0, width, height);
   ctx.lineWidth = 1;
   ctx.strokeStyle = '#497b75';

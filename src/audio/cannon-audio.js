@@ -7,6 +7,15 @@ export class CannonAudio {
     this.lastBlast = -Infinity;
   }
 
+  setRate(rpm) {
+    const rate = rpm / 60;
+    if (rate === this.rate) return;
+    this.setFiring(false);
+    this.rate = rate;
+    this.dispose();
+    this.context = this.buffer = null;
+  }
+
   unlock() {
     const AudioContext = window.AudioContext ?? window.webkitAudioContext;
     if (!AudioContext) return;

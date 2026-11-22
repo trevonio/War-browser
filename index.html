@@ -27,9 +27,10 @@
     </section>
 
     <section id="briefing" class="briefing" aria-labelledby="aircraft-title">
-      <p class="eyebrow"><b id="briefing-mode">FREE FLIGHT</b> <span></span> F-16C</p>
-      <h1 id="aircraft-title">Fighting<br> Falcon</h1>
-      <p class="description">Fly the F-16C over a coastal range. Practice energy management, landings, and cannon fire.</p>
+      <p class="eyebrow"><b id="briefing-mode">FREE FLIGHT</b> <span></span> <b id="briefing-aircraft">F-16C</b></p>
+      <h1 id="aircraft-title"><span id="aircraft-title-first">Fighting</span><br> <span id="aircraft-title-second">Falcon</span></h1>
+      <p class="description" id="aircraft-briefing-description">Fly over a coastal range. Practice energy management, landings, and cannon fire.</p>
+      <button id="open-aircraft" class="utility-button" type="button">Choose aircraft <b id="aircraft-current">F-16C</b></button>
       <div class="start-choice" role="group" aria-label="Starting position">
         <button id="start-air" type="button" aria-pressed="true">Air start</button>
         <button id="start-runway" type="button" aria-pressed="false">Runway 36</button>
@@ -53,6 +54,16 @@
           <option value="veteran">Veteran</option>
         </select>
       </label>
+      <div class="enemy-choices">
+        <label id="opponent-aircraft-choice" hidden>Opponent aircraft <select id="opponent-aircraft"></select></label>
+        <label id="wingman-choice" hidden>Second opponent <select id="wingman-aircraft"></select></label>
+      </div>
+      <fieldset id="test-options" class="test-options">
+        <legend>Flight test</legend>
+        <label><input type="checkbox" id="test-overlay-toggle"> Measurements</label>
+        <label><input type="checkbox" id="test-protect"> Disable structural wear</label>
+        <label><input type="checkbox" id="test-ammo"> Refill cannon</label>
+      </fieldset>
       <div id="start-detail" class="start-detail">2,950 FT MSL · 358 KTS</div>
       <button class="primary-button" id="launch" type="button">Start flight <kbd>Enter</kbd></button>
     </section>
@@ -76,6 +87,7 @@
           <div class="instrument-label">THROTTLE</div>
           <output id="throttle">00</output><span class="unit">%</span>
           <div class="instrument-note" id="engine-state">MIL POWER</div>
+          <div class="instrument-note" id="engine-count"></div>
         </div>
         <div class="instrument">
           <div class="instrument-label" id="cannon-label">M61A1 · 20 MM</div>
@@ -145,8 +157,21 @@
       </div>
     </section>
 
+    <aside id="test-overlay" aria-label="Flight test measurements" hidden>
+      <b>Flight test</b>
+      <dl>
+        <div><dt>Aircraft mass</dt><dd><output id="test-mass"></output> kg</dd></div>
+        <div><dt>Heading rate</dt><dd><output id="test-turn"></output> °/s</dd></div>
+        <div><dt>Angle of attack</dt><dd><output id="test-alpha"></output> °</dd></div>
+        <div><dt>Fuel</dt><dd><output id="test-fuel"></output> kg</dd></div>
+        <div><dt>Total thrust</dt><dd><output id="test-thrust"></output> kN</dd></div>
+        <div><dt>Engine 1</dt><dd><output id="test-engine-0"></output></dd></div>
+        <div id="test-engine-2-row"><dt>Engine 2</dt><dd><output id="test-engine-1"></output></dd></div>
+      </dl>
+    </aside>
+
     <section id="pause-panel" class="briefing" aria-labelledby="pause-title">
-      <p class="eyebrow"><b id="pause-mode">FREE FLIGHT</b> <span></span> F-16C</p>
+      <p class="eyebrow"><b id="pause-mode">FREE FLIGHT</b> <span></span> <b id="pause-aircraft">F-16C</b></p>
       <h1 id="pause-title">Paused</h1>
       <p id="pause-description" class="description" role="status">Your aircraft is holding position.</p>
       <dl id="mission-results" class="mission-results" hidden>
@@ -183,6 +208,38 @@
       </div>
       <output id="elapsed" class="elapsed" aria-label="Elapsed flight time">00:00</output>
     </footer>
+
+    <dialog id="aircraft-dialog" aria-labelledby="aircraft-dialog-title">
+      <header class="dialog-header">
+        <h2 id="aircraft-dialog-title">Choose aircraft</h2>
+        <button id="close-aircraft" class="utility-button" type="button">Close</button>
+      </header>
+      <div class="hangar-body">
+        <section class="hangar-preview" aria-label="Aircraft preview">
+          <img id="hangar-preview" width="510" height="190" alt="" draggable="false">
+          <div class="preview-actions">
+            <button type="button" id="preview-left" aria-label="Rotate preview left">‹</button>
+            <output id="preview-name"></output>
+            <button type="button" id="preview-right" aria-label="Rotate preview right">›</button>
+          </div>
+        </section>
+        <div id="aircraft-cards"></div>
+        <p class="hangar-note">Values are simulator configuration and handling approximations.</p>
+        <p id="aircraft-status" role="status"></p>
+      </div>
+      <template id="aircraft-card-template">
+        <article class="aircraft-card">
+          <button class="card-preview" type="button"><img width="240" height="118" alt=""></button>
+          <div class="aircraft-card-copy">
+            <p class="aircraft-role"></p>
+            <h3></h3>
+            <p class="aircraft-description"></p>
+            <dl></dl>
+            <button class="primary-button aircraft-select" type="button"></button>
+          </div>
+        </article>
+      </template>
+    </dialog>
 
     <dialog id="settings" aria-labelledby="settings-title">
       <header class="dialog-header">

@@ -44,3 +44,18 @@ test('renders rigged surfaces and measures combat with damage and multiple aircr
   console.log('Stage 2.5 Chromium WebGL, medium 800×450', JSON.stringify(modern));
   expect(errors).toEqual([]);
 });
+
+test('profiles both player airframes and four mixed aircraft at 1080p', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Profile on the same renderer.');
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('http://127.0.0.1:4174/browser-tests/systems-fixture.html');
+  await page.waitForFunction(() => Boolean(window.flightSystemsTest), undefined, { timeout: 25000 });
+  const report = await page.evaluate(() => window.flightSystemsTest.measureFleet());
+  expect(report.scenarios.eagle.fps).toBeGreaterThan(0);
+  expect(report.scenarios.four.draws).toBeGreaterThan(report.scenarios.eagle.draws);
+  expect(report.scenarios.missiles.mostActive).toBeGreaterThan(1);
+  expect(new Set(report.resourcesAfterSwitch.slice(2).map(String)).size).toBe(1);
+  expect(errors).toEqual([]);
+  console.log('Stage 2.6 software WebGL', JSON.stringify(report));
+});

@@ -313,3 +313,56 @@ input[type="range"] { max-width: min(29vw,8rem); }
   letter-spacing: .04em;
 }
 #hit-confirmation[hidden] { display: none; }
+
+#briefing[data-aircraft="f15c"] #aircraft-title br { display: none; }
+#open-aircraft { margin-bottom: .7rem; }
+#aircraft-current { margin-left: .5rem; color: var(--accent); font: 700 .72rem var(--mono); }
+.enemy-choices { display: flex; flex-wrap: wrap; gap: .4rem .9rem; }
+.enemy-choices label { display: inline-flex; gap: .42rem; align-items: center; margin-top: .52rem; font-size: .8rem; }
+.test-options {
+  display: flex; flex-wrap: wrap; gap: .4rem .75rem;
+  margin: .6rem 0 0; padding: .35rem .5rem .45rem; border: 1px solid var(--line);
+  color: var(--muted); font-size: .76rem;
+}
+.test-options label { display: flex; align-items: center; gap: .15rem; }
+#test-overlay {
+  position: absolute; z-index: 1; right: clamp(.6rem, 4vw, 3rem);
+  bottom: max(5rem, calc(var(--deck-height, 0px) + .65rem)); width: min(14.5rem, 44vw);
+  background: #0d2026df; color: #d5efe5; border: 1px solid #527c7e7a;
+  padding: .55rem .65rem; font: .68rem/1.48 var(--mono); pointer-events: none;
+}
+#test-overlay dl { margin: .35rem 0 0; }
+#test-overlay dl div { display: flex; justify-content: space-between; gap: .5rem; }
+#test-overlay dd { margin: 0; text-align: right; }
+#engine-count:empty { display: none; }
+
+#aircraft-dialog { width: min(55rem, calc(100vw - 2rem)); }
+.hangar-body { max-height: calc(min(86dvh, 50rem) - 5.15rem); overflow: auto; padding: .8rem 1.5rem 1.15rem; }
+.hangar-preview { position: relative; border: 1px solid #526a76; border-radius: 5px; background: #182a36; overflow: hidden; }
+#hangar-preview { display: block; width: 100%; height: clamp(7rem, 22vh, 12rem); object-fit: contain; cursor: grab; touch-action: none; }
+#hangar-preview:active { cursor: grabbing; }
+.preview-actions { display: flex; justify-content: space-between; align-items: center; background: #0c1c25bb; padding: .2rem .6rem; font: .74rem var(--mono); }
+.preview-actions button { border: 1px solid #647f8b; background: #182a36; font-size: 1.05rem; }
+#aircraft-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin-top: .65rem; }
+.aircraft-card { display: grid; align-content: start; border: 1px solid #58717b; border-radius: 4px; overflow: hidden; background: #172632; }
+.card-preview { border: 0; padding: 0; background: #182a36; }
+.card-preview img { display: block; width: 100%; height: 5.4rem; object-fit: contain; }
+.aircraft-card-copy { padding: .62rem .75rem; }
+.aircraft-card h3 { margin: .25rem 0; font-size: 1.18rem; }
+.aircraft-role, .aircraft-description, .hangar-note { margin: 0; color: var(--muted); font-size: .78rem; }
+.aircraft-role { color: var(--accent); font: 700 .64rem var(--mono); text-transform: uppercase; }
+.aircraft-card dl { margin: .55rem 0; font: .69rem/1.5 var(--mono); }
+.aircraft-card dl div { display: grid; grid-template-columns: minmax(5rem, .9fr) 1.4fr; gap: .4rem; }
+.aircraft-card dd { margin: 0; }
+.aircraft-card .primary-button { width: auto; margin-bottom: 0; padding: .52rem .7rem; }
+.aircraft-select[aria-pressed="true"] { box-shadow: inset 0 0 0 2px #615b27; }
+.hangar-note { margin-top: .6rem; }
+#aircraft-status:empty { display: none; }
+@media (max-width: 610px) {
+  #aircraft-cards { grid-template-columns: 1fr; }
+  .hangar-body { padding-inline: .7rem; }
+}
+@media (max-height: 570px) {
+  #open-aircraft { padding-block: .25rem; margin-bottom: .38rem; }
+  .test-options { margin-top: .3rem; }
+}

@@ -36,7 +36,7 @@ export class ThreatReceiver {
       }
     }
     if (!object) {
-      if (time - this.time > 0.36) this.state = '';
+      if (time - this.time > (this.flight.spec?.rwr?.hold ?? 0.36)) this.state = '';
       return;
     }
     const { orientation, position } = this.flight;

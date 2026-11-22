@@ -1,6 +1,7 @@
 import { MathUtils, Quaternion, Vector3 } from 'three';
 import { AircraftDamage } from './aircraft-damage.js';
 import { ControlSurfaces } from './control-surfaces.js';
+import { Engines } from './engines.js';
 import { FlightInstructor } from './instructor.js';
 
 const { clamp, lerp, smoothstep } = MathUtils;
@@ -37,13 +38,14 @@ export class Flight {
     this.rotationStep = new Quaternion();
     this.inverse = new Quaternion();
     this.instructor = new FlightInstructor();
-    this.surfaces = new ControlSurfaces();
-    this.damage = new AircraftDamage(spec.damageComponents);
+    this.surfaces = new ControlSurfaces(spec.surfaces);
+    this.damage = new AircraftDamage(spec.damageComponents, spec.engines);
+    this.engines = new Engines(spec, this.damage);
   }
 
   reset(scenario) {
     const { x, y, z, speed, pitch, throttle, runway, heading = 0 } = scenario;
-    this.position.set(x, y, z);
+    this.position.set(x, runway ? this.world.heightAt(x, z) + this.spec.gearClearance : y, z);
     this.rotationStep.setFromAxisAngle(this.angularStep.set(1, 0, 0), -pitch);
     this.orientation.setFromAxisAngle(UP, -heading).multiply(this.rotationStep);
     this.velocity.set(-Math.sin(heading) * speed, 0, Math.cos(heading) * speed);
@@ -63,6 +65,7 @@ export class Flight {
     this.fuel = this.spec.fuelCapacity * 0.73;
     this.throttle = throttle;
     this.spool = throttle;
+    this.engines.reset(throttle);
     this.burnerArmed = false;
     this.afterburner = false;
     this.thrust = 0;
@@ -75,11 +78,13 @@ export class Flight {
     this.stress = 0;
     this.failure = '';
     this.elapsed = 0;
+    this.turnRate = 0;
+    this.protectedAirframe = false;
     this.updateInstruments();
   }
 
   toggleAfterburner() {
-    this.burnerArmed = !this.burnerArmed && this.fuel > 0 && this.damage.enginePower > 0.32;
+    this.burnerArmed = !this.burnerArmed && this.fuel > 0 && this.engines.canBurn;
     if (this.burnerArmed) this.throttle = 1;
   }
 
@@ -92,9 +97,7 @@ export class Flight {
     this.previousOrientation.copy(this.orientation);
 
     this.throttle = clamp(this.throttle + controls.throttle * 0.36 * dt, 0, 1);
-    if (this.throttle < 0.97 || !this.fuel || damage.enginePower <= 0.32) this.burnerArmed = false;
-    this.spool += ((this.fuel && damage.enginePower > 0 ? this.throttle : 0) - this.spool) * (1 - Math.exp(-spec.spoolResponse * dt));
-    this.afterburner = this.burnerArmed && this.spool > 0.89;
+    if (this.throttle < 0.97 || !this.fuel || !this.engines.canBurn) this.burnerArmed = false;
     const gearMovement = dt / spec.gearTime;
     if (!this.grounded) this.gear = clamp(this.gear + (this.gearDown ? gearMovement : -gearMovement), 0, 1);
     this.brake = clamp(this.brake + (controls.brakes ? dt * 3 : -dt * 3), 0, 1);
@@ -105,7 +108,12 @@ export class Flight {
     const density = 1.225 * Math.pow(temperature / 288.15, 4.256) * Math.exp(-Math.max(0, altitude - 11000) / 6330);
     const mach = speed / Math.sqrt(1.4 * 287.05 * temperature);
     const dynamicPressure = 0.5 * density * speed * speed;
-    const mass = spec.emptyMass + this.fuel + (this.stores ? spec.storesMass : 0);
+    const mass = this.mass;
+    this.engines.step(this.throttle, this.fuel, this.burnerArmed, density, mach, dt);
+    const { thrust, spool, afterburner, yawMoment, burn } = this.engines;
+    this.thrust = thrust;
+    this.spool = spool;
+    this.afterburner = afterburner;
 
     this.forward.copy(FORWARD).applyQuaternion(this.orientation);
     this.up.copy(UP).applyQuaternion(this.orientation);
@@ -141,10 +149,10 @@ export class Flight {
     const groundSteering = this.grounded ? clamp(speed / 25, 0, 0.35) : 0;
     const rudder = controls.yaw || (controls.assisted ? instructor.rudder : 0);
     const coordinatedYaw = controls.assisted ? instructor.yawLead : 0;
-    const yawRate = (-rudder * spec.yawRate + clamp(sideslip * 1.8 + coordinatedYaw, -0.28, 0.28))
-      * (authority + groundSteering);
+    const yawRate = (-rudder * spec.yawRate * damage.yawAuthority + clamp(sideslip * 1.8 + coordinatedYaw, -0.28, 0.28))
+      * (authority + groundSteering) + yawMoment / (mass * (spec.yawInertia ?? 28));
     this.surfaces.step(dt, -pitchRate / spec.pitchRate, rollRate / spec.rollRate,
-      rudder * authority, this.gear, speed, alpha, damage.surfaceAuthority);
+      rudder * authority, this.gear, speed, alpha, damage.surfaceAuthority, this.brake);
     if (damage.active) {
       const angles = this.surfaces.angles;
       const effective = damage.surfaceAuthority;
@@ -179,16 +187,11 @@ export class Flight {
     const separation = smoothstep(Math.abs(alpha), spec.stallAngle, 0.66);
     const liftCoefficient = damage.lift * (spec.baseLift + spec.liftSlope * attachedAlpha) * (1 - 0.79 * separation)
       * (1 - 0.10 * smoothstep(mach, 0.91, 1.27));
+    const speedLimitDrag = spec.maxMach ? 0.24 * smoothstep(mach, spec.maxMach * 0.94, spec.maxMach * 1.08) : 0;
     const waveDrag = spec.waveDrag * smoothstep(mach, 0.76, 1.07) * (1 - 0.37 * smoothstep(mach, 1.10, 1.70));
     const dragCoefficient = spec.baseDrag + spec.inducedDrag * liftCoefficient ** 2 + waveDrag
-      + separation * 0.48 + 0.035 * this.gear + 0.088 * this.brake + (this.stores ? 0.006 : 0)
+      + speedLimitDrag + separation * 0.48 + 0.035 * this.gear + 0.088 * this.brake + (this.stores ? 0.006 : 0)
       + 0.28 * sideslip ** 2 + damage.drag;
-    const altitudeThrust = Math.pow(density / 1.225, 0.62);
-    const ramEffect = 1 + 0.17 * Math.min(mach, 1.6);
-    const thrustAtPower = spec.militaryThrust * (0.05 + 0.95 * this.spool ** 1.3);
-    this.thrust = this.fuel ? (this.afterburner ? spec.afterburnerThrust : thrustAtPower) * altitudeThrust * ramEffect * damage.enginePower : 0;
-    const fuelFlow = lerp(spec.idleFuelFlow, spec.militaryFuelFlow, this.spool ** 1.15);
-    const burn = damage.enginePower > 0 ? (this.afterburner ? spec.afterburnerFuelFlow : fuelFlow) * altitudeThrust : 0;
     this.fuel = Math.max(0, this.fuel - (burn + damage.leak) * dt);
 
     this.airDirection.copy(this.velocity).normalize();
@@ -212,7 +215,10 @@ export class Flight {
     this.position.addScaledVector(this.velocity, dt);
     this.checkGround();
     this.updatePilot(dt);
+    const priorHeading = this.heading;
     this.updateInstruments();
+    const headingChange = ((this.heading - priorHeading + 540) % 360) - 180;
+    this.turnRate = lerp(this.turnRate, headingChange / dt, 1 - Math.exp(-6 * dt));
   }
 
   checkGround() {
@@ -239,6 +245,7 @@ export class Flight {
     const negative = smoothstep(-this.g, 0.8, 3.5);
     this.blackout = clamp(this.blackout + (overload * 0.5 - (1 - overload) * 0.25) * dt, 0, 0.93);
     this.redout = clamp(this.redout + (negative * 0.55 - (1 - negative) * 0.34) * dt, 0, 0.85);
+    if (this.protectedAirframe) return;
     const { damage } = this;
     const excess = Math.max(0, this.g - this.spec.maxG * damage.loadLimit, this.spec.minG * damage.loadLimit - this.g);
     this.stress = clamp(this.stress + (excess * 0.27 - 0.10) * dt, 0, 1);
@@ -246,6 +253,8 @@ export class Flight {
     damage.progress(dt, this.fuel, excess);
     this.failure ||= damage.failure;
   }
+
+  get mass() { return this.spec.emptyMass + this.fuel + (this.stores ? this.spec.storesMass : 0); }
 
   updateInstruments() {
     this.forward.copy(FORWARD).applyQuaternion(this.orientation);

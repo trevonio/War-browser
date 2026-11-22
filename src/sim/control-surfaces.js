@@ -8,24 +8,27 @@ export const surfaceLimits = {
   LeftStabilator: [-25, 21], RightStabilator: [-25, 21],
   Rudder: [-30, 30],
 };
-const names = Object.keys(surfaceLimits);
+
 
 export class ControlSurfaces {
-  constructor() {
-    this.angles = Object.fromEntries(names.map((name) => [name, 0]));
+  constructor(config = {}) {
+    this.config = config;
+    this.limits = { ...surfaceLimits, ...config.limits };
+    this.names = Object.keys(this.limits);
+    this.angles = Object.fromEntries(this.names.map((name) => [name, 0]));
     this.previous = { ...this.angles };
     this.demand = { ...this.angles };
   }
 
   reset(gear, speed) {
     this.command(0, 0, 0, gear, speed, 0);
-    for (const name of names) this.previous[name] = this.angles[name] = this.demand[name];
+    for (const name of this.names) this.previous[name] = this.angles[name] = this.demand[name];
   }
 
-  command(pitch, roll, yaw, gear, speed, alpha) {
+  command(pitch, roll, yaw, gear, speed, alpha, brake = 0) {
     const approach = gear * (1 - smoothstep(speed, 100, 158));
     const leading = 25 * clamp(approach * 0.70 + Math.max(0, alpha) * 1.7, 0, 1);
-    const trailing = 18 * approach;
+    const trailing = this.config.separateFlaps ? 0 : 18 * approach;
     const elevator = pitch * 21;
     const aileron = roll * 20;
     this.demand.LeftLEF = this.demand.RightLEF = leading;
@@ -34,13 +37,15 @@ export class ControlSurfaces {
     this.demand.LeftStabilator = elevator + roll * 5;
     this.demand.RightStabilator = elevator - roll * 5;
     this.demand.Rudder = -yaw * 30;
+    if (this.config.separateFlaps) this.demand.Flap = 35 * approach;
+    if (this.config.speedBrake) this.demand.SpeedBrake = 48 * brake;
   }
 
-  step(dt, pitch, roll, yaw, gear, speed, alpha, authority) {
-    this.command(pitch, roll, yaw, gear, speed, alpha);
+  step(dt, pitch, roll, yaw, gear, speed, alpha, authority, brake) {
+    this.command(pitch, roll, yaw, gear, speed, alpha, brake);
     const response = 1 - Math.exp(-12 * dt);
-    for (const name of names) {
-      const [min, max] = surfaceLimits[name];
+    for (const name of this.names) {
+      const [min, max] = this.limits[name];
       const angle = this.previous[name] = this.angles[name];
       const effectiveness = authority[name] ?? 1;
       const target = clamp(this.demand[name] * effectiveness, min, max);

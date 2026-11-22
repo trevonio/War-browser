@@ -38,19 +38,24 @@ export class FlightSound {
   update(flight, camera, mode, missiles, playing) {
     const { context } = this.audio;
     if (context?.state !== 'running') return;
+    if (this.context !== context) {
+      this.context = context;
+      this.nextMix = 0;
+      this.start(context);
+    }
     const time = context.currentTime;
     if (time < this.nextMix) return;
     this.nextMix = time + 0.07;
-    if (!this.tones) this.start(context);
     const distance = camera.position.distanceTo(flight.position);
     const near = playing ? attenuation(distance, 140) : 0;
     const inside = mode === 'hud' ? 0.56 : 1;
+    const voice = flight.spec.audio ?? { pitch: 1, gain: 1 };
     const motor = flight.failure || !flight.fuel ? 0 : flight.damage.enginePower * flight.spool;
     const burner = flight.afterburner ? motor : 0;
     const pressure = MathUtils.clamp(flight.airspeed / 660, 0, 1);
-    this.mix(0, time, 30 + motor * 45 + burner * 14, 170 + motor * 360, near * inside * motor * 0.105);
+    this.mix(0, time, (30 + motor * 45 + burner * 14) * voice.pitch, 170 + motor * 360, near * inside * motor * 0.105 * voice.gain);
     this.mix(1, time, 52 + pressure * 82, 300 + pressure * 620, near * inside * pressure ** 2 * 0.055);
-    this.mix(2, time, 43 + burner * 34, 260 + burner * 330, near * inside * burner * 0.08);
+    this.mix(2, time, (43 + burner * 34) * voice.pitch, 260 + burner * 330, near * inside * burner * 0.08 * voice.gain);
     let nearest = Infinity;
     let burn = 0;
     if (playing) for (const missile of missiles) {

@@ -2,8 +2,10 @@ const jamAt = 0.23;
 const controlAuthority = (condition) => condition > jamAt ? 0.25 + 0.75 * condition : 0;
 
 export class AircraftDamage {
-  constructor(components = {}) {
+  constructor(components = {}, engines = [{ component: 'engine', share: 1 }]) {
     this.components = components;
+    this.engines = engines;
+    this.engineFires = new Set();
     this.health = Object.fromEntries(Object.keys(components).map((key) => [key, 1]));
     this.surfaceAuthority = {};
     this.reset();
@@ -12,6 +14,7 @@ export class AircraftDamage {
   reset() {
     for (const key of Object.keys(this.components)) this.health[key] = 1;
     this.active = false;
+    this.engineFires.clear();
     this.fire = false;
     this.overload = 0;
     this.failure = '';
@@ -36,12 +39,17 @@ export class AircraftDamage {
     const excess = this.wear(key, amount);
     if (key !== 'fuselage') this.wear('fuselage', amount * 0.28 + excess * 0.85);
     this.active = true;
-    if (this.condition('engine') <= 0.48) this.fire = true;
+    for (const { component } of this.engines) {
+      if (this.condition(component) <= 0.48) this.engineFires.add(component);
+    }
+    this.fire = this.engineFires.size > 0;
     this.recalculate();
     const status = this.condition(key) <= 0 ? 'FAILED' : this.condition(key) <= jamAt ? 'CRITICAL' : 'HIT';
     this.report = key === 'fuel' && this.leak ? 'FUEL LEAK' : `${this.components[key].label.toUpperCase()} ${status}`;
     return Boolean(this.failure);
   }
+
+  enginePowerFor(component) { return this.condition(component) ** 1.45; }
 
   recalculate() {
     const left = this.condition('leftWing');
@@ -52,7 +60,8 @@ export class AircraftDamage {
     this.drag = (2 - left - right) * 0.021
       + (2 - this.condition('leftFlaperon') - this.condition('rightFlaperon')) * 0.009;
     this.loadLimit = 0.47 + 0.53 * Math.min(left, right, this.condition('fuselage'));
-    this.enginePower = this.condition('engine') ** 1.45;
+    this.enginePower = this.engines.reduce((power, engine) => power + this.enginePowerFor(engine.component) * engine.share, 0);
+    this.yawAuthority = (controlAuthority(this.condition('leftFin')) + controlAuthority(this.condition('rightFin'))) * 0.5;
     this.leak = Math.max(0, 0.84 - this.condition('fuel')) ** 1.4 * 46;
     const surfaces = this.surfaceAuthority;
     surfaces.LeftLEF = controlAuthority(left);
@@ -69,9 +78,10 @@ export class AircraftDamage {
 
   progress(dt, fuel, excess) {
     if (!this.active) return;
-    if (fuel <= 0) this.fire = false;
-    if (this.fire) {
-      if (this.condition('engine') > 0) this.wear('engine', dt * 1.1);
+    if (fuel <= 0) this.engineFires.clear();
+    this.fire = this.engineFires.size > 0;
+    for (const engine of this.engineFires) {
+      if (this.condition(engine) > 0) this.wear(engine, dt * 1.1);
       else this.wear('fuselage', dt * 0.42);
     }
     if (excess > 0) {
