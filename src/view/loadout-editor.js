@@ -133,7 +133,7 @@ export class LoadoutEditor {
     if (!this.aircraft) return;
     this.mounts.reset(this.candidate.stations);
     this.mounts.update({ stores: true, customStores: true, damage: { condition: () => 1 } });
-    this.ui['loadout-preview'].src = this.preview.draw({ own: this.aircraft }, this.angle, 640, 260);
+    this.ui['loadout-preview'].src = this.preview.draw({ own: this.aircraft }, this.angle, 640, 260, 19);
   }
 
   selectedSave() {

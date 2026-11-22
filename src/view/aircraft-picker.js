@@ -13,12 +13,12 @@ export class AircraftPreview {
     this.scene.add(key);
   }
 
-  draw(assets, angle, width, height) {
+  draw(assets, angle, width, height, distance = 27) {
     const renderer = this.renderer;
     const ratio = renderer.getPixelRatio();
     renderer.getSize(this.size);
     this.camera.aspect = width / height;
-    this.camera.position.set(Math.sin(angle) * 27, 12, Math.cos(angle) * 27);
+    this.camera.position.set(Math.sin(angle) * distance, distance * 4 / 9, Math.cos(angle) * distance);
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
     const root = assets.own.root;

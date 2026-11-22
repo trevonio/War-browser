@@ -262,7 +262,8 @@
 
     <dialog id="loadout-dialog" aria-labelledby="loadout-title">
       <header class="dialog-header"><h2 id="loadout-title">Aircraft loadout</h2>
-        <button type="button" id="close-loadouts" class="utility-button">Close</button></header>
+        <div class="hangar-actions"><button type="button" class="primary-button" id="loadout-apply">Apply to aircraft</button>
+        <button type="button" id="close-loadouts" class="utility-button">Close</button></div></header>
       <div class="loadout-body">
         <section class="loadout-display" aria-label="Payload preview">
           <img id="loadout-preview" alt="Aircraft and mounted stores" width="640" height="260">
@@ -284,7 +285,6 @@
             <button type="button" class="utility-button" id="loadout-default">Restore mission default</button>
           </div>
           <p id="loadout-status" role="status"></p>
-          <button type="button" class="primary-button" id="loadout-apply">Apply to aircraft</button>
         </section>
       </div>
     </dialog>
