@@ -23,7 +23,7 @@ export function sweepSphere(start, end, collider, startFraction = 0, endFraction
   return hit <= 1 ? hit : Infinity;
 }
 
-function sweepBox(start, end, { min, max }) {
+export function sweepBox(start, end, { min, max }) {
   let near = 0;
   let far = 1;
   for (let axis = 0; axis < 3; axis++) {

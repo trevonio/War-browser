@@ -6,6 +6,8 @@ export const scenarios = {
   air: airStart,
   practice: { ...airStart },
   groundRange: { ...airStart, x: -910, y: 380, z: -3500, speed: 148, pitch: 0.035, throttle: 0.46 },
+  battlefield: { ...airStart, x: -235, y: 430, z: -3530, speed: 151, pitch: 0.063, throttle: 0.42 },
+  convoy: { ...airStart, x: -258, y: 355, z: -3820, speed: 149, pitch: 0.053, throttle: 0.43 },
   dogfight: { ...airStart, x: -4150, y: 1450, z: -6250 },
   short: { ...airStart, x: -5050, y: 1800, z: -6500, speed: 192 },
   outnumbered: { ...airStart, x: -6800, y: 3350, z: -9700, speed: 216 },

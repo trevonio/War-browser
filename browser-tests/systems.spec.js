@@ -75,3 +75,26 @@ test('profiles clean and loaded flight, release, salvos, and the ground range', 
   expect(new Set(changes.map(String)).size).toBe(1);
   expect(errors).toEqual([]);
 });
+
+test('profiles dynamic ground battles across forces, explosions, air support, and aircraft', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Measure scenarios on one software renderer.');
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('http://127.0.0.1:4174/browser-tests/systems-fixture.html');
+  await page.waitForFunction(() => Boolean(window.flightSystemsTest), undefined, { timeout: 25000 });
+  const report = await page.evaluate(() => window.flightSystemsTest.measureBattle());
+  console.log('Stage 2.8 Chromium WebGL, medium 800×450', JSON.stringify(report));
+  for (const [key, count] of [['empty', 0], ['five', 5], ['ten', 10], ['twenty', 20]]) {
+    expect(report[key].ai).toBe(count);
+    expect(report[key].fps).toBeGreaterThan(0);
+    expect(report[key].p95ms).toBeGreaterThan(0);
+  }
+  expect(report.firing.groundShots).toBeGreaterThan(0);
+  expect(report.firing.projectiles).toBeGreaterThan(0);
+  expect(report.explosions.bombImpacts).toBe(4);
+  expect(report.airSupport.bombImpacts).toBeGreaterThan(0);
+  expect(report.airSupport.rocketImpacts).toBeGreaterThan(0);
+  expect(report.mixedAircraft.aircraft).toBe(4);
+  expect(report.mixedAircraft.draws).toBeGreaterThan(report.firing.draws);
+  expect(errors).toEqual([]);
+});

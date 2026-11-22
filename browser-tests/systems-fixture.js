@@ -15,6 +15,7 @@ import { FlightTrails } from '../src/view/trails.js';
 import { CannonEffects } from '../src/view/cannon-effects.js';
 import { CombatEffects, drawRadar } from '../src/view/combat-view.js';
 import { WorldView } from '../src/view/world.js';
+import { measureBattle } from './battle-fixture.js';
 import { measureFleet } from './aircraft-fixture.js';
 import { measureGroundStores } from './ground-fixture.js';
 
@@ -326,4 +327,4 @@ async function measureAirCombat(mode) {
   return { fps: await sampleFrames(render), ...peak, drawCalls: renderer.info.render.calls };
 }
 
-window.flightSystemsTest = { checkRig, checkImpact, measure, measureAirCombat, measureFleet: () => measureFleet(renderer), measureGroundStores: () => measureGroundStores(renderer) };
+window.flightSystemsTest = { checkRig, checkImpact, measure, measureAirCombat, measureFleet: () => measureFleet(renderer), measureGroundStores: () => measureGroundStores(renderer), measureBattle: () => measureBattle(renderer) };

@@ -1,8 +1,8 @@
 # War Browser · Fighting Falcon
 
-A single-player, desktop browser flight simulator. Fly the F-16C from an
-airborne or runway start, practice in the cannon range, or take on an AI
-opponent in a one-on-one dogfight.
+A single-player, desktop browser flight simulator. Fly the F-16C or F-15C,
+practice on the coastal range, or take on AI opponents. The F-16C can also
+support a moving ground battle and intercept a convoy.
 
 ## Run locally
 
@@ -17,7 +17,8 @@ npm run dev
 Open the URL Vite prints. Run `npm test` for fixed-step simulation checks and
 `npm run build` to produce the static site in `dist/`. For a local production
 check use `npm run preview`. Append `?debug` to the **development** URL for
-frame timing, draw calls, triangles, and angle of attack.
+frame timing, draw calls, triangles, and angle of attack. In the two dynamic
+ground missions, it also shows each ground unit’s route, contacts, and damage.
 
 GitHub Actions runs the production build in Chromium and Firefox. To repeat
 the browser checks after building, run `npx playwright install chromium firefox`
@@ -264,8 +265,8 @@ templates share geometry and materials across aircraft, distant opponents
 use simpler silhouettes, and switching releases the outgoing effects pools.
 
 The [close air support architecture notes](docs/close-air-support.md)
-describe how a future ground battle can connect to the aircraft registry,
-store payloads, sensors, and mission lifecycle.
+describe how the current ground missions use the aircraft registry, store
+payloads, visual contacts, and mission lifecycle.
 
 ## Custom loadouts and ground attack range
 
@@ -300,3 +301,26 @@ targets hit, and targets disabled. Ground equipment, payload restrictions,
 projectile behavior, and effects use simulator tuning for this map. The
 [CAS extension notes](docs/close-air-support.md) describe the next steps for
 ground AI, sensors, additional weapon families, and battlefield objectives.
+
+## Dynamic ground missions
+
+Choose the **F-16C** and select **Battlefield support** or **Convoy
+interdiction**. Both missions supply the **Ground Attack** preset by default.
+You can use your own compatible loadout.
+
+- In **Battlefield support**, two ground columns advance and fight for Relay
+  crossing. Ground forces can capture it while you fly elsewhere. The HUD
+  shows accumulated control and losses.
+- In **Convoy interdiction**, stop the three marked transports before any
+  reaches the exit. Immobilizing a transport counts. Escorts can survive.
+- Press **T** to cycle among visually identified contacts. The optional
+  briefing checkbox marks all current visual contacts. Both displays rely
+  on line of sight. The mission objective is shown on the terrain.
+- Use **1**, **5**, and **6** to select the cannon, bombs, and rockets.
+  **C** toggles the ballistic sight and **Space** fires the selected weapon.
+  Aircraft weapons can hit either faction. The debrief reports friendly fire.
+  Weapons rearm on restart. The separate **Ground attack range** still
+  supports in-flight rearming.
+
+Ground battles and convoy movement advance during unpaused flight regardless
+of player distance. The F-15C retains its air-to-air role.

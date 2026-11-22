@@ -110,7 +110,8 @@ export class RangeOrdnance {
     for (const round of this.rounds) {
       if (!round.active) continue;
       this.advance(round, seconds);
-      const hit = sweepColliders(this.world, round.previous, round.position, colliders, this.hit);
+      const nearby = typeof colliders === 'function' ? colliders(round.previous, round.position) : colliders;
+      const hit = sweepColliders(this.world, round.previous, round.position, nearby, this.hit);
       if (hit.fraction < Infinity) {
         round.active = false;
         this.point.copy(round.previous).lerp(round.position, hit.fraction);
@@ -141,11 +142,12 @@ export class RangeOrdnance {
 export function applyGroundImpact(kind, point, collider, profile, targets) {
   if (!profile.radius) return;
   for (const target of targets) {
-    if (!target.active) continue;
-    const direct = target === collider;
+    if (!target.active || target.arrived) continue;
+    const direct = target === collider || target === collider?.vehicle;
     const distance = Math.max(0, target.position.distanceTo(point) - target.radius);
     if (!direct && distance >= profile.radius) continue;
     const amount = profile.damage * (direct ? 1.25 : (1 - distance / profile.radius));
-    target.damageTarget.hit(target.component, amount, kind);
+    const part = direct ? collider.component : (target.component ?? 'hull');
+    target.damageTarget.hit(part, amount, { source: 'player', kind, point, direct });
   }
 }

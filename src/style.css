@@ -127,18 +127,18 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
 #target-feedback, #combat-feedback { color: #ffdc97; font-weight: 700; }
 #target-feedback:empty, #combat-feedback:empty { display: none; }
 #opponent-status { color: #ffc4a2; }
-#opponent-marker {
+#opponent-marker, #ground-contact-marker {
   position: absolute; top: 0; left: 0; width: 18px; height: 18px; color: #ffd0a7;
   filter: drop-shadow(0 1px 2px #251811a0);
 }
 .contact-symbol { display: block; width: 18px; height: 18px; border: 1px solid currentColor; transform: rotate(45deg); }
 #opponent-marker[data-track="STT"] { color: #c5fce0; }
 #opponent-marker[data-track="LAST SEEN"] { color: #ddbc93; opacity: .78; }
-#opponent-marker[data-edge="true"] .contact-symbol {
+#opponent-marker[data-edge="true"] .contact-symbol, #ground-contact-marker[data-edge="true"] .contact-symbol {
   width: 11px; height: 11px; margin: 3px;
   border-width: 2px 2px 0 0; transform: rotate(calc(-45deg + var(--contact-angle)));
 }
-#contact-label {
+#contact-label, #ground-contact-label {
   position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
   white-space: nowrap; font: 650 .62rem var(--mono); letter-spacing: .02em;
 }
@@ -396,4 +396,26 @@ input[type="range"] { max-width: min(29vw,8rem); }
 #loadout-apply { width: auto; margin: 0; padding: .52rem .75rem; }
 @media (max-width: 730px) {
   .loadout-body { grid-template-columns: 1fr; padding-inline: .65rem; }
+}
+
+
+#ground-contact-marker { color: #ffbd93; }
+#ground-contact-marker[data-faction="friendly"] { color: #abefd9; }
+#ground-contact-marker[data-faction="neutral"] { color: #eee9c3; }
+#ground-contact-marker:not([data-edge="true"]) .contact-symbol { transform: none; }
+#ground-contact-label {
+  max-width: clamp(118px, 24vw, 240px);
+  padding: .16rem .25rem;
+  background: #10171bc9;
+  text-align: center;
+  white-space: normal;
+}
+#battle-briefing-options { margin: .35rem 0; font-size: .75rem; }
+.battle-intel { display: grid; gap: .32rem; }
+#ground-identification:empty, #ground-remaining:empty { display: none; }
+#battle-debug {
+  position: absolute; z-index: 5; right: .8rem; bottom: 3.6rem;
+  max-width: 52vw; max-height: 34vh; overflow: auto; margin: 0; padding: .65rem;
+  background: #10171be8; color: #d7eff1; font: .65rem/1.35 var(--mono); white-space: pre-wrap;
+  pointer-events: none;
 }

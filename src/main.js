@@ -6,6 +6,8 @@ import { canBind, Controls, keyDefaults, keyLabels, keyName, loadSettings, saveS
 import { FlightPointerLock } from './pointer-lock.js';
 import { opponentModes } from './sim/ai-pilot.js';
 import { cannonRoundMass } from './sim/cannon.js';
+import { GroundBattle, groundMissions } from './sim/ground/battlefield.js';
+import { GroundObserver } from './sim/ground/ground-observer.js';
 import { GroundRange } from './sim/ground-range.js';
 import { availablePresets, LoadoutBook, missionLoadout } from './sim/loadouts.js';
 import { applyGroundImpact, RangeOrdnance } from './sim/range-ordnance.js';
@@ -17,6 +19,7 @@ import { sightInterval, VisualTrack } from './sim/gun-computer.js';
 import { PracticeRange } from './sim/practice.js';
 import { range, scenarios } from './sim/range.js';
 import { CannonTrigger } from './trigger.js';
+import { BattlefieldView } from './view/battlefield-view.js';
 import { AircraftHangar } from './view/aircraft-hangar.js';
 import { AircraftPreview, describeAircraft } from './view/aircraft-picker.js';
 import { LoadoutEditor } from './view/loadout-editor.js';
@@ -41,6 +44,7 @@ const pressed = (id, value) => {
 const debug = import.meta.env.DEV && new URLSearchParams(location.search).has('debug');
 const flightLabels = {
   air: 'FREE FLIGHT', runway: 'FREE FLIGHT', practice: 'CANNON RANGE', dogfight: 'DOGFIGHT',
+  battlefield: 'BATTLEFIELD SUPPORT', convoy: 'CONVOY INTERDICTION',
   groundRange: 'GROUND ATTACK RANGE', short: 'MISSILE DOGFIGHT', intercept: 'BVR INTERCEPT', outnumbered: 'OUTNUMBERED',
 };
 const combatShortcuts = ['cycleWeapon', 'fireSelected', 'radarPower', 'radarTarget', 'radarLock',
@@ -89,7 +93,7 @@ async function boot() {
   try { saveStorage = localStorage; } catch { /* Sessions can edit loadouts without persistent storage. */ }
   const loadoutBook = new LoadoutBook(saveStorage);
   const modelStores = new StoreModels();
-  let activeLoadout, attachedStores, enemyStores, groundView;
+  let activeLoadout, attachedStores, enemyStores, groundView, battlefieldView;
   let groundSolution = false;
   const groundPoint = new T.Vector3();
   let sortie;
@@ -124,6 +128,25 @@ async function boot() {
     weaponEffects.emit('debris', target.position, 10);
     blast(target.position);
   });
+  const battle = new GroundBattle(range, {
+    shot(point, unit) {
+      if (listener.position.distanceToSquared(point) > 1600 ** 2) return;
+      weaponEffects.emit('rocketFlash', point, 2, unit.direction);
+      blast(point, true);
+    },
+    impact(point, collider) {
+      if (listener.position.distanceToSquared(point) < 1400 ** 2) weaponEffects.emit(collider?.surface ?? 'ground', point, 2);
+    },
+    destroyed(unit) {
+      if (listener.position.distanceToSquared(unit.position) > 2400 ** 2) return;
+      weaponEffects.emit('explosion', unit.position, 14);
+      weaponEffects.emit('debris', unit.position, 8);
+      blast(unit.position);
+    },
+  });
+  const groundObserver = new GroundObserver(range);
+  const groundSortie = () => ground.enabled || battle.enabled;
+  const smokePoint = new T.Vector3();
   const groundColliders = [...range.structures, ...ground.targets];
   const ordnance = new RangeOrdnance(range, (kind, point, collider, profile) => {
     if (kind === 'tank') weaponEffects.emit('ground', point, 4);
@@ -131,7 +154,7 @@ async function boot() {
       weaponEffects.emit('explosion', point, kind === 'bomb' ? 16 : 8);
       weaponEffects.emit('debris', point, kind === 'bomb' ? 10 : 4);
       blast(point);
-      applyGroundImpact(kind, point, collider, profile, ground.targets);
+      applyGroundImpact(kind, point, collider, profile, battle.enabled ? battle.targets : ground.targets);
     }
   }, (kind, point, direction) => {
     if (kind === 'rocket') weaponEffects.emit('rocketFlash', point, 4, direction);
@@ -211,6 +234,7 @@ async function boot() {
     sortie?.dispose();
     releasedStores?.dispose();
     groundView?.dispose();
+    battlefieldView?.dispose();
     modelStores.dispose();
     hangar.dispose();
   }, { once: true });
@@ -335,15 +359,18 @@ async function boot() {
     wingman.reset(exercise?.wingman ? 'aggressive' : null, start, exercise?.wingman);
     combat.reset(exercise ? startingPosition : null, ui['combat-difficulty'].value);
     ground.reset(startingPosition === 'groundRange');
+    battle.reset(startingPosition, ui['combat-difficulty'].value, undefined, Math.floor(Math.random() * 1000000));
+    groundObserver.reset();
+    if (battle.enabled && !battlefieldView) battlefieldView = new BattlefieldView(scene, battle, range);
     if (ground.enabled && !groundView) groundView = new GroundRangeView(scene, ground.targets);
     ordnance.clear();
     const saved = loadoutBook.entry(flight.spec).active;
-    const assignment = saved ?? (ground.enabled ? availablePresets(flight.spec)['Ground Attack'] : null);
+    const assignment = saved ?? (groundSortie() ? availablePresets(flight.spec)['Ground Attack'] : null);
     activeLoadout = assignment && missionLoadout(flight.spec, assignment, startingPosition);
     const rack = combat.player.rack;
     if (activeLoadout) {
-      const initial = ground.enabled && activeLoadout.stations.some(({ type }) => type === 'bomb') ? 'bomb'
-        : ground.enabled && activeLoadout.stations.some(({ type }) => type === 'rocket') ? 'rocket' : exercise?.initialWeapon;
+      const initial = groundSortie() && activeLoadout.stations.some(({ type }) => type === 'bomb') ? 'bomb'
+        : groundSortie() && activeLoadout.stations.some(({ type }) => type === 'rocket') ? 'rocket' : exercise?.initialWeapon;
       rack.reset(activeLoadout, initial);
       flight.ammunitionMass = cannon.ammo * cannonRoundMass;
       if (!releasedStores) releasedStores = new ReleasedStores(scene, modelStores, ordnance);
@@ -354,8 +381,10 @@ async function boot() {
       mounts.reset(side?.flight.customStores ? side.rack.stations : null);
       if (side?.flight.customStores) side.flight.ammunitionMass = side.fight.cannon.ammo * cannonRoundMass;
     }
-    for (const id of ['result-bombs-row', 'result-rockets-row', 'result-targets-row']) ui[id].hidden = !ground.enabled;
-    for (const id of ['result-enemies-row', 'result-missiles-row', 'result-airframe-row']) ui[id].hidden = ground.enabled;
+    for (const id of ['result-bombs-row', 'result-rockets-row', 'result-targets-row']) ui[id].hidden = !groundSortie();
+    for (const id of ['result-enemies-row', 'result-missiles-row', 'result-airframe-row']) ui[id].hidden = groundSortie();
+    ui['result-ground-forces-row'].hidden = !battle.enabled;
+    ui['result-friendly-fire-row'].hidden = !battle.enabled;
     if (exercise && !combatEffects) combatEffects = new CombatEffects(scene, visual, opponentVisual, combat, weaponEffects, [wingmanVisual]);
     combatEffects?.reset();
     activeOpponents[0] = dogfight.enabled;
@@ -397,8 +426,10 @@ async function boot() {
     text('briefing-aircraft', spec.shortName);
     text('pause-aircraft', spec.shortName);
     text('aircraft-current', spec.shortName);
-    ui['start-ground-range'].disabled = !spec.weaponDomains.includes('ground');
-    ui['start-ground-range'].title = ui['start-ground-range'].disabled ? 'Requires the F-16C' : '';
+    for (const id of ['start-ground-range', 'start-battlefield', 'start-convoy']) {
+      ui[id].disabled = !spec.weaponDomains.includes('ground');
+      ui[id].title = ui[id].disabled ? 'Requires the F-16C' : '';
+    }
     text('aircraft-briefing-description', spec.description);
   }
 
@@ -430,7 +461,7 @@ async function boot() {
       wingmanId = second;
       installSortie(...assets);
       updateAircraftIdentity();
-      selectStart(startingPosition === 'groundRange' && !flight.spec.weaponDomains.includes('ground') ? 'air' : startingPosition);
+      selectStart(groundSortie() && !flight.spec.weaponDomains.includes('ground') ? 'air' : startingPosition);
       applyPreset();
       try { localStorage.setItem('war-browser:aircraft', aircraftId); } catch { /* Selection remains active. */ }
       return true;
@@ -532,6 +563,7 @@ async function boot() {
     pressed('start-runway', next === 'runway');
     pressed('start-practice', next === 'practice');
     pressed('start-ground-range', next === 'groundRange');
+    for (const key of Object.keys(groundMissions)) pressed(`start-${key}`, next === key);
     pressed('start-dogfight', next === 'dogfight');
     pressed('start-short', next === 'short');
     pressed('start-intercept', next === 'intercept');
@@ -539,16 +571,18 @@ async function boot() {
     ui['opponent-choice'].hidden = next !== 'dogfight';
     ui['opponent-aircraft-choice'].hidden = next !== 'dogfight' && !combatExercises[next];
     ui['wingman-choice'].hidden = next !== 'outnumbered';
-    ui['combat-choice'].hidden = !combatExercises[next];
+    ui['combat-choice'].hidden = !combatExercises[next] && !groundMissions[next];
+    ui['battle-briefing-options'].hidden = !groundMissions[next];
     text('briefing-mode', flightLabels[next]);
     reset('ready');
-    const loadoutNote = activeLoadout
+    const loadoutNote = loadoutBook.entry(flight.spec).active && activeLoadout
       ? ` · CUSTOM LOADOUT${activeLoadout.restricted ? ' · MISSION STORE LIMITS APPLIED' : ''}`
       : next === 'outnumbered' ? ' · MISSION LOADOUT' : '';
     ui['ground-release-options'].hidden = !activeLoadout?.stations.some(({ type }) => groundWeapon(type));
     text('start-detail', (next === 'runway' ? 'GROUND START · GEAR DOWN'
       : next === 'practice' ? `3 AERIAL DRONES · ${flight.spec.cannon.capacity} ROUNDS`
       : next === 'groundRange' ? 'DISABLE FIVE MARKED RANGE TARGETS · REARM AVAILABLE'
+      : groundMissions[next] ? groundMissions[next].briefing
       : next === 'dogfight' ? `One ${aircraftRegistry[enemyId].spec.shortName} · Guns only · ${opponentModes[ui['opponent-mode'].value].briefing}`
       : combatExercises[next] ? combatBriefing(next)
       : `2,950 FT MSL · ${Math.round(flight.airspeed)} KTS`) + loadoutNote);
@@ -582,6 +616,7 @@ async function boot() {
       text(`key-${action}`, keyName(settings.keys[action]));
     }
     for (const action of ['missileView', 'nextMissile', 'targetView']) text(`key-${action}`, keyName(settings.keys[action]));
+    text('ground-target-key', keyName(settings.keys.radarTarget));
     text('missile-view-hint', keyName(settings.keys.missileView));
     text('target-view-hint', keyName(settings.keys.targetView));
     text('restart-key', keyName(settings.keys.restart));
@@ -673,7 +708,10 @@ async function boot() {
     },
     cycleWeapon() { changeWeapon(); },
     radarPower() { if (combat.enabled) combat.player.radar.togglePower(); },
-    radarTarget() { if (combat.enabled) combat.player.radar.selectNext(); },
+    radarTarget() {
+      if (combat.enabled) combat.player.radar.selectNext();
+      else if (battle.enabled) groundObserver.cycle();
+    },
     radarLock() {
       if (!combat.enabled) return;
       const { radar, rack } = combat.player;
@@ -704,6 +742,7 @@ async function boot() {
   ui['start-runway'].addEventListener('click', () => selectStart('runway'));
   ui['start-practice'].addEventListener('click', () => selectStart('practice'));
   ui['start-ground-range'].addEventListener('click', () => selectStart('groundRange'));
+  for (const key of Object.keys(groundMissions)) ui[`start-${key}`].addEventListener('click', () => selectStart(key));
   const editor = new LoadoutEditor(ui, hangar, preview, modelStores, loadoutBook, () => selectStart(startingPosition), signal);
   ui['open-loadouts'].addEventListener('click', () => editor.open(flight.spec), { signal });
   ui['aircraft-loadouts'].addEventListener('click', () => {
@@ -904,13 +943,24 @@ async function boot() {
     text('cannon-label', guns ? `${flight.spec.cannon.name} · ${flight.spec.cannon.caliber} MM` : weapons[weapon].label);
     text('cannon-ammo', ammo);
     text('cannon-unit', guns ? 'RDS' : groundWeapon(weapon) ? (weapon === 'bomb' ? 'BMB' : 'RKT') : 'MSL');
-    ui['ground-status'].hidden = screen !== 'flying' || (!ground.enabled && (!activeLoadout
+    ui['ground-status'].hidden = screen !== 'flying' || (!groundSortie() && (!activeLoadout
       || combat.enabled || !activeLoadout.stations.some(({ type }) => groundWeapon(type) || type === 'tank')));
     ui['ground-rearm-hint'].hidden = !ground.enabled;
+    ui['battle-intel'].hidden = !battle.enabled;
     if (!ui['ground-status'].hidden) {
-      text('ground-range-caption', ground.enabled ? 'GROUND RANGE' : 'EXTERNAL STORES');
+      text('ground-range-caption', battle.enabled ? battle.mission.objective.label.toUpperCase()
+        : ground.enabled ? 'GROUND RANGE' : 'EXTERNAL STORES');
       text('ground-remaining', ground.enabled ? `${ground.remaining} / ${ground.targets.length} TARGETS ACTIVE` : '');
-      const notice = flight.elapsed < rack.noticeUntil ? rack.notice : flight.elapsed < ground.noticeUntil ? ground.notice : '';
+      if (battle.enabled) {
+        const seconds = Math.max(0, Math.ceil(battle.mission.timeLimit - battle.time));
+        const objective = battle.key === 'convoy' ? `${battle.convoyStopped} / ${battle.transports.length} TRANSPORTS STOPPED`
+          : `CONTROL · FRIENDLY ${Math.min(100, Math.floor(battle.controls.friendly / .26))}% · HOSTILE ${Math.min(100, Math.floor(battle.controls.opposing / .26))}%`;
+        text('battle-objective', `${objective} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
+        text('battle-losses', `LOSSES · FRIENDLY ${battle.losses.friendly} · HOSTILE ${battle.losses.opposing}`);
+        text('ground-identification', groundObserver.track ? '' : 'NO VISUAL CONTACT');
+      }
+      const rangeStatus = battle.enabled ? battle : ground;
+      const notice = flight.elapsed < rack.noticeUntil ? rack.notice : rangeStatus.time < rangeStatus.noticeUntil ? rangeStatus.notice : '';
       text('ground-feedback', notice);
       text('external-fuel', flight.externalCapacity ? `${Math.floor(flight.externalFuel)} KG EXTERNAL FUEL` : '');
     }
@@ -1032,6 +1082,32 @@ async function boot() {
     contactMarker.update(marker, contact.position, camera, viewportWidth, viewportHeight);
   }
 
+  function renderGroundContact(camera) {
+    const marker = ui['ground-contact-marker'];
+    const contact = battle.enabled && screen === 'flying' ? groundObserver.track : null;
+    marker.hidden = !contact;
+    if (!contact) return;
+    marker.dataset.faction = contact.unit.faction;
+    marker.dataset.contact = contact.unit.id;
+    const transport = contact.unit.objective === 'deliver' ? ' · OBJECTIVE' : '';
+    const seen = battle.time - contact.time > .30 ? ' · LAST SEEN' : '';
+    const identity = contact.unit.faction === 'opposing' ? 'HOSTILE' : contact.unit.faction.toUpperCase();
+    text('ground-contact-label', `${identity} ${contact.unit.classification.toUpperCase()} · ${contact.distance} M${transport}${seen}`);
+    contactMarker.update(marker, contact.position, camera, viewportWidth, viewportHeight);
+  }
+
+  function updateBattleDebug() {
+    ui['battle-debug'].hidden = !debug || !battle.enabled || screen !== 'flying';
+    if (ui['battle-debug'].hidden) return;
+    text('battle-debug', battle.targets.map((unit) => {
+      const route = unit.route[unit.drive.waypoint];
+      const location = route ? `${unit.drive.waypoint + 1}/${unit.route.length} (${route.join(', ')})` : 'done';
+      const health = Object.entries(unit.health.health).map(([part, condition]) => `${part} ${Math.round(condition * 100)}%`).join(' ');
+      return `${unit.id} ${unit.type} ${unit.phase} ${unit.objective} ${Math.round(unit.speed * 3.6)} km/h · waypoint ${location}
+  ${unit.track?.id ?? 'no contact'} · LOS ${Boolean(unit.lineOfSight)} · sensor ${unit.spec.detection}m · ${health}`;
+    }).join('\n'));
+  }
+
   function invalidateSight() {
     opticalTarget = null;
     visualTrack.reset();
@@ -1145,13 +1221,27 @@ async function boot() {
     changeScreen('complete');
   }
 
+  function finishBattle() {
+    const { label } = battle.mission;
+    const title = battle.outcome === 'win' ? 'complete' : battle.outcome === 'draw' ? 'drawn' : 'ended';
+    showGroundResult(`${label} ${title}`, battle.reason, `${battle.hitCount} hit · ${battle.playerDisabled.size} stopped · ${battle.destroyed} destroyed by you`);
+    text('result-ground-forces', `${battle.losses.friendly} friendly · ${battle.losses.opposing} hostile destroyed`);
+    text('result-friendly-fire', `${battle.friendlyFire} damaging hits`);
+  }
+
   function finishGroundRange(complete) {
-    text('pause-title', complete ? 'Ground range complete' : 'Ground range ended');
-    text('pause-description', complete ? 'All marked ground targets have been disabled.' : flight.failure);
+    showGroundResult(complete ? 'Ground range complete' : 'Ground range ended',
+      complete ? 'All marked ground targets have been disabled.' : flight.failure,
+      `${ground.hitCount} hit · ${ground.destroyed} of ${ground.targets.length} disabled`);
+  }
+
+  function showGroundResult(title, reason, targets) {
+    text('pause-title', title);
+    text('pause-description', reason);
     text('result-guns', `${cannon.fired} fired`);
     text('result-bombs', ordnance.bombs);
     text('result-rockets', ordnance.rockets);
-    text('result-targets', `${ground.hitCount} hit · ${ground.destroyed} of ${ground.targets.length} disabled`);
+    text('result-targets', targets);
     const elapsed = Math.floor(flight.elapsed);
     text('result-time', `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`);
     changeScreen('complete');
@@ -1204,12 +1294,18 @@ async function boot() {
         flight.step(command);
         accumulator -= STEP;
         if (ground.enabled) ground.time = flight.elapsed;
+        if (battle.enabled) battle.step(STEP, flight.position);
         if (combat.enabled) {
           for (const side of combat.enemies) side.fight.update(side.adjust);
         } else if (dogfight.enabled) dogfight.update();
         else practice.step(flight.elapsed);
         if (flight.failure) {
           playerAirframe.step();
+          if (battle.enabled) {
+            battle.finish('loss', flight.failure);
+            finishBattle();
+            break;
+          }
           if (ground.enabled) {
             finishGroundRange(false);
             break;
@@ -1235,17 +1331,30 @@ async function boot() {
           } else if (combat.enabled) combat.launch(combat.player, combat.enemy, queuedLaunch);
           queuedLaunch = null;
         }
-        if (activeLoadout && ordnance.active) ordnance.step(STEP, rack, ground.enabled ? groundColliders : range.structures);
+        if (activeLoadout && ordnance.active) ordnance.step(STEP, rack, battle.enabled ? battle.queryPlayer
+          : ground.enabled ? groundColliders : range.structures);
         if (!flight.failure && selectedWeapon() === 'cannon') cannon.step(STEP, firing, flight);
         if (combat.enabled) {
           for (const side of combat.enemies) side.fight.fire(combat.canFireCannon(side));
         } else if (dogfight.enabled) dogfight.fire();
-        const targets = ground.enabled ? groundColliders
+        const targets = battle.enabled ? battle.queryPlayer : ground.enabled ? groundColliders
           : combat.enabled ? combat.shotTargets : dogfight.enabled ? dogfight.playerTargets : colliders;
         if (ballistics.count) ballistics.step(STEP, targets);
         if (flight.elapsed >= nextDamageTrail) {
           nextDamageTrail = flight.elapsed + 0.075;
           weaponEffects.damageTrail(flight);
+          if (battle.enabled) {
+            let smoke = 0;
+            const start = Math.floor(flight.elapsed * 11) % battle.targets.length;
+            for (let offset = 0; offset < battle.targets.length && smoke < 3; offset++) {
+              const unit = battle.targets[(start + offset) % battle.targets.length];
+              const damaged = unit.active ? unit.health.condition('engine') < .62 : battle.time < unit.visibleUntil;
+              if (!damaged || unit.arrived || unit.position.distanceToSquared(flight.position) > 1800 ** 2) continue;
+              smokePoint.copy(unit.position).y += unit.spec.dimensions[1] * .8;
+              weaponEffects.emit('engineSmoke', smokePoint, 2);
+              smoke++;
+            }
+          }
           if (activeLoadout) for (const round of ordnance.rounds) {
             if (round.active && round.kind === 'rocket' && round.age < 1) weaponEffects.emit('rocketSmoke', round.position, 2);
           }
@@ -1257,6 +1366,10 @@ async function boot() {
         playerAirframe.step();
         for (const { fight, airframe } of opponents) if (fight.enabled) airframe.step();
         const result = combat.enabled ? combat.finish() : dogfight.enabled && dogfight.finish();
+        if (battle.outcome) {
+          finishBattle();
+          break;
+        }
         if (ground.complete) {
           finishGroundRange(true);
           break;
@@ -1294,6 +1407,9 @@ async function boot() {
     const camera = combatCamera.update(view.camera, aircraft, observed, blend, dt);
     listener = camera;
     groundView?.update(camera);
+    if (battle.enabled && screen === 'flying') groundObserver.scan(battle.time, flight.position, camera, battle.targets);
+    battlefieldView?.update(camera, blend, groundObserver, ui['ground-assistance'].checked && screen === 'flying');
+    renderGroundContact(camera);
     releasedStores?.update(blend);
     const ended = screen === 'complete' || screen === 'failed';
     const moving = screen === 'flying' || ended;
@@ -1318,6 +1434,7 @@ async function boot() {
     if (time - lastHudTime > 74) {
       updateHud();
       updateCombatHud();
+      updateBattleDebug();
       lastHudTime = time;
     }
     renderer.render(scene, camera);

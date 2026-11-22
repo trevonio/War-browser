@@ -22,7 +22,7 @@ export const keyLabels = {
   sight: 'Toggle gun computer', sightMode: 'Change gun computer mode',
   weaponCannon: 'Select cannon', weaponInfrared: 'Select infrared missile', weaponRadar: 'Select radar missile',
   cycleWeapon: 'Cycle weapons', fireSelected: 'Fire selected weapon',
-  radarPower: 'Radar power', radarTarget: 'Select radar contact', radarLock: 'Lock or unlock radar contact',
+  radarPower: 'Radar power', radarTarget: 'Select radar or visual ground contact', radarLock: 'Lock or unlock radar contact',
   radarMode: 'Change radar scan mode', radarRange: 'Change radar scan range', radarScope: 'Show or hide radar scope',
   flares: 'Release flare', chaff: 'Release chaff',
   weaponBomb: 'Select bombs', weaponRocket: 'Select rockets', jettisonTank: 'Drop external tank', rearmGround: 'Rearm range weapons',

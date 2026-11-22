@@ -37,6 +37,8 @@
         <button id="start-runway" type="button" aria-pressed="false">Runway 36</button>
         <button id="start-practice" type="button" aria-pressed="false">Cannon range</button>
         <button id="start-ground-range" type="button" aria-pressed="false">Ground attack range</button>
+        <button id="start-battlefield" type="button" aria-pressed="false">Battlefield support</button>
+        <button id="start-convoy" type="button" aria-pressed="false">Convoy interdiction</button>
         <button id="start-dogfight" type="button" aria-pressed="false">Dogfight</button>
         <button id="start-short" type="button" aria-pressed="false">Missile dogfight</button>
         <button id="start-intercept" type="button" aria-pressed="false">BVR intercept</button>
@@ -70,6 +72,7 @@
         <label>Bomb release <select id="bomb-mode"><option value="single">Single</option><option value="pair">Paired</option><option value="burst">Ripple</option></select></label>
         <label>Rocket release <select id="rocket-mode"><option value="single">Single</option><option value="burst">Salvo</option></select></label>
       </div>
+      <label id="battle-briefing-options" hidden><input id="ground-assistance" type="checkbox"> Mark all visually identified ground contacts</label>
       <div id="start-detail" class="start-detail">2,950 FT MSL · 358 KTS</div>
       <button class="primary-button" id="launch" type="button">Start flight <kbd>Enter</kbd></button>
     </section>
@@ -130,6 +133,7 @@
         <span>OPPONENT <output id="opponent-integrity">100</output>%</span>
         <span>AIRFRAME <output id="player-integrity">100</output>%</span>
       </div>
+      <div id="ground-contact-marker" hidden><span class="contact-symbol" aria-hidden="true"></span><span id="ground-contact-label"></span></div>
       <div id="opponent-marker" hidden><span class="contact-symbol" aria-hidden="true"></span><span id="contact-label"></span></div>
       <div id="camera-status" hidden>
         <b id="camera-view-label"></b>
@@ -160,6 +164,12 @@
         <span id="ground-remaining"></span>
         <span id="ground-feedback"></span>
         <span id="external-fuel"></span>
+        <span class="battle-intel" id="battle-intel" hidden>
+          <span id="battle-objective"></span>
+          <span id="battle-losses"></span>
+          <span id="ground-identification"></span>
+          <span><kbd id="ground-target-key">T</kbd> Cycle visible ground contacts</span>
+        </span>
         <span><kbd id="key-weaponBomb">5</kbd> Bombs <kbd id="key-weaponRocket">6</kbd> Rockets <kbd id="key-jettisonTank">8</kbd> Drop tank</span>
         <span id="ground-rearm-hint" hidden><kbd id="key-rearmGround">9</kbd> Rearm range weapons</span>
       </div>
@@ -171,6 +181,8 @@
         <span><kbd id="missile-view-hint">N</kbd> Missile view <kbd id="target-view-hint">Z</kbd> Target view</span>
       </div>
     </section>
+
+    <pre id="battle-debug" aria-label="Ground AI diagnostics" hidden></pre>
 
     <aside id="test-overlay" aria-label="Flight test measurements" hidden>
       <b>Flight test</b>
@@ -196,6 +208,8 @@
         <div id="result-bombs-row" hidden><dt>Bombs released</dt><dd id="result-bombs"></dd></div>
         <div id="result-rockets-row" hidden><dt>Rockets fired</dt><dd id="result-rockets"></dd></div>
         <div id="result-targets-row" hidden><dt>Ground targets</dt><dd id="result-targets"></dd></div>
+        <div id="result-ground-forces-row" hidden><dt>Ground force losses</dt><dd id="result-ground-forces"></dd></div>
+        <div id="result-friendly-fire-row" hidden><dt>Friendly fire</dt><dd id="result-friendly-fire"></dd></div>
         <div id="result-airframe-row"><dt>Airframe damage</dt><dd id="result-damage"></dd></div>
         <div><dt>Mission time</dt><dd id="result-time"></dd></div>
       </dl>
