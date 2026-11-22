@@ -638,6 +638,7 @@ test('selects, previews, and flies the Eagle, then launches in a mixed intercept
   await dialog.getByRole('button', { name: 'Fly F-15C' }).click();
   await expect(chooser).toContainText('F-15C');
   expect(eagleRequested).toBe(true);
+  await expect(page.getByRole('button', { name: 'Ground attack range' })).toBeDisabled();
   await page.getByRole('checkbox', { name: 'Measurements' }).check();
   await startFlight(page);
   await expect(page.locator('#test-overlay')).toBeVisible();
@@ -687,12 +688,12 @@ test('edits and restores a loadout, launches range stores, and records ground re
   await page.goto('/');
   const open = page.getByRole('button', { name: 'Loadout', exact: true });
   const dialog = page.getByRole('dialog', { name: 'F-16C loadout' });
-  const preset = dialog.getByLabel('Preset', { exact: true });
+  const preset = dialog.getByRole('combobox', { name: 'Preset', exact: true });
   await open.click({ timeout: 20000 });
   await expect(dialog.locator('#loadout-stations select')).toHaveCount(7);
   await preset.selectOption('Ground Attack');
   await expect(dialog.locator('#loadout-totals')).toContainText('760 kg payload');
-  await dialog.getByLabel('Centerline').selectOption('tank');
+  await dialog.getByRole('combobox', { name: 'Centerline' }).selectOption('tank');
   await expect(dialog.locator('#loadout-totals')).toContainText('1488 kg payload');
   const picture = dialog.locator('#loadout-preview');
   await expect(picture).toHaveAttribute('src', /^data:image\/jpeg/);
@@ -705,8 +706,8 @@ test('edits and restores a loadout, launches range stores, and records ground re
   await dialog.getByRole('button', { name: 'Apply to aircraft' }).click();
   await page.reload();
   await open.click();
-  await dialog.getByLabel('Saved', { exact: true }).selectOption('Coastal test');
-  await expect(dialog.getByLabel('Centerline')).toHaveValue('tank');
+  await dialog.getByRole('combobox', { name: 'Saved', exact: true }).selectOption('Coastal test');
+  await expect(dialog.getByRole('combobox', { name: 'Centerline' })).toHaveValue('tank');
   await dialog.getByRole('button', { name: 'Apply to aircraft' }).click();
   await page.getByRole('button', { name: 'Ground attack range' }).click();
   await page.getByLabel('Rocket release').selectOption('burst');
@@ -737,7 +738,7 @@ test('edits and restores a loadout, launches range stores, and records ground re
   await expect(page.locator('#result-targets')).toHaveText(/\d+ hit · \d+ of 5 disabled/);
   await page.getByRole('button', { name: 'Back to briefing' }).click();
   await open.click();
-  await dialog.getByLabel('Saved', { exact: true }).selectOption('Coastal test');
+  await dialog.getByRole('combobox', { name: 'Saved', exact: true }).selectOption('Coastal test');
   await dialog.getByRole('button', { name: 'Delete saved' }).click();
   await expect(dialog.locator('#loadout-status')).toHaveText('Saved loadout deleted.');
   await dialog.getByRole('button', { name: 'Restore mission default' }).click();
