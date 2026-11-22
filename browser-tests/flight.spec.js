@@ -711,6 +711,7 @@ test('edits and restores a loadout, launches range stores, and records ground re
   await dialog.getByRole('button', { name: 'Apply to aircraft' }).click();
   await page.getByRole('button', { name: 'Ground attack range' }).click();
   await page.getByLabel('Rocket release').selectOption('burst');
+  await page.setViewportSize({ width: 1050, height: 650 });
   await startFlight(page);
   const rounds = page.locator('#cannon-ammo');
   await expect(rounds).toHaveText('2');
@@ -718,6 +719,8 @@ test('edits and restores a loadout, launches range stores, and records ground re
   await expect(page.locator('#external-fuel')).toHaveText(/KG EXTERNAL FUEL/);
   await page.keyboard.press('c');
   await expect(page.locator('#sight-mode')).toHaveText('BOMB CCIP');
+  await expect.poll(() => page.evaluate(() => document.querySelector('#sight-readout').getBoundingClientRect().bottom
+    < document.querySelector('#flight-deck').getBoundingClientRect().top)).toBe(true);
   await expect(page.locator('#sight-state')).toHaveText(/^(VALID|OFFSCREEN) · \d+ M$/);
   await page.keyboard.press('Space');
   await expect(rounds).toHaveText('1');

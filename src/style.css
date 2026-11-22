@@ -150,7 +150,7 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
 }
 #camera-status b { font-size: .74rem; }
 #sight-readout {
-  position: absolute; bottom: 6rem; left: clamp(.55rem, 5vw, 5rem);
+  position: absolute; bottom: max(6rem, calc(var(--deck-height, 0px) + .65rem)); left: clamp(.55rem, 5vw, 5rem);
   padding: .48rem .7rem; display: grid; gap: .24rem;
   background: #14222d78; border-left: 1px solid #92eec2; color: #b5f8d5; font: .75rem var(--mono);
 }
@@ -196,11 +196,11 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
 }
 @media (max-width: 760px) {
   #combat-shortcuts { left: .55rem; max-width: calc(100% - 12rem); transform: none; font-size: .64rem; }
-  #flight-hud:has(#combat-shortcuts:not([hidden])) #sight-readout { bottom: 12rem; }
+  #flight-hud:has(#combat-shortcuts:not([hidden])) #sight-readout { bottom: max(12rem, calc(var(--deck-height, 0px) + 6rem)); }
 }
 @media (max-height: 640px) {
   #combat-shortcuts { display: none; }
-  #flight-hud:has(#combat-shortcuts:not([hidden])) #sight-readout { bottom: 6rem; }
+  #flight-hud:has(#combat-shortcuts:not([hidden])) #sight-readout { bottom: max(6rem, calc(var(--deck-height, 0px) + .65rem)); }
 }
 @media (max-height: 520px) {
   #combat-avionics { bottom: max(5.25rem, calc(var(--deck-height, 0px) + .5rem)); inset-inline: 50% auto; transform: translateX(-50%); }
