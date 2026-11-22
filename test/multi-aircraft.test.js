@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Vector3 } from 'three';
+import { createF15Visual } from '../src/aircraft/f15-visual.js';
 import { aircraftRegistry } from '../src/aircraft/registry.js';
 import { CombatExercise, combatExercises } from '../src/sim/combat/exercise.js';
 import { Radar } from '../src/sim/combat/radar.js';
@@ -112,4 +113,26 @@ test('Eagle radar has a larger finite sector and mixed sides get their actual we
   assert.ok(missile.position.distanceTo(point) < 1e-9);
   assert.equal(missile.station, station.name);
   assert.equal(combat.player.rack.count('radar'), 3);
+});
+
+test('Eagle rig follows simulated commands and its visual racks match the specification', () => {
+  const flight = spawn(eagle);
+  const visual = createF15Visual();
+  const node = (name) => visual.root.getObjectByName(name);
+  assert.deepEqual(visual.muzzle.position.toArray(), eagle.cannon.muzzle);
+  for (const { name, offset } of eagle.hardpoints) assert.deepEqual(node(name).position.toArray(), offset);
+  flight.reset(scenarios.runway);
+  simulate(flight, 65, { ...manual, brakes: true, yaw: 0.8 });
+  visual.update(flight, 0);
+  assert.ok(node('Left flap').rotation.x > 0.4);
+  assert.ok(node('Speed brake').rotation.x > 0.3);
+  assert.ok(node('Left main gear').visible && node('Right main gear').visible);
+  flight.reset(start);
+  flight.toggleAfterburner();
+  flight.damage.hit('rightEngine', eagle.damageComponents.rightEngine.capacity);
+  simulate(flight, 235, { ...manual, roll: 1 });
+  visual.update(flight, 0);
+  assert.ok(node('Left burner').visible && !node('Right burner').visible);
+  assert.ok(!node('Nose gear').visible);
+  assert.ok(node('Left aileron').rotation.x * node('Right aileron').rotation.x < 0);
 });

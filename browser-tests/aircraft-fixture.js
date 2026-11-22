@@ -95,20 +95,27 @@ export async function measureFleet(renderer) {
     render(1 / 60);
     const frames = [];
     let previous = await new Promise(requestAnimationFrame);
+    const warmup = previous;
+    while (previous - warmup < 620) {
+      previous = await new Promise(requestAnimationFrame);
+      render(1 / 60);
+    }
     const begin = previous;
+    let peakDraws = 0;
     do {
       const now = await new Promise(requestAnimationFrame);
       const dt = (now - previous) / 1000;
       previous = now;
       for (let tick = 0; tick < Math.min(32, Math.round(dt / STEP)); tick++) step();
       render(dt);
+      peakDraws = Math.max(peakDraws, renderer.info.render.calls);
       frames.push(dt * 1000);
-    } while (previous - begin < 1450);
+    } while (previous - begin < 1850);
     frames.sort((a, b) => a - b);
     report[name] = {
       fps: Number((frames.length * 1000 / (previous - begin)).toFixed(1)),
       p95ms: Number(frames[Math.floor((frames.length - 1) * 0.95)].toFixed(1)),
-      draws: renderer.info.render.calls,
+      draws: peakDraws,
       geometries: renderer.info.memory.geometries,
       textures: renderer.info.memory.textures,
       launches, mostActive,

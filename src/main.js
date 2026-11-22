@@ -78,14 +78,13 @@ async function boot() {
     // Storage access does not affect aircraft selection in this session.
   }
   const initialAssets = await hangar.load(aircraftId);
-  const defaultAssets = await hangar.load(defaultAircraft);
   const preview = new AircraftPreview(renderer);
   let sortie;
   let flight, visual, aircraft, opponents, ballistics, weaponEffects, cannon, combat, trails, playerAirframe, gunComputer;
   let dogfight, wingman, opponentVisual, wingmanVisual;
   let activeOpponents, classicCandidates;
-  let enemyId = defaultAircraft;
-  let wingmanId = defaultAircraft;
+  let enemyId = aircraftId;
+  let wingmanId = aircraftId;
   const lifecycle = new AbortController();
   const { signal } = lifecycle;
   const capture = new FlightPointerLock(ui.viewport, {
@@ -210,7 +209,7 @@ async function boot() {
   let frameWindow = 0;
   let stopped = false;
   let switchingAircraft = false;
-  installSortie(initialAssets, defaultAssets, defaultAssets);
+  installSortie(initialAssets, initialAssets, initialAssets);
 
   renderer.domElement.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
@@ -429,6 +428,8 @@ async function boot() {
       }
       first.disabled = second.disabled = false;
     };
+    ui['opponent-aircraft'].value = enemyId;
+    ui['wingman-aircraft'].value = wingmanId;
     ui['opponent-aircraft'].addEventListener('change', updateEnemy, { signal });
     ui['wingman-aircraft'].addEventListener('change', updateEnemy, { signal });
     ui['open-aircraft'].addEventListener('click', async () => {
