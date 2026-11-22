@@ -3,6 +3,8 @@ import test from 'node:test';
 import { Vector3 } from 'three';
 import { f16 } from '../src/aircraft/f16.js';
 import { f15 } from '../src/aircraft/f15.js';
+import { CombatExercise, combatExercises } from '../src/sim/combat/exercise.js';
+import { Dogfight } from '../src/sim/dogfight.js';
 import { WeaponRack } from '../src/sim/combat/weapons.js';
 import { Flight, STEP, neutralControls } from '../src/sim/flight.js';
 import { GroundRange } from '../src/sim/ground-range.js';
@@ -131,4 +133,23 @@ test('pairs and bursts consume available stores in the shared inventory', () => 
   assert.equal(rack.count('rocket'), 0);
   assert.equal(flight.payloadDrag, before);
   assert.equal(rack.stations.find(({ type }) => type === 'rocket').used, false);
+});
+
+test('a mission can resolve an AI preset against the opponent aircraft', () => {
+  const { flight } = aircraft({});
+  const effects = { shot() {}, impact() {}, burst() {} };
+  const dogfight = new Dogfight(flight, f15, range, effects);
+  const exercise = new CombatExercise(dogfight, range, effects);
+  const opponent = combatExercises.intercept.opponent;
+  try {
+    combatExercises.intercept.opponent = { ...opponent, loadoutPreset: 'Short-Range Combat' };
+    dogfight.reset('aggressive', scenarios.intercept, combatExercises.intercept.opponent);
+    exercise.reset('intercept');
+    assert.equal(exercise.enemy.rack.count('infrared'), 4);
+    assert.equal(exercise.enemy.rack.count('radar'), 0);
+    assert.equal(exercise.player.rack.count('radar'), 2);
+    assert.equal(dogfight.opponent.customStores, true);
+  } finally {
+    combatExercises.intercept.opponent = opponent;
+  }
 });

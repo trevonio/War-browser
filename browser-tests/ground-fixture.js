@@ -20,6 +20,7 @@ export async function measureGroundStores(renderer) {
   const visual = createF16Visual();
   const flight = new Flight(f16, range);
   const aircraft = visual.root;
+  aircraft.renderMovement = new T.Vector3();
   scene.add(aircraft);
   const camera = new FlightCamera(range);
   camera.camera.aspect = 800 / 450;
@@ -53,6 +54,7 @@ export async function measureGroundStores(renderer) {
   }
 
   function draw(seconds) {
+    aircraft.renderMovement.subVectors(flight.position, aircraft.position);
     aircraft.position.copy(flight.position);
     aircraft.quaternion.copy(flight.orientation);
     visual.update(flight, flight.elapsed);

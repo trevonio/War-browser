@@ -67,11 +67,11 @@ test('profiles clean and loaded flight, release, salvos, and the ground range', 
   await page.goto('http://127.0.0.1:4174/browser-tests/systems-fixture.html');
   await page.waitForFunction(() => Boolean(window.flightSystemsTest), undefined, { timeout: 25000 });
   const { report, changes, changeMs } = await page.evaluate(() => window.flightSystemsTest.measureGroundStores());
+  console.log('Stage 2.7 Chromium WebGL, medium 800×450', JSON.stringify({ report, changes, changeMs }));
   expect(report.bombRelease.active).toBe(2);
   expect(report.rocketSalvo.active).toBeGreaterThan(2);
   expect(report.explosions.impacts).toBe(3);
   expect(report.explosions.particles).toBeGreaterThan(20);
   expect(new Set(changes.map(String)).size).toBe(1);
   expect(errors).toEqual([]);
-  console.log('Stage 2.7 Chromium WebGL, medium 800×450', JSON.stringify({ report, changes, changeMs }));
 });
