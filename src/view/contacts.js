@@ -102,6 +102,8 @@ export class ContactMarker {
       y = height / 2 + dy * edge;
       marker.style.setProperty('--contact-angle', `${MathUtils.radToDeg(direction)}deg`);
     }
+    this.x = x;
+    this.y = y;
     marker.dataset.edge = String(!visible);
     marker.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
     marker.hidden = false;

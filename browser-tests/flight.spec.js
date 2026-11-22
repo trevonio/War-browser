@@ -765,6 +765,10 @@ test('flies both dynamic ground missions with visual contacts and the existing C
   const marker = page.locator('#ground-contact-marker');
   await expect(marker).toBeVisible({ timeout: 10000 });
   await expect(marker).toContainText(/(FRIENDLY|HOSTILE) .+ · \d+ M/);
+  await expect.poll(() => page.evaluate(() => {
+    const { width, bottom } = document.querySelector('#ground-contact-label').getBoundingClientRect();
+    return width > 100 && bottom < document.querySelector('#flight-deck').getBoundingClientRect().top;
+  })).toBe(true);
   const selected = await marker.getAttribute('data-contact');
   await page.keyboard.press('t');
   await expect(marker).not.toHaveAttribute('data-contact', selected);

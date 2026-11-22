@@ -267,6 +267,7 @@ async function boot() {
   let keyboardFlight = false;
   let viewportWidth = 0;
   let viewportHeight = 0;
+  let deckHeight = 0;
   let accumulator = 0;
   let previousFrame;
   let lastHudTime = -1;
@@ -854,8 +855,8 @@ async function boot() {
   }, { signal });
 
   const deckSize = new ResizeObserver(([entry]) => {
-    const height = entry.borderBoxSize[0].blockSize;
-    document.body.style.setProperty('--deck-height', `${height}px`);
+    deckHeight = entry.borderBoxSize[0].blockSize;
+    document.body.style.setProperty('--deck-height', `${deckHeight}px`);
   });
   deckSize.observe(ui['flight-deck']);
   signal.addEventListener('abort', () => deckSize.disconnect(), { once: true });
@@ -1094,6 +1095,11 @@ async function boot() {
     const identity = contact.unit.faction === 'opposing' ? 'HOSTILE' : contact.unit.faction.toUpperCase();
     text('ground-contact-label', `${identity} ${contact.unit.classification.toUpperCase()} · ${contact.distance} M${transport}${seen}`);
     contactMarker.update(marker, contact.position, camera, viewportWidth, viewportHeight);
+    const { x, y } = contactMarker;
+    const labelInset = Math.min(232, Math.max(144, viewportWidth * .22)) * .5 + 8;
+    const center = T.MathUtils.clamp(x, labelInset, viewportWidth - labelInset);
+    marker.style.setProperty('--ground-label-offset', `${center - x}px`);
+    marker.dataset.above = String(y + 66 > viewportHeight - deckHeight);
   }
 
   function updateBattleDebug() {

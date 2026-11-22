@@ -404,12 +404,15 @@ input[type="range"] { max-width: min(29vw,8rem); }
 #ground-contact-marker[data-faction="neutral"] { color: #eee9c3; }
 #ground-contact-marker:not([data-edge="true"]) .contact-symbol { transform: none; }
 #ground-contact-label {
-  max-width: clamp(118px, 24vw, 240px);
+  width: max-content;
+  max-width: clamp(144px, 22vw, 232px);
+  transform: translateX(calc(-50% + var(--ground-label-offset, 0px)));
   padding: .16rem .25rem;
   background: #10171bc9;
   text-align: center;
   white-space: normal;
 }
+#ground-contact-marker[data-above="true"] #ground-contact-label { top: auto; bottom: 24px; }
 #battle-briefing-options { margin: .35rem 0; font-size: .75rem; }
 .battle-intel { display: grid; gap: .32rem; }
 #ground-identification:empty, #ground-remaining:empty { display: none; }
