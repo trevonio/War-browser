@@ -189,7 +189,7 @@ kbd { display: inline-grid; place-items: center; min-width: 1.4rem; padding: .1r
 #radar-mode { color: #adf0d8; }
 #radar-closure, #missile-telemetry, #launch-feedback { color: #f0d39d; }
 #radar-closure:empty, #missile-telemetry:empty, #launch-feedback:empty, #rwr-bearing:empty { display: none; }
-@media (max-width: 760px), (max-height: 640px) {
+@media (max-width: 760px), (max-height: 680px) {
   #combat-avionics { width: 10rem; font-size: .64rem; }
 }
 @media (max-height: 520px) {
