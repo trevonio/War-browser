@@ -1,5 +1,6 @@
 import { stores } from '../loadouts.js';
 import { Vector3 } from 'three';
+import { guidedWeapon, precision } from '../strike/guided.js';
 import { hasLineOfSight } from './radar.js';
 
 // Deliberately game-tuned archetypes for the coastal range. These values
@@ -8,6 +9,7 @@ export const weapons = {
   cannon: { label: 'M61A1 · 20 MM' },
   bomb: { label: 'RANGE BOMB' },
   rocket: { label: 'RANGE ROCKET' },
+  ...precision,
   infrared: {
     label: 'SIDEWINDER · IR', minRange: 150, maxRange: 2400, acquireArc: 0.955, keeperArc: 0.62,
     dwell: 0.32, model: 'wingtip', launchCue: 'launch', mass: 1, burn: 2.25, thrust: 155, speedCap: 580, damping: 0.058,
@@ -175,7 +177,7 @@ export class WeaponRack {
   }
 
   launchState(type, time) {
-    if (type === 'bomb' || type === 'rocket') return this.releaseState(type);
+    if (type === 'bomb' || type === 'rocket' || guidedWeapon(type)) return this.releaseState(type);
     if (!Object.hasOwn(this.seeker, type)) return 'INHIBITED';
     if (!this.station(type)) return 'AMMO EMPTY';
     if (this.flight.failure || this.flight.grounded) return 'INHIBITED';

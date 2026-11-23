@@ -14,6 +14,11 @@ const paint = new T.Color();
 const vehicleMaterial = () => new T.MeshStandardMaterial({ color: 0xe2dfcb, roughness: .92 });
 const capacity = 64;
 
+export function groundHeat(unit, time) {
+  if (!unit.active) return .23 + .64 * Math.exp(-Math.max(0, time - (unit.visibleUntil - 47)) / 19);
+  return .31 + .35 * unit.health.condition('engine') + Math.min(.22, unit.speed * .007);
+}
+
 export class BattlefieldView {
   constructor(scene, battle, world) {
     this.battle = battle;
@@ -34,6 +39,10 @@ export class BattlefieldView {
     this.frustum = new T.Frustum();
     this.bounds = new T.Sphere(new T.Vector3(), 16);
     this.batches = [this.hull, this.turret, this.barrel, this.wheel, this.markers];
+    this.thermalMaterials = [this.hull, this.turret, this.barrel, this.wheel].map((mesh) => [mesh, mesh.material]);
+    this.thermalVehicle = new T.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+    this.thermalPaint = new T.Color();
+    this.thermal = 0;
     this.position = new T.Vector3();
     this.offset = new T.Vector3();
     this.rotation = new T.Quaternion();
@@ -47,7 +56,7 @@ export class BattlefieldView {
     }));
     this.root.add(this.zone);
     const geometry = new T.BufferGeometry();
-    geometry.setAttribute('position', new T.BufferAttribute(new Float32Array(battle.weapons.pool.length * 6), 3)
+    geometry.setAttribute('position', new T.BufferAttribute(new Float32Array((battle.weapons.pool.length + 96) * 6), 3)
       .setUsage(T.DynamicDrawUsage));
     this.tracers = new T.LineSegments(geometry, new T.LineBasicMaterial({
       color: 0xffc979, opacity: .82, transparent: true, depthWrite: false, toneMapped: false,
@@ -65,10 +74,16 @@ export class BattlefieldView {
     return mesh;
   }
 
-  update(camera, blend, observer, assisted) {
+  update(camera, blend, observer, assisted, thermal = 0, battery = null) {
     const { battle, hull, turret, barrel, wheel, markers } = this;
     this.root.visible = battle.enabled;
     if (!battle.enabled) return;
+    if (thermal !== this.thermal) {
+      this.thermal = thermal;
+      for (const [mesh, material] of this.thermalMaterials) mesh.material = thermal ? this.thermalVehicle : material;
+    }
+    this.zone.visible = !thermal;
+    this.road.visible = !thermal;
     hull.count = turret.count = barrel.count = wheel.count = markers.count = 0;
     this.frustum.setFromProjectionMatrix(this.projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     const zone = battle.mission.objective;
@@ -85,30 +100,40 @@ export class BattlefieldView {
       const middle = distance < 2050 ** 2 && !wreck;
       this.position.copy(unit.previous).lerp(unit.position, blend);
       const { dimensions: [width, height, length], model } = unit.spec;
-      const [outer, trim] = colors[unit.faction];
+      const [outer, factionTrim] = colors[unit.faction];
+      let trim = factionTrim;
+      let metal = charcoal;
+      if (thermal) {
+        const heat = groundHeat(unit, battle.time);
+        const tone = thermal === 1 ? heat : 1 - heat;
+        this.thermalPaint.setRGB(tone, tone, tone, T.SRGBColorSpace);
+        trim = metal = this.thermalPaint;
+      }
       paint.copy(wreck ? inactive : outer);
       if (!wreck) paint.multiplyScalar(.54 + unit.health.condition('hull') * .46);
+      if (thermal) paint.copy(this.thermalPaint);
       this.put(hull, unit.orientation, paint, 0, height * .35, 0, width, height * (middle ? .57 : .72), length);
-      if (middle && unit.spec.weapon) {
+      if (middle && (unit.spec.weapon || model === 'aaa' || model === 'sam')) {
         this.rotation.copy(unit.orientation).multiply(this.secondary.setFromAxisAngle(yAxis, unit.turret.yaw));
         this.put(turret, this.rotation, trim, 0, height * .69, 0, width * .69, height * .31, length * .44, unit.orientation);
         this.rotation.multiply(this.secondary.setFromAxisAngle(xAxis, -unit.turret.pitch));
         const arm = model === 'tank' ? 3.0 : 1.9;
         this.offset.set(0, 0, arm * .55).applyQuaternion(this.rotation);
-        this.put(barrel, this.rotation, charcoal, 0, height * .82, .2, .16, .17, arm * .90, unit.orientation, this.offset);
+        this.put(barrel, this.rotation, metal, 0, height * .82, .2, model === 'sam' ? .68 : .16,
+          model === 'sam' ? .44 : .17, arm * .90, unit.orientation, this.offset);
       } else if (middle && model === 'truck') {
         this.put(hull, unit.orientation, trim, 0, height * .70, length * .30, width * .89, height * .45, length * .30);
       }
       if (near) {
         const tracked = model === 'tank' || model === 'ifv';
         for (const side of [-1, 1]) {
-          if (tracked) this.put(hull, unit.orientation, charcoal, side * width * .42, height * .16, 0,
+          if (tracked) this.put(hull, unit.orientation, metal, side * width * .42, height * .16, 0,
             width * .21, height * .23, length * .95);
           for (const axle of [-.31, 0, .31]) {
             this.rotation.copy(unit.orientation);
             if (!tracked && axle > 0) this.rotation.multiply(this.secondary.setFromAxisAngle(yAxis, (unit.steering ?? 0) * .4));
             this.rotation.multiply(this.secondary.setFromAxisAngle(xAxis, unit.travel * 1.9));
-            this.put(wheel, this.rotation, charcoal, side * width * .45, height * .16, axle * length,
+            this.put(wheel, this.rotation, metal, side * width * .45, height * .16, axle * length,
               width * .22, height * .29, height * .29, unit.orientation);
           }
         }
@@ -128,7 +153,7 @@ export class BattlefieldView {
         batch.instanceColor.needsUpdate = true;
       }
     }
-    this.updateProjectiles(camera);
+    this.updateProjectiles(camera, battery);
   }
 
   put(mesh, rotation, color, x, y, z, sx, sy, sz, locationRotation = rotation, extra) {
@@ -141,7 +166,7 @@ export class BattlefieldView {
     mesh.setColorAt(mesh.count++, color);
   }
 
-  updateProjectiles(camera) {
+  updateProjectiles(camera, battery) {
     const positions = this.tracers.geometry.attributes.position;
     let vertices = 0;
     for (const round of this.battle.weapons.pool) {
@@ -150,12 +175,22 @@ export class BattlefieldView {
       positions.setXYZ(vertices++, x - round.velocity.x * .029, y - round.velocity.y * .029, z - round.velocity.z * .029);
       positions.setXYZ(vertices++, x, y, z);
     }
+    for (let index = 0; index < (battery?.count ?? 0); index++) {
+      const { position, velocity } = battery.rounds[index];
+      if (position.distanceToSquared(camera.position) > 2900 ** 2) continue;
+      positions.setXYZ(vertices++, position.x - velocity.x * .045, position.y - velocity.y * .045, position.z - velocity.z * .045);
+      positions.setXYZ(vertices++, position.x, position.y, position.z);
+    }
     this.tracers.visible = Boolean(vertices);
     this.tracers.geometry.setDrawRange(0, vertices);
     if (vertices) positions.needsUpdate = true;
   }
 
-  dispose() { disposeObjects(this.root); }
+  dispose() {
+    for (const [mesh, material] of this.thermalMaterials) mesh.material = material;
+    this.thermalVehicle.dispose();
+    disposeObjects(this.root);
+  }
 }
 
 function roadGeometry(network, world) {

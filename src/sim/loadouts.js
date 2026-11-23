@@ -4,6 +4,10 @@ export const stores = {
   radar: { label: 'AMRAAM', type: 'radar', domain: 'air', category: 'Radar missile', mass: 142, drag: 0.0014, quantity: 1, detail: 'Air intercepts with radar support.' },
   bomb: { label: 'Range bomb', type: 'bomb', domain: 'ground', category: 'Unguided bomb', mass: 215, drag: 0.0021, quantity: 1, detail: 'A free-falling practice store. Supports single, pair, and ripple release.' },
   rocket: { label: 'Range rocket pod', type: 'rocket', domain: 'ground', category: 'Unguided rockets', mass: 102, drag: 0.0034, quantity: 7, roundMass: 9, detail: 'Seven unguided rockets. The empty pod stays attached.' },
+  pod: { label: 'EO targeting pod', type: 'pod', domain: 'ground', category: 'Sensor', mass: 112, drag: .0016, quantity: 1, detail: 'Stabilized day and thermal views. Fits the centerline.' },
+  laser: { label: 'Laser practice bomb', type: 'laser', domain: 'ground', category: 'Laser guided', mass: 239, drag: .0027, quantity: 1, detail: 'Follows the pod’s illuminated area while the laser remains on target.' },
+  gps: { label: 'Coordinate glide bomb', type: 'gps', domain: 'ground', category: 'Coordinate guided', mass: 248, drag: .0026, quantity: 1, detail: 'Flies to the coordinates saved at release. The aim point stays fixed.' },
+  optical: { label: 'Optical strike missile', type: 'optical', domain: 'ground', category: 'Optical guided', mass: 177, drag: .0024, quantity: 1, detail: 'Acquires a visible ground vehicle through the pod’s point track.' },
   tank: { label: 'External fuel tank', type: 'tank', domain: 'air', category: 'External fuel', mass: 108, drag: 0.0044, quantity: 1, fuel: 620, detail: 'Feeds the engine before internal fuel. The tank can be jettisoned.' },
 };
 
@@ -35,6 +39,10 @@ export function availablePresets(spec) {
   if (spec.weaponDomains.includes('ground')) return {
     'Air Superiority': air, Dogfight: ir,
     'Ground Attack': { 'outer-left': 'bomb', 'outer-right': 'bomb', 'inboard-left': 'rocket', 'inboard-right': 'rocket' },
+    'Precision Strike': { 'outer-left': 'laser', 'outer-right': 'gps', 'inboard-left': 'optical', 'inboard-right': 'rocket', center: 'pod' },
+    'Armored Target Attack': { 'inboard-left': 'optical', 'inboard-right': 'optical', center: 'pod' },
+    'Mixed CAS': { 'outer-left': 'laser', 'outer-right': 'gps', 'inboard-left': 'rocket', 'inboard-right': 'bomb', center: 'pod' },
+    'Multirole Support': { ...air, 'inboard-left': 'optical', 'inboard-right': 'gps', center: 'pod' },
     'Mixed Multirole': { ...air, 'inboard-left': 'bomb', 'inboard-right': 'rocket', center: 'tank' },
     'Clean Aircraft': {},
   };

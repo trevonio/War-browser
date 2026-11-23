@@ -116,3 +116,39 @@ last view after a short period for impact and smoke effects.
 Stage 2.9 uses text radio on the authored coastal sector. Further priorities
 are hardware-WebGL profiling, additional route networks and terrain sectors,
 and a shared sensor feed for future CAS avionics.
+
+## Stage 3.0 precision avionics
+
+The pod owns an independent perspective camera. Aircraft orientation
+defines which points are inside the mount's view limits. During area or
+point tracking, the camera follows a world-space ray with a damped
+transition and a world-level up vector. Pod slew consumes captured mouse
+movement while the existing flight input retains its aim. The day and two
+thermal presentations share the same scene and use one render pass.
+Graphics presets set the pod pixel ratio. Thermal materials shade the
+cold terrain independently from moving vehicle engines, cooling wrecks
+and hot particles.
+
+A designation carries a position, target identity where observed, a
+timestamp, confidence and validity. The map can cue the pod using
+known reports. A point track updates its reported position only while
+the pod has a valid sightline. The coordinate weapon uses a separate
+saved snapshot.
+
+All three precision stores use the same release inventory, flight integrator,
+swept collision, and ground component damage as range ordnance. The laser
+store coasts if its spot is masked. The coordinate store retains its release
+fix. The optical store has a limited in-flight seeker and a finite motor
+burn. The combat camera can follow an actual launched optical store.
+
+A mobile gun and a radar launcher use ground vehicle damage and scheduled
+terrain visibility queries. Ground gunfire uses pooled ballistic rounds.
+The launcher reuses the existing air missile pool, seeker, and chaff
+response. The RWR instruments actual emissions. Specific dynamic seeds can
+also spawn one allied support aircraft with one optical store, using the
+same observation and release checks as the player.
+
+Precision Strike ends when its assigned targets are disabled. Air Defense
+Suppression ends when the gun and launcher lose firing capability.
+The current release uses game-tuned sensors, signatures, propulsion, and
+guidance on the coastal terrain.

@@ -3,6 +3,11 @@ import { createF16Visual, createOpponentVisual } from '../src/aircraft/f16-visua
 import { f16 } from '../src/aircraft/f16.js';
 import { CasDirector } from '../src/sim/cas/director.js';
 import { createCasScenario } from '../src/sim/cas/scenarios.js';
+import { CombatExercise } from '../src/sim/combat/exercise.js';
+import { Dogfight } from '../src/sim/dogfight.js';
+import { AirDefenses } from '../src/sim/strike/defenses.js';
+import { TargetingPod } from '../src/sim/strike/pod.js';
+import { CombatEffects } from '../src/view/combat-view.js';
 import { GroundBattle } from '../src/sim/ground/battlefield.js';
 import { Flight, STEP, neutralControls } from '../src/sim/flight.js';
 import { PracticeRange } from '../src/sim/practice.js';
@@ -22,9 +27,12 @@ const casModes = [
   ['normal', 12, 3, 1], ['ten', 10, 15, 1], ['twenty', 20, 16, 1], ['firing', 20, 26, 1],
   ['airSupport', 18, 23, 1], ['reinforcements', 14, 0, 1], ['completion', 12, 0, 1],
 ];
+const strikeModes = [['podDay', 14, 20, 1], ['podWhite', 14, 20, 1], ['podBlack', 14, 20, 1]];
 const stations = { offset: [0, 0, 0], release: [0, 0, 0], rotation: [0, 0, 0] };
 
-export async function measureBattle(renderer, cas = false) {
+export async function measureBattle(renderer, cas = false, strike = false) {
+  const oldRatio = renderer.getPixelRatio();
+  if (strike) renderer.setPixelRatio(.79);
   const scene = new T.Scene();
   const world = new WorldView(scene, renderer);
   const camera = new T.PerspectiveCamera(51, 800 / 450, .3, 90000);
@@ -53,6 +61,19 @@ export async function measureBattle(renderer, cas = false) {
     scene.add(visual.root);
     aircraft.push({ visual, flight });
   }
+  const surfaceCombat = strike ? new CombatExercise(new Dogfight(aircraft[0].flight, f16, range, { shot() {}, impact() {} }), range, {
+    burst(point) { effects.emit('explosion', point, 12); },
+  }) : null;
+  const airDefenses = strike ? new AirDefenses(range, {
+    shot(missile, point) { effects.emit('rocketFlash', point, missile ? 6 : 2); },
+    impact(surface, point) { effects.emit(surface, point, 2); },
+  }) : null;
+  const surfaceView = strike ? new CombatEffects(scene, aircraft[0].visual, aircraft[1].visual, surfaceCombat, effects) : null;
+  const sensor = strike ? new TargetingPod(range) : null;
+  if (sensor) { sensor.camera.aspect = camera.aspect; sensor.camera.updateProjectionMatrix(); }
+  let thermal = 0;
+  const sites = strike ? createCasScenario('corridor', 582, 'regular', battle.roads).definitions.filter(({ type }) =>
+    type === 'aaa' || type === 'sam') : [];
   const releaseFlight = new Flight(f16, range);
   const rack = { flight: releaseFlight };
   const stores = new StoreModels();
@@ -69,6 +90,12 @@ export async function measureBattle(renderer, cas = false) {
   function step(positions) {
     for (const { flight } of positions) flight.step(neutralControls);
     battle.step(STEP, camera.position);
+    if (surfaceCombat) {
+      airDefenses.step(STEP, battle);
+      surfaceView.step(aircraft[0].flight.elapsed);
+      sensor.update(aircraft[0].flight, stations, battle.targets, battle.time);
+      peak.missiles = Math.max(peak.missiles, surfaceCombat.missiles.pool.filter((item) => item.active).length);
+    }
     if (ordnance.active) ordnance.step(STEP, rack, battle.queryPlayer);
     let airProjectiles = 0;
     for (const round of ordnance.rounds) if (round.active) airProjectiles++;
@@ -81,11 +108,15 @@ export async function measureBattle(renderer, cas = false) {
       visual.root.quaternion.copy(flight.orientation);
       visual.update(flight, flight.elapsed);
     }
-    world.update(camera.position, camera);
-    battlefield.update(camera, 1, null, false);
+    if (sensor) sensor.present(Math.max(dt, .1));
+    const viewpoint = sensor ? sensor.camera : camera;
+    world.setThermal(thermal);
+    world.update(strike ? positions[0].flight.position : camera.position, viewpoint);
+    battlefield.update(viewpoint, 1, null, false, thermal, airDefenses?.battery);
     released.update(1);
-    effects.render(battle.time, dt, 1, true);
-    renderer.render(scene, camera);
+    surfaceView?.render(1);
+    effects.render(battle.time, dt, 1, true, thermal);
+    renderer.render(scene, viewpoint);
   }
 
   function release(kind, target) {
@@ -104,7 +135,7 @@ export async function measureBattle(renderer, cas = false) {
   }
 
   const report = {};
-  for (const [mode, count, warmSeconds, planes] of cas ? casModes : modes) {
+  for (const [mode, count, warmSeconds, planes] of strike ? strikeModes : cas ? casModes : modes) {
     let director = null;
     let warm = warmSeconds;
     if (cas) {
@@ -123,6 +154,7 @@ export async function measureBattle(renderer, cas = false) {
         });
         plan.definitions = targets;
       }
+      if (strike) plan.definitions.splice(-sites.length, sites.length);
       if (mode === 'reinforcements') warm = plan.reliefAt - 1;
       if (mode === 'completion') {
         plan.timeLimit = 24;
@@ -142,6 +174,24 @@ export async function measureBattle(renderer, cas = false) {
     emit = false;
     while (battle.time < warm && !battle.outcome) battle.step(STEP, camera.position);
     emit = true;
+    if (strike) {
+      battle.spawn(sites);
+      const player = aircraft[0].flight;
+      player.reset({ ...scenarios.battlefield, x: -190, y: 320, z: -2720, speed: 125 });
+      surfaceCombat.reset(null);
+      airDefenses.reset(surfaceCombat, battle.targets, 'regular');
+      surfaceView.reset(true);
+      sensor.reset();
+      sensor.sync(player, stations);
+      sensor.toggle();
+      sensor.setArea(new T.Vector3(battle.mission.objective.x, 29, battle.mission.objective.z));
+      thermal = mode === 'podWhite' ? 1 : mode === 'podBlack' ? 2 : 0;
+      peak.missiles = 0;
+      for (let i = 0; i < 340; i++) {
+        player.elapsed += STEP;
+        airDefenses.step(STEP, battle);
+      }
+    }
     draw(positions, 0);
     let previous = await new Promise(requestAnimationFrame);
     const warmup = previous;
@@ -188,12 +238,15 @@ export async function measureBattle(renderer, cas = false) {
       ...peak,
       groundShots: battle.weapons.shots - startShots,
       aircraft: planes,
+      ...(strike ? { surfaceLaunches: airDefenses.launches, aaaShots: airDefenses.gunShots } : {}),
       ...(director ? { calls: director.requests.length, relief: director.reinforcement, outcome: battle.outcome } : {}),
       geometries: renderer.info.memory.geometries,
       textures: renderer.info.memory.textures,
       heapMiB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null,
     };
   }
+  if (strike) renderer.setPixelRatio(oldRatio);
+  surfaceView?.dispose();
   released.dispose();
   stores.dispose();
   effects.dispose();

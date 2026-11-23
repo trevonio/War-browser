@@ -16,6 +16,18 @@ export const casMissions = {
     primary: 'Relieve the friendly group', secondary: 'Preserve every vehicle in the surrounded group.',
     intel: 'A stronger armored group has closed on the friendly line.', time: 150, start: 'battlefield',
   },
+  precision: {
+    label: 'Precision Strike', description: 'Use the pod and guided stores against two marked range vehicles.',
+    primary: 'Disable both designated range vehicles', secondary: 'Complete the exercise without hitting an allied vehicle.',
+    intel: 'Two opposing range vehicles and a friendly observer vehicle. Confirm the targets with the pod.',
+    time: 180, start: 'battlefield', loadout: 'Precision Strike', strike: true,
+  },
+  corridor: {
+    label: 'Air Defense Suppression', description: 'Open a route through radar and optical air defenses.',
+    primary: 'Silence both air defense sites', secondary: 'Complete the sortie without harming the friendly observer vehicle.',
+    intel: 'A radar launcher and an optical air defense gun defend the corridor.',
+    time: 260, start: 'battlefield', loadout: 'Precision Strike', strike: true,
+  },
   interdiction: {
     label: 'Battlefield Interdiction', description: 'Stop hostile reinforcements before they reach the front.',
     primary: 'Stop the designated transports', secondary: 'Prevent every designated vehicle from arriving.',
@@ -41,6 +53,23 @@ export function createCasScenario(key, seed, difficulty, roads) {
   const template = casMissions[key];
   const rules = casDifficulties[difficulty];
   const random = randomGenerator(seed);
+  if (template.strike) {
+    const corridor = key === 'corridor';
+    const offset = (Math.floor(random() * 3) - 1) * 65;
+    const z = -1815 + offset;
+    const targets = ['strike-one', 'strike-two'];
+    const definitions = [
+      { id: targets[0], type: corridor ? 'aaa' : 'tank', faction: 'opposing', x: -257, z: z - 80, yaw: Math.PI, route: corridor ? [[-250, z - 108], [-243, z - 127]] : [[-257, z - 80]], objective: 'strike' },
+      { id: targets[1], type: corridor ? 'sam' : 'truck', faction: 'opposing', x: -212, z: z + 105, yaw: Math.PI, route: corridor ? [] : [[-202, z + 36], [-197, z - 12]], objective: 'strike' },
+      { id: 'observer', type: 'truck', faction: 'friendly', x: -130, z: z - 112, yaw: 0, route: [[-130, z - 112]], objective: 'observer' },
+    ];
+    const approachZ = z - (corridor ? 2950 : 2420);
+    const clearance = roads.world.heightAt(-237, approachZ) + 175;
+    return { key, seed, difficulty, rules, ...template, timeLimit: template.time + rules.time,
+      start: { ...scenarios.battlefield, x: -237, y: Math.max(clearance, corridor ? 565 : 489), z: approachZ, speed: 161 },
+      objective: { x: -236, z, radius: 155, label: corridor ? 'Defended corridor' : 'Precision range' },
+      definitions, targets, relief: [], reliefAt: Infinity, road: [], activeLimit: 18 };
+  }
   const choose = (values) => values[Math.floor(random() * values.length)];
   const branch = choose([
     ['south', 'bend', 'relay', 'north'],
@@ -97,10 +126,17 @@ export function createCasScenario(key, seed, difficulty, roads) {
   }
   terrainColumn(relief, key === 'emergency' ? 'friendly' : 'opposing', 'relief', ['ifv', choose(['ifv', 'tank'])],
     convoy ? 520 : guard ? 580 : 575, key === 'emergency' ? 1 : -1, centerX - 20);
+  const defended = (key === 'breakthrough' || key === 'interdiction') && difficulty !== 'rookie' && seed % 5 === 3;
+  if (defended) {
+    const [x, z] = roads.points.branchNorth;
+    definitions.push({ id: 'road-defense', type: 'aaa', faction: 'opposing', x: x - 15, z: z - 52, yaw: Math.PI,
+      route: [[x - 8, z - 38], [x + 10, z - 20]], objective: 'defense' });
+  }
   const start = { ...scenarios[template.start] };
   if (guard) Object.assign(start, { z: centerZ - 1380, x: centerX + 38 });
   return {
     key, seed, difficulty, rules, ...template, timeLimit: template.time + rules.time, start,
+    strikeWing: defended, loadout: defended ? 'Precision Strike' : template.loadout,
     objective: zone, definitions, targets, relief, reliefAt: 35 + Math.floor(random() * 31),
     road: road.map((id) => roads.points[id]), activeLimit: 18,
   };

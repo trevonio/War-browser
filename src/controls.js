@@ -11,7 +11,7 @@ export const keyDefaults = {
   radarPower: 'KeyP', radarTarget: 'KeyT', radarLock: 'KeyL', radarMode: 'KeyY', radarRange: 'KeyU', radarScope: 'KeyI',
   flares: 'KeyJ', chaff: 'KeyK',
   weaponBomb: 'Digit5', weaponRocket: 'Digit6', jettisonTank: 'Digit8', rearmGround: 'Digit9',
-  tacticalMap: 'Tab', missileView: 'KeyN', nextMissile: 'KeyO', targetView: 'KeyZ',
+  podView: 'Digit7', podMode: 'Digit0', tacticalMap: 'Tab', missileView: 'KeyN', nextMissile: 'KeyO', targetView: 'KeyZ',
 };
 
 export const keyLabels = {
@@ -26,7 +26,7 @@ export const keyLabels = {
   radarMode: 'Change radar scan mode', radarRange: 'Change radar scan range', radarScope: 'Show or hide radar scope',
   flares: 'Release flare', chaff: 'Release chaff',
   weaponBomb: 'Select bombs', weaponRocket: 'Select rockets', jettisonTank: 'Drop external tank', rearmGround: 'Rearm range weapons',
-  tacticalMap: 'Tactical map', missileView: 'Cycle missile camera or return', nextMissile: 'View next launched missile', targetView: 'Toggle selected target view',
+  podView: 'Targeting pod view', podMode: 'Pod sensor mode', tacticalMap: 'Tactical map', missileView: 'Cycle missile camera or return', nextMissile: 'View next launched missile', targetView: 'Toggle selected target view',
 };
 
 export function keyName(code) {
@@ -99,7 +99,13 @@ export class Controls {
     }, options);
     window.addEventListener('pointercancel', () => this.clear(), options);
     document.addEventListener('mousemove', (event) => {
-      if (!session.flying() || session.observing?.()) return;
+      if (!session.flying()) return;
+      const sensor = session.sensor?.();
+      if (sensor && session.locked()) {
+        sensor.slew(event.movementX, event.movementY);
+        return;
+      }
+      if (session.observing?.()) return;
       if (this.looking && (session.locked() || viewport.contains(event.target))) {
         camera.orbit(event.movementX, event.movementY, settings.cameraSensitivity);
       } else if (session.locked() && session.assisted()) {
@@ -109,7 +115,9 @@ export class Controls {
     viewport.addEventListener('wheel', (event) => {
       if (!session.flying()) return;
       event.preventDefault();
-      camera.zoom(event.deltaY);
+      const sensor = session.sensor?.();
+      if (sensor) sensor.changeZoom(event.deltaY);
+      else camera.zoom(event.deltaY);
     }, { signal, passive: false });
     window.addEventListener('keyup', (event) => this.held.delete(event.code), options);
   }

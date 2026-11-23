@@ -1,9 +1,11 @@
 import { Euler, Quaternion, Vector3 } from 'three';
+import { guidedWeapon, precision, StrikeGuidance } from './strike/guided.js';
 import { advanceRound, flightExpired, sweepColliders } from './ballistics.js';
 
 const dt = 1 / 120;
 // Simulation tuning for the practice range. These are not weapon data.
 const profiles = {
+  ...precision,
   bomb: { drag: 0.00028, lifetime: 19, maxDistance: 6000, radius: 34, damage: 64 },
   rocket: { drag: 0.00062, lifetime: 8, maxDistance: 3900, radius: 13, damage: 25, boost: 0.8, acceleration: 104, exit: 94 },
   tank: { drag: 0.00054, lifetime: 16, maxDistance: 4600 },
@@ -11,13 +13,14 @@ const profiles = {
 
 const makeRound = () => ({
   position: new Vector3(), previous: new Vector3(), velocity: new Vector3(), direction: new Vector3(),
-  age: 0, travel: 0, active: false, kind: '',
+  age: 0, travel: 0, active: false, kind: '', designation: new Vector3(),
 });
 
 export class RangeOrdnance {
   constructor(world, impact, launch = () => {}) {
     this.world = world;
     this.onImpact = impact;
+    this.guidance = new StrikeGuidance(world);
     this.onLaunch = launch;
     this.rounds = Array.from({ length: 48 }, makeRound);
     this.prediction = makeRound();
@@ -25,13 +28,14 @@ export class RangeOrdnance {
     this.rotation = new Quaternion();
     this.euler = new Euler();
     this.hit = {};
+    this.serial = 0;
     this.clear();
   }
 
   clear() {
     this.pending = 0;
     this.next = 0;
-    this.bombs = this.rockets = this.tanks = 0;
+    this.bombs = this.rockets = this.tanks = this.precisionReleased = this.precisionImpacts = 0;
     for (const item of this.rounds) item.active = false;
   }
 
@@ -47,11 +51,17 @@ export class RangeOrdnance {
     round.velocity.copy(flight.velocity).addScaledVector(round.direction, profile.exit ?? 0);
   }
 
-  spawn(kind, flight, station) {
+  spawn(kind, flight, station, pod) {
     const round = this.rounds.find((item) => !item.active);
     if (!round) return false;
     this.initialize(round, kind, flight, station);
+    if (guidedWeapon(kind)) {
+      if (!pod) return false;
+      this.guidance.bind(round, kind, pod);
+    }
     round.active = true;
+    round.owner = kind === 'optical' ? flight : null;
+    round.serial = ++this.serial;
     this.onLaunch(kind, round.position, round.direction);
     return true;
   }
@@ -82,6 +92,16 @@ export class RangeOrdnance {
     return true;
   }
 
+  releaseGuided(rack, kind, pod) {
+    const status = this.guidance.status(kind, rack, pod);
+    if (status !== 'CLEARED') return status;
+    const station = rack.station(kind);
+    if (!this.spawn(kind, rack.flight, station, pod)) return 'STORE UNAVAILABLE';
+    rack.consume(station);
+    this.precisionReleased++;
+    return 'PRECISION STORE AWAY';
+  }
+
   jettison(rack) {
     const { flight } = rack;
     const station = rack.station('tank');
@@ -93,10 +113,12 @@ export class RangeOrdnance {
 
   advance(round, seconds) {
     const profile = profiles[round.kind];
+    if (guidedWeapon(round.kind)) this.guidance.step(round, seconds);
     if (profile.boost && round.age < profile.boost) {
       round.velocity.addScaledVector(round.direction, profile.acceleration * Math.min(seconds, profile.boost - round.age));
     }
     advanceRound(round, seconds, profile);
+    if (round.kind === 'optical') round.direction.copy(round.velocity).normalize();
   }
 
   step(seconds, rack, colliders) {
@@ -115,13 +137,14 @@ export class RangeOrdnance {
       if (hit.fraction < Infinity) {
         round.active = false;
         this.point.copy(round.previous).lerp(round.position, hit.fraction);
+        if (guidedWeapon(round.kind) && hit.collider?.damageTarget) this.precisionImpacts++;
         this.onImpact(round.kind, this.point, hit.collider, profiles[round.kind]);
       } else if (flightExpired(round, profiles[round.kind])) round.active = false;
     }
   }
 
   predict(kind, flight, station, colliders, output) {
-    if (!station || flight.failure || flight.grounded) return false;
+    if (!station || flight.failure || flight.grounded || guidedWeapon(kind)) return false;
     const round = this.prediction;
     const profile = profiles[kind];
     this.initialize(round, kind, flight, station);
@@ -139,15 +162,18 @@ export class RangeOrdnance {
   get active() { return this.pending || this.rounds.some((round) => round.active); }
 }
 
-export function applyGroundImpact(kind, point, collider, profile, targets) {
-  if (!profile.radius) return;
+export function applyGroundImpact(kind, point, collider, profile, targets, source = 'player') {
+  if (!profile.radius) return 0;
+  let hits = 0;
   for (const target of targets) {
     if (!target.active || target.arrived) continue;
     const direct = target === collider || target === collider?.vehicle;
     const distance = Math.max(0, target.position.distanceTo(point) - target.radius);
     if (!direct && distance >= profile.radius) continue;
     const amount = profile.damage * (direct ? 1.25 : (1 - distance / profile.radius));
+    hits++;
     const part = direct ? collider.component : (target.component ?? 'hull');
-    target.damageTarget.hit(part, amount, { source: 'player', kind, point, direct });
+    target.damageTarget.hit(part, amount, { source, kind: profile.damageKind ?? kind, point, direct });
   }
+  return hits;
 }

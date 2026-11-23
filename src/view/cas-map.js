@@ -101,7 +101,7 @@ export class CasMap {
     for (let z = -750; z > -4050; z -= 250) this.line([this.project(area.left, z), this.project(area.left + area.width, z)]);
     ctx.strokeStyle = '#a5a69784';
     for (const [a, b] of roads.edges) this.line([this.project(...roads.points[a]), this.project(...roads.points[b])]);
-    if (plan.targets.length) {
+    if (plan.road.length && plan.targets.length) {
       ctx.strokeStyle = plan.key === 'protection' ? palette.friendly : '#ddc593';
       ctx.setLineDash([6, 5]);
       ctx.lineWidth = 2;
@@ -126,6 +126,12 @@ export class CasMap {
     }
     for (const request of state.requests) {
       this.marker(request.id, request.position.x, request.position.z, '#f9ca76', '', 'request', state.selected === request.id);
+    }
+    if (state.designation) {
+      const { position: mark, valid } = state.designation;
+      this.marker('pod-designation', mark.x, mark.z, '#a9dbfb', valid ? 'Pod designation' : 'Last fix', valid ? 'objective' : 'last seen');
+      const fix = state.coordinates;
+      if (fix.distanceToSquared(mark) > 20 ** 2) this.marker('pod-fix', fix.x, fix.z, '#b8d3ed', 'Saved coordinates', 'objective');
     }
     const { position, heading } = state.flight;
     const [x, y] = this.project(position.x, position.z);

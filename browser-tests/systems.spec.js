@@ -114,3 +114,19 @@ test('profiles dedicated CAS field activity, arrivals and mission resolution', a
   expect(report.reinforcements.relief).toBe('arrived');
   expect(report.completion.outcome).toMatch(/^(win|loss)$/);
 });
+
+test('profiles pod scenes with ground combat and active surface defenses', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Measure on a single software renderer.');
+  await page.goto('http://127.0.0.1:4174/browser-tests/systems-fixture.html');
+  await page.waitForFunction(() => Boolean(window.flightSystemsTest), undefined, { timeout: 25000 });
+  const report = await page.evaluate(() => window.flightSystemsTest.measureStrikeBattle());
+  console.log('Stage 3.0 contested pod scenes, software WebGL 800×450 at 0.79 scale', JSON.stringify(report));
+  for (const scenario of Object.values(report)) {
+    expect(scenario.fps).toBeGreaterThan(0);
+    expect(scenario.draws).toBeGreaterThan(20);
+    expect(scenario.ai).toBeGreaterThan(8);
+    expect(scenario.surfaceLaunches).toBeGreaterThan(0);
+    expect(scenario.aaaShots).toBeGreaterThan(0);
+    expect(scenario.missiles).toBeGreaterThan(0);
+  }
+});

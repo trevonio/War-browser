@@ -10,7 +10,7 @@ const spawns = {
   aggressive: { x: 95, y: 10, z: 2140, speed: 200, heading: Math.PI - 0.055 },
 };
 
-class Hull {
+export class Hull {
   constructor(flight) {
     this.flight = flight;
     this.colliders = Object.entries(flight.damage.components).flatMap(([component, { volumes }]) =>

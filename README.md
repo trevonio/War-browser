@@ -356,3 +356,38 @@ damage, and sortie duration.
 During mouse-aim flight, small sideways aiming errors use rudder assistance
 and limited bank. Larger errors progressively command a coordinated turn.
 Free flight's **Measurements** option includes bank and sideslip.
+
+## Precision strike and air defenses
+
+The F-16C can mount an **EO targeting pod** on the centerline. The
+**Precision Strike**, **Armored Target Attack**, **Mixed CAS**, and
+**Multirole Support** presets combine it with compatible stores. The pod
+and each store have their own mass and drag. The pod occupies the centerline
+instead of the fuel tank.
+
+Select **Precision Strike** to learn designation, or **Air Defense
+Suppression** to engage the gun and radar launcher. Some seeded Armored
+Breakthrough and Battlefield Interdiction scenarios also include a mobile
+air defense gun and one allied support aircraft. The briefing recommends
+the appropriate preset. A saved custom loadout takes precedence.
+
+| Input with a pod mounted | Action |
+| --- | --- |
+| 7 | Enter or exit the pod view |
+| Mouse | Slew the pod while its view is open |
+| Wheel | Select one of three zoom levels |
+| 0 | Cycle Day, White Hot, and Black Hot |
+| L | Select or clear a point track. Free slew can also select an area. |
+| O | Save the current designation in the pod view |
+| P | Toggle laser illumination in the pod view |
+| I | Recenter and clear tracking in the pod view |
+| 4 / Space | Cycle mounted weapons / release when cleared |
+| N | Follow a launched optical missile |
+| Tab | Open the tactical map to cue the pod or inspect a saved fix |
+
+Laser practice bombs need live illumination. Coordinate glide bombs
+keep their release coordinates. Optical strike missiles need an observed
+vehicle for acquisition and then follow their own seeker. The RWR reports
+actual radar emissions from launcher sites and missiles. Chaff and flares
+use their existing type-specific effects. Optical gunfire has a separate
+visual cue.

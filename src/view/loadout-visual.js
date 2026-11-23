@@ -58,7 +58,20 @@ function makeModels() {
   const motor = part(bolt, new T.ConeGeometry(0.076, 0.42, 8).rotateX(-Math.PI / 2),
     new T.MeshBasicMaterial({ color: 0xffad58, toneMapped: false }), 0, 0, -0.82);
   motor.name = 'boost';
-  return { ...missileVisuals(), bomb, rocket, tank, bolt };
+  const pod = new T.Group();
+  shell(pod, [[0, -1.17], [.13, -1.05], [.20, -.67], [.20, .56], [.15, .91], [0, 1.03]], dark);
+  part(pod, new T.BoxGeometry(.27, .10, .86), paint, 0, .20, -.24);
+  part(pod, new T.SphereGeometry(.159, 10, 6), metal, 0, -.02, .82);
+  part(pod, new T.CircleGeometry(.084, 10), dark, 0, -.041, .978);
+  const kit = () => {
+    const model = new T.Group();
+    model.add(bomb.clone());
+    part(model, new T.BoxGeometry(.58, .025, .26), band, 0, .04, -.47);
+    return model;
+  };
+  const optical = kit();
+  optical.scale.set(.72, .72, 1.22);
+  return { ...missileVisuals(), bomb, rocket, tank, bolt, pod, laser: kit(), gps: kit(), optical };
 }
 
 export class AttachedStores {

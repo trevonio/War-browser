@@ -16,10 +16,10 @@ export const f16 = {
   hardpoints: f16CombatLoadouts.intercept.stations,
   storeStations: {
     overrides: {
-      'outer-left': { allowed: ['radar', 'bomb'], limit: 275 },
-      'outer-right': { allowed: ['radar', 'bomb'], limit: 275 },
+      'outer-left': { allowed: ['radar', 'bomb', 'laser', 'gps'], limit: 275 },
+      'outer-right': { allowed: ['radar', 'bomb', 'laser', 'gps'], limit: 275 },
     },
-    extra: [...storeStationPair('inboard', 'inboard', [1.77, -0.76, -1.75], ['bomb', 'rocket', 'tank'], 820), centerFuelStation],
+    extra: [...storeStationPair('inboard', 'inboard', [1.77, -0.76, -1.75], ['bomb', 'rocket', 'tank', 'laser', 'gps', 'optical'], 820), { ...centerFuelStation, allowed: ['tank', 'pod'] }],
     tankLimit: 2,
   },
   loadouts: f16CombatLoadouts,

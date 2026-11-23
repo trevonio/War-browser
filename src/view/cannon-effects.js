@@ -17,6 +17,8 @@ const styles = {
 };
 for (const style of Object.values(styles)) style.rgb = new T.Color(style.color);
 
+const hotParticles = new Set([styles.fire, styles.explosion, styles.rocketFlash, styles.destroyed]);
+
 function dynamicAttribute(array, size) {
   return new T.BufferAttribute(array, size).setUsage(T.DynamicDrawUsage);
 }
@@ -170,7 +172,7 @@ export class CannonEffects {
     }
   }
 
-  render(time, dt, blend, active) {
+  render(time, dt, blend, active, thermal = 0) {
     const tracerPosition = this.tracerGeometry.attributes.position;
     let vertices = 0;
     for (const { flash, ballistics, lastShot } of this.guns) {
@@ -219,7 +221,11 @@ export class CannonEffects {
       } else {
         particle.position.addScaledVector(particle.velocity, dt);
         attributes.position.setXYZ(points, particle.position.x, particle.position.y, particle.position.z);
-        attributes.appearance.setXYZW(points, rgb.r, rgb.g, rgb.b, opacity * (1 - fraction));
+        const warm = thermal && hotParticles.has(particle.style);
+        const heat = warm ? .98 - fraction * .39 : .39;
+        const tone = thermal === 1 ? heat : 1 - heat;
+        attributes.appearance.setXYZW(points, thermal ? tone : rgb.r, thermal ? tone : rgb.g, thermal ? tone : rgb.b,
+          opacity * (1 - fraction));
         attributes.size.setX(points++, size * (1 + fraction * 2.9));
       }
       i++;

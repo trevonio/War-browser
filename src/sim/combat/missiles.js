@@ -5,6 +5,8 @@ import { simulatedHeat, weapons } from './weapons.js';
 
 const { clamp } = MathUtils;
 const seekerInterval = 0.11;
+const surfaceProfile = { ...weapons.radar, life: 15, terminalRange: 3600, turnRate: .81, burn: 4,
+  speedCap: 455, damping: .067, thrust: 173, fuse: 10, blast: 29, power: 15, decoyBias: 1.16 };
 
 function createMissile() {
   return {
@@ -63,6 +65,20 @@ export class MissilePool {
     const track = station.type === 'radar' ? radar.track : target;
     missile.estimate.copy(track.position);
     missile.motion.copy(track.velocity);
+    return missile;
+  }
+
+  launchSurface(owner, position, target, hull) {
+    const missile = this.pool.find((item) => !item.active);
+    if (!missile || hull.flight !== target) return null;
+    Object.assign(missile, { active: true, serial: ++this.serial, type: 'radar', config: surfaceProfile,
+      target, hull, owner, radar: null, station: 'surface', phase: 'ACTIVE', speed: 152, age: 0,
+      nextSample: 0, trackUntil: .23, seeking: false, decoyed: false, emitting: true });
+    missile.position.copy(position);
+    missile.previous.copy(position);
+    missile.direction.subVectors(target.position, position).normalize().add(this.point.set(0, .22, 0)).normalize();
+    missile.estimate.copy(target.position);
+    missile.motion.copy(target.velocity);
     return missile;
   }
 

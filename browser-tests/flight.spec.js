@@ -818,7 +818,7 @@ test('prepares seeded CAS, accepts a ground call, and restores pointer lock with
   await page.getByRole('button', { name: 'Close Air Support' }).click();
   const mission = page.getByLabel('CAS mission');
   const seed = page.getByLabel('Mission seed');
-  await expect(mission.locator('option')).toHaveCount(4);
+  await expect(mission.locator('option')).toHaveCount(6);
   const originalSeed = await seed.inputValue();
   await page.getByRole('button', { name: 'Generate scenario', exact: true }).click();
   await expect(seed).not.toHaveValue(originalSeed);
@@ -915,4 +915,118 @@ test('small horizontal mouse corrections use sideslip and little bank while a la
   await relativeMouse(page, 1257, 0);
   await expect.poll(async () => Math.abs(Number(await bank.textContent())), { timeout: 10000 }).toBeGreaterThan(55);
   await expect.poll(async () => (Number(await heading.textContent()) - initialHeading + 360) % 360, { timeout: 14000 }).toBeGreaterThan(65);
+});
+
+test('uses the live targeting pod, saves a map fix, and follows an optical missile', async ({ page, browserName }, testInfo) => {
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.addInitScript(() => localStorage.setItem('war-browser:settings', JSON.stringify({ preset: 'low' })));
+  await page.setViewportSize({ width: 1040, height: 650 });
+  const sample = () => page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(function start(first) {
+      const times = [];
+      let last = first;
+      requestAnimationFrame(function next(now) {
+        times.push(now - last);
+        last = now;
+        if (now - first < 1150) requestAnimationFrame(next);
+        else {
+          times.sort((a, b) => a - b);
+          resolve({ fps: +(1000 * times.length / (now - first)).toFixed(1), p95: +times[Math.floor((times.length - 1) * .95)].toFixed(1) });
+        }
+      });
+    });
+  }));
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Close Air Support' }).click();
+  await page.getByLabel('CAS mission').selectOption('precision');
+  await expect(page.locator('#cas-recommended')).toHaveText('Precision Strike');
+  await page.getByRole('button', { name: 'Loadout', exact: true }).click();
+  const loadout = page.getByRole('dialog', { name: 'F-16C loadout' });
+  await loadout.getByRole('combobox', { name: 'Preset', exact: true }).selectOption('Precision Strike');
+  await expect(loadout.getByRole('combobox', { name: 'Centerline' })).toHaveValue('pod');
+  await expect(loadout.locator('#loadout-totals')).toContainText('kg payload');
+  await loadout.getByRole('button', { name: 'Apply to aircraft' }).click();
+  await page.getByRole('button', { name: /Start mission/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(page.locator('#strike-readiness')).toHaveText('LASER REQUIRED');
+
+  await page.keyboard.press('7');
+  const pod = page.getByRole('region', { name: 'Targeting pod' });
+  await expect(pod).toBeVisible();
+  const centered = await pod.locator('.pod-reticle').evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return Math.abs(rect.x + rect.width / 2 - innerWidth / 2) < 1
+      && Math.abs(rect.y + rect.height / 2 - innerHeight / 2) < 1;
+  });
+  expect(centered).toBe(true);
+  const heading = Number(await page.locator('#heading').textContent());
+  await relativeMouse(page, 125, -46);
+  await expect(page.locator('#pod-track')).toHaveText('FREE SLEW');
+  const movedHeading = Number(await page.locator('#heading').textContent());
+  expect(Math.abs((movedHeading - heading + 540) % 360 - 180)).toBeLessThan(3);
+  await page.locator('#viewport').evaluate((element) => element.dispatchEvent(
+    new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -120 })));
+  await expect(page.locator('#pod-zoom')).toHaveText('MEDIUM');
+  await page.locator('#viewport').evaluate((element) => element.dispatchEvent(
+    new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 120 })));
+
+  const timings = browserName === 'chromium' ? { day: await sample() } : null;
+  await page.keyboard.press('0');
+  await expect(page.locator('#pod-mode')).toHaveText('WHITE HOT');
+  if (timings) timings.whiteHot = await sample();
+  await page.keyboard.press('0');
+  await expect(page.locator('#pod-mode')).toHaveText('BLACK HOT');
+  if (timings) timings.blackHot = await sample();
+  await page.keyboard.press('Tab');
+  const map = page.getByRole('dialog', { name: 'Tactical map' });
+  await expect(map).toBeVisible();
+  await map.locator('#cas-map-objective').click();
+  await map.getByRole('button', { name: 'Return to flight' }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(page.locator('#pod-track')).toHaveText('AREA TRACK');
+  await page.keyboard.press('o');
+  await expect(page.locator('#pod-designation')).toHaveText(/^FIX /);
+  await page.keyboard.press('Tab');
+  await expect(map.locator('#cas-map-fix')).toContainText('Saved fix');
+  await map.getByRole('button', { name: 'Return to flight' }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(page.locator('#pod-target')).toContainText('HOSTILE', { timeout: 4500 });
+  await page.keyboard.press('l');
+  await expect(page.locator('#pod-track')).toHaveText('POINT TRACK', { timeout: 5500 });
+  await expect(page.locator('#pod-target')).toContainText('HOSTILE');
+  await page.keyboard.press('p');
+  await expect(page.locator('#pod-designation')).toHaveText('LASER ON');
+  if (timings) await page.screenshot({ path: testInfo.outputPath('precision-pod.png') });
+  await page.keyboard.press('4');
+  await expect(page.locator('#cannon-label')).toHaveText('COORDINATE GLIDE BOMB');
+  await page.keyboard.press('4');
+  await expect(page.locator('#cannon-label')).toHaveText('OPTICAL STRIKE MISSILE');
+  await expect(page.locator('#strike-readiness')).toHaveText('CLEARED');
+  await page.keyboard.press('Space');
+  await expect(page.locator('#cannon-ammo')).toHaveText('0');
+  await page.keyboard.press('n');
+  await expect(page.locator('#camera-name')).toHaveText('Missile chase');
+  await expect(pod).toBeHidden();
+  await expect(page.locator('#battle-objective')).toContainText('1 / 2 TARGETS DISABLED', { timeout: 20000 });
+  if (timings) console.log('Stage 3.0 pod software WebGL, Low 1040×650', JSON.stringify(timings));
+  expect(errors).toEqual([]);
+});
+
+test('radar sites acquire aircraft and the RWR and countermeasure rack work in CAS', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('war-browser:settings', JSON.stringify({ preset: 'low' })));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Close Air Support' }).click();
+  await page.getByLabel('CAS mission').selectOption('corridor');
+  await expect(page.locator('#cas-mission-title')).toHaveText('Air Defense Suppression');
+  await page.getByRole('button', { name: /Start mission/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(page.locator('#rwr-contact')).toHaveText(/^(SEARCH|TRACK|ACTIVE SEEKER)$/, { timeout: 11000 });
+  const remaining = Number(await page.locator('#remaining-chaff').textContent());
+  await page.keyboard.press('k');
+  await expect(page.locator('#remaining-chaff')).toHaveText(String(remaining - 1));
+  await expect(page.locator('#rwr-bearing')).toHaveText(/° REL/);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
 });

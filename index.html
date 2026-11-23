@@ -90,7 +90,7 @@
             <div><dt>Friendly forces</dt><dd id="cas-friendly"></dd></div>
             <div><dt>Known opposition</dt><dd id="cas-intelligence"></dd></div>
             <div><dt>Operational area</dt><dd>Coastal training sector</dd></div>
-            <div><dt>Recommended preset</dt><dd>Ground Attack</dd></div>
+            <div><dt>Recommended preset</dt><dd id="cas-recommended">Ground Attack</dd></div>
           </dl>
         </div>
         <p id="cas-aircraft-status" role="status"></p>
@@ -187,6 +187,19 @@
         <div id="missile-telemetry"></div>
         <div id="launch-feedback" role="status"></div>
       </section>
+      <aside id="strike-stores" hidden aria-label="Precision avionics">
+        <div id="strike-readiness"></div>
+        <span id="pod-toggle-hint"><kbd id="key-podView">7</kbd> Targeting pod</span>
+        <span id="surface-fire" hidden><kbd id="strike-chaff-key">K</kbd> Chaff <kbd id="strike-flare-key">J</kbd> Flares</span>
+      </aside>
+      <section id="pod-view" hidden aria-label="Targeting pod">
+        <div class="pod-telemetry"><b id="pod-mode">DAY</b><span id="pod-zoom"></span><span id="pod-track">FREE SLEW</span></div>
+        <div class="pod-reticle" aria-hidden="true"></div>
+        <div class="pod-target"><span id="pod-target"></span><b id="pod-designation"></b></div>
+        <div class="pod-help"><kbd id="pod-track-key">L</kbd> Track <kbd id="pod-mark-key">O</kbd> Designate
+          <kbd id="pod-laser-key">P</kbd> Laser <kbd id="key-podMode">0</kbd> Sensor
+          <kbd id="pod-center-key">I</kbd> Recenter <kbd>Wheel</kbd> Zoom</div>
+      </section>
       <div id="ground-status" class="range-status stage-ground-status" hidden>
         <b id="ground-range-caption">GROUND RANGE</b>
         <span id="ground-remaining"></span>
@@ -224,7 +237,7 @@
           </div>
         </div>
         <div class="cas-map-information">
-          <section><h3>Objectives</h3><button id="cas-map-objective" type="button"></button><p id="cas-map-secondary"></p></section>
+          <section><h3>Objectives</h3><button id="cas-map-objective" type="button"></button><p id="cas-map-secondary"></p><p id="cas-map-fix" hidden></p></section>
           <section><h3>Support requests</h3><div id="cas-map-requests"></div></section>
           <section><h3>Known contacts</h3><div id="cas-map-contacts"></div></section>
           <p id="cas-map-selection" role="status"></p>
@@ -256,6 +269,7 @@
         <div id="result-enemies-row"><dt>Enemies down</dt><dd id="result-enemies"></dd></div>
         <div><dt>Cannon rounds</dt><dd id="result-guns"></dd></div>
         <div id="result-missiles-row"><dt>Missiles</dt><dd id="result-missiles"></dd></div>
+        <div id="result-precision-row" hidden><dt>Precision stores</dt><dd id="result-precision"></dd></div>
         <div id="result-bombs-row" hidden><dt>Bombs released</dt><dd id="result-bombs"></dd></div>
         <div id="result-rockets-row" hidden><dt>Rockets fired</dt><dd id="result-rockets"></dd></div>
         <div id="result-targets-row" hidden><dt>Ground targets</dt><dd id="result-targets"></dd></div>

@@ -42,8 +42,8 @@ export class CombatEffects {
 
   dispose() { disposeObjects(...this.missiles, this.flares, this.chaff); }
 
-  reset() {
-    this.active = this.exercise.enabled;
+  reset(surface = false) {
+    this.active = this.exercise.enabled || surface;
     this.nextTrail = 0;
     this.updateMounts();
     for (const model of this.missiles) model.visible = false;

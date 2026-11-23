@@ -29,7 +29,7 @@ function run(battle, seconds, sample = () => {}) {
 
 test('all four seeded CAS missions vary their playable layouts and validate routes over 240 scenarios', () => {
   const { roads } = new GroundBattle(range);
-  for (const key of Object.keys(casMissions)) {
+  for (const key of Object.keys(casMissions).filter((key) => !casMissions[key].strike)) {
     const layouts = new Set();
     for (const difficulty of difficulties) for (let i = 1; i <= 20; i++) {
       const seed = i * 1345737;

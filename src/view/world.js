@@ -240,14 +240,27 @@ export class WorldView {
     sun.position.copy(sunDirection).multiplyScalar(3000);
     scene.add(sun, new T.HemisphereLight(0xc0d9eb, 0x6d705f, 1.45));
     this.clouds = makeClouds(scene);
+    const sceneryStart = scene.children.length;
     makeRunway(scene);
+    this.thermal = 0;
+    this.thermalGround = new T.MeshBasicMaterial({ toneMapped: false });
+    this.thermalSky = new T.MeshBasicMaterial({ side: T.BackSide, depthWrite: false, fog: false, toneMapped: false });
+    this.thermalSea = new T.MeshBasicMaterial({ toneMapped: false });
+    this.thermalScenery = new T.MeshBasicMaterial({ side: T.DoubleSide, toneMapped: false });
+    this.daySky = this.sky.material;
+    this.daySea = this.ocean.material;
+    this.scenery = [];
+    for (const root of scene.children.slice(sceneryStart)) root.traverse((node) => {
+      if (node.isMesh) this.scenery.push([node, node.material]);
+    });
     this.setPreset(presets.medium);
   }
 
   setPreset(preset) {
     this.steps = preset.terrain;
-    this.ocean.material.uniforms.waterDetail.value = preset.waterDetail;
-    this.clouds.forEach((cloud, index) => { cloud.visible = index < preset.cloudCount; });
+    this.daySea.uniforms.waterDetail.value = preset.waterDetail;
+    this.cloudCount = preset.cloudCount;
+    this.clouds.forEach((cloud, index) => { cloud.visible = !this.thermal && index < preset.cloudCount; });
     for (const tile of this.tiles.values()) {
       this.scene.remove(tile);
       tile.geometry.dispose();
@@ -255,6 +268,21 @@ export class WorldView {
     this.tiles.clear();
     this.anchorX = Infinity;
     this.anchorZ = Infinity;
+  }
+
+  setThermal(mode) {
+    if (mode === this.thermal) return;
+    this.thermal = mode;
+    this.thermalGround.color.setHex(mode === 1 ? 0x434747 : 0xb7bcbd);
+    this.thermalSky.color.setHex(mode === 1 ? 0x343636 : 0xc5c9c9);
+    this.thermalSea.color.setHex(mode === 1 ? 0x282c2c : 0xcacfcf);
+    this.thermalScenery.color.setHex(mode === 1 ? 0x555858 : 0x9ca2a2);
+    this.scene.fog.color.setHex(mode === 1 ? 0x434747 : mode === 2 ? 0xb7bcbd : haze.getHex());
+    for (const tile of this.tiles.values()) tile.material = mode ? this.thermalGround : this.terrainMaterial;
+    for (const [node, material] of this.scenery) node.material = mode ? this.thermalScenery : material;
+    this.sky.material = mode ? this.thermalSky : this.daySky;
+    this.ocean.material = mode ? this.thermalSea : this.daySea;
+    this.clouds.forEach((cloud, index) => { cloud.visible = !mode && index < this.cloudCount; });
   }
 
   update(position, camera) {
@@ -278,7 +306,7 @@ export class WorldView {
       for (let z = tz - tileRadius; z <= tz + tileRadius; z++) {
         const key = `${x},${z}`;
         if (this.tiles.has(key)) continue;
-        const tile = new T.Mesh(makeTerrainGeometry(x, z, this.steps), this.terrainMaterial);
+        const tile = new T.Mesh(makeTerrainGeometry(x, z, this.steps), this.thermal ? this.thermalGround : this.terrainMaterial);
         tile.position.set(x * tileSize, 0, z * tileSize);
         this.tiles.set(key, tile);
         this.scene.add(tile);

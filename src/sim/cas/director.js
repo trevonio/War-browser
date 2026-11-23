@@ -1,3 +1,4 @@
+import { airDefenseOperational } from '../strike/defenses.js';
 import { Vector3 } from 'three';
 
 export class CasDirector {
@@ -118,7 +119,15 @@ export class CasDirector {
 
     const mobile = friendly.filter((unit) => !unit.disabled && unit.type !== 'truck');
     const opposing = targets.filter((unit) => unit.faction === 'opposing' && unit.canFight && !unit.arrived);
-    if (plan.targets.length) {
+    if (plan.strike) {
+      const affected = targets.filter((unit) => plan.targets.includes(unit.id) &&
+        (plan.key === 'corridor' ? !airDefenseOperational(unit) : unit.disabled)).length;
+      this.progress = `${affected} / ${plan.targets.length} ${plan.key === 'corridor' ? 'defenses silenced' : 'targets disabled'}`;
+      if (affected === plan.targets.length) {
+        this.secondary.state = this.incidents.size ? 'failed' : 'completed';
+        battle.finish('win', plan.key === 'corridor' ? 'The air defense corridor is open.' : 'Both precision range vehicles were disabled.');
+      } else if (time >= plan.timeLimit) battle.finish('loss', 'The precision exercise window expired.');
+    } else if (plan.targets.length) {
       const column = targets.filter((unit) => plan.targets.includes(unit.id));
       const arrived = column.filter((unit) => unit.arrived).length;
       const stopped = column.filter((unit) => unit.disabled).length;

@@ -17,6 +17,8 @@ export const groundVehicles = {
   tank: vehicle('Tank', [4.0, 2.8, 7.0], 42, 16, 4, 0.61, [9, 4, 2, 1], 66, gun(24, 670, 265, 2.2, 20, 0.72), 820, 'tank'),
   ifv: vehicle('Infantry fighting vehicle', [3.6, 2.8, 6.2], 28, 22, 5.5, 0.84, [4, 2, 1, 0.7], 48, gun(12, 580, 290, 0.8, 34, 1.23), 745, 'ifv'),
   apc: vehicle('Armored personnel carrier', [3.3, 2.6, 5.8], 18, 24, 6, 0.78, [2, 1, 0.7, 0.5], 38, gun(7, 390, 242, 0.64, 30, 1.42, 2.4), 580, 'apc'),
+  aaa: vehicle('Air defense gun', [3.4, 3.0, 6.4], 24, 8, 3, .66, [2.2, 1.4, 1, .7], 38, null, 0, 'aaa'),
+  sam: vehicle('Radar launcher', [3.1, 3.4, 7.7], 28, 0, 0, .52, [1.4, 1.1, .7, .6], 34, null, 0, 'sam'),
   truck: vehicle('Transport truck', [3.0, 2.9, 6.1], 12, 25, 6.5, 0.58, [0.25, 0.15, 0.1, 0.1], 26, null, 340, 'truck'),
 };
 
@@ -69,7 +71,7 @@ export class GroundVehicle {
       ['engine', 0, height * 0.37, -length * 0.30, width * 0.41],
       ['runningGear', width * 0.40, height * 0.18, 0, width * 0.33],
       ['runningGear', -width * 0.40, height * 0.18, 0, width * 0.33],
-      [spec.weapon ? 'turret' : 'crew', 0, height * 0.83, 0, width * 0.35],
+      [spec.weapon || spec.model === 'aaa' || spec.model === 'sam' ? 'turret' : 'crew', 0, height * 0.83, 0, width * 0.35],
     ].map(([component, x, y, z, radius]) => ({
       shape: 'sphere', surface: 'metal', active: true, component, radius, vehicle: this,
       offset: new Vector3(x, y, z), position: new Vector3(), previous: new Vector3(),
