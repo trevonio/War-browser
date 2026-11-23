@@ -1,0 +1,6 @@
+F/A-18 Hornet Low Poly
+HeriFajar (https://sketchfab.com/HeriFajar)
+https://sketchfab.com/3d-models/fa-18-hornet-low-poly-25a2485d6eb4428f89c014e03fb42047
+CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+
+Adapted for War Browser: normalized frame, mesh cleanup, rig and sockets, texture compression and LOD generation.

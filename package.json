@@ -7,7 +7,10 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build --base=./",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --test"
+    "test": "node --test",
+    "aircraft:viewer": "npm --prefix tools/aircraft-viewer run dev",
+    "aircraft:viewer:build": "npm --prefix tools/aircraft-viewer run build",
+    "aircraft:viewer:check": "npm run aircraft:viewer:build && node tools/aircraft-viewer/verify-browser.mjs"
   },
   "dependencies": {
     "three": "^0.187.0"

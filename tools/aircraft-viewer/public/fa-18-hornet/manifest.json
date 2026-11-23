@@ -1,0 +1,218 @@
+{
+  "schema": 1,
+  "id": "fa-18-hornet",
+  "title": "F/A-18 Hornet",
+  "root": "FA18_ROOT",
+  "attribution": {
+    "author": "HeriFajar (https://sketchfab.com/HeriFajar)",
+    "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+    "source": "https://sketchfab.com/3d-models/fa-18-hornet-low-poly-25a2485d6eb4428f89c014e03fb42047",
+    "title": "F/A-18 Hornet Low Poly",
+    "modifications": "Adapted for War Browser: normalized frame, mesh cleanup, rig and sockets, texture compression and LOD generation."
+  },
+  "attachments": [
+    {
+      "name": "HP_01",
+      "kind": "store",
+      "position": [
+        5.8622,
+        0.163,
+        -2.5128
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_02",
+      "kind": "store",
+      "position": [
+        3.451,
+        -0.328,
+        -2.321
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_03",
+      "kind": "store",
+      "position": [
+        2.2617,
+        -0.3223,
+        -1.5154
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_04",
+      "kind": "store",
+      "position": [
+        1.2451,
+        -0.7289,
+        -1.8415
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_05",
+      "kind": "store",
+      "position": [
+        0.0,
+        -0.679,
+        -1.3236
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_06",
+      "kind": "store",
+      "position": [
+        -1.2448,
+        -0.7289,
+        -1.8415
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_07",
+      "kind": "store",
+      "position": [
+        -2.2614,
+        -0.3223,
+        -1.5154
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_08",
+      "kind": "store",
+      "position": [
+        -3.4507,
+        -0.328,
+        -2.321
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_09",
+      "kind": "store",
+      "position": [
+        -5.8619,
+        0.163,
+        -2.5128
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_Cannon_Muzzle",
+      "kind": "muzzle",
+      "position": [
+        0.0,
+        0.3127,
+        8.7355
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "Engine_Exhaust_Left",
+      "kind": "exhaust",
+      "position": [
+        0.4835,
+        0.0307,
+        -7.5961
+      ],
+      "direction": [
+        0,
+        0,
+        -1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "Engine_Exhaust_Right",
+      "kind": "exhaust",
+      "position": [
+        -0.4832,
+        0.0307,
+        -7.5961
+      ],
+      "direction": [
+        0,
+        0,
+        -1
+      ],
+      "approximate": true
+    }
+  ],
+  "levels": [
+    {
+      "file": "lod0.glb",
+      "distance": 0,
+      "triangles": 27506,
+      "bytes": 3824660,
+      "primitives": 28
+    },
+    {
+      "file": "lod1.glb",
+      "distance": 170,
+      "triangles": 13624,
+      "bytes": 1318344,
+      "primitives": 28
+    },
+    {
+      "file": "lod2.glb",
+      "distance": 460,
+      "triangles": 6183,
+      "bytes": 504544,
+      "primitives": 28
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#11171c">
+  <title>Aircraft Viewer · War Browser</title>
+  <link rel="stylesheet" href="./viewer.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="brand"><span class="brand-symbol" aria-hidden="true">◈</span> <b>WAR</b> BROWSER</div>
+    <span class="page-name">Aircraft viewer</span>
+    <label class="button import" for="package-files">Open package
+      <input id="package-files" type="file" accept=".glb,.json" multiple>
+    </label>
+  </header>
+  <main class="workspace">
+    <section class="viewport" aria-label="Aircraft view">
+      <div id="canvas"></div>
+      <p class="view-status" id="view-status" role="status">Loading aircraft…</p>
+      <div class="views" role="group" aria-label="Camera views">
+        <button type="button" data-view="orbit" aria-pressed="true">Orbit</button>
+        <button type="button" data-view="top" aria-pressed="false">Top</button>
+        <button type="button" data-view="port" aria-pressed="false">Port</button>
+        <button type="button" data-view="underside" aria-pressed="false">Underside</button>
+      </div>
+      <div class="viewport-footer">
+        <span>Drag to orbit · Scroll or pinch to zoom</span>
+        <div>
+          <button class="zoom" id="zoom-out" aria-label="Zoom out" type="button">−</button>
+          <button class="zoom" id="zoom-in" aria-label="Zoom in" type="button">+</button>
+        </div>
+      </div>
+    </section>
+    <aside class="panel" aria-label="Model settings">
+      <div class="model-heading">
+        <span class="overline">Aircraft model</span>
+        <h1 id="model-title">F/A-18 Hornet</h1>
+        <p id="attribution"></p>
+      </div>
+      <section class="panel-section" aria-labelledby="display-heading">
+        <h2 id="display-heading">Detail level</h2>
+        <div class="segmented" role="group" aria-label="Detail level">
+          <button type="button" data-lod="auto" aria-pressed="true">Auto</button>
+          <button type="button" data-lod="0" aria-pressed="false">LOD 0</button>
+          <button type="button" data-lod="1" aria-pressed="false">LOD 1</button>
+          <button type="button" data-lod="2" aria-pressed="false">LOD 2</button>
+        </div>
+        <div class="metrics">
+          <div><span>Triangles</span><strong id="triangle-count">—</strong></div>
+          <div><span>Draw calls</span><strong id="draw-count">—</strong></div>
+          <div><span>Frame rate</span><strong id="fps">—</strong></div>
+        </div>
+        <div class="metrics-sub"><span id="level-summary">No model loaded</span><span id="render-time" title="Median CPU time submitted to the renderer">—</span></div>
+      </section>
+      <section class="panel-section" aria-labelledby="rig-heading">
+        <div class="section-heading"><h2 id="rig-heading">Rig controls</h2><button type="button" id="reset">Reset</button></div>
+        <div id="controls"></div>
+        <button type="button" id="gear" class="gear" aria-pressed="false" disabled>Retract landing gear</button>
+      </section>
+      <section class="panel-section layers" aria-labelledby="layers-heading">
+        <h2 id="layers-heading">Overlays</h2>
+        <label><input type="checkbox" id="wireframe"> Wireframe</label>
+        <label><input type="checkbox" id="anchors"> Attachment points</label>
+        <div id="anchor-info" hidden></div>
+      </section>
+      <div class="panel-section files" id="model-files"></div>
+    </aside>
+  </main>
+  <script type="module" src="./viewer.js"></script>
+</body>
+</html>

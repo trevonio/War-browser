@@ -1,0 +1,1690 @@
+{
+  "id": "fa-18-hornet",
+  "title": "F/A-18 Hornet",
+  "root": "FA18_ROOT",
+  "frame": {
+    "origin": [
+      0.000922,
+      0.08,
+      -3.58
+    ],
+    "yawDegrees": 0,
+    "scale": 1.9182,
+    "lengthMeters": [
+      16.9,
+      17.2
+    ],
+    "spanMeters": [
+      11.5,
+      11.9
+    ]
+  },
+  "weld": 5e-06,
+  "drop": [
+    "aim_7f_sparrow.001_29",
+    "aim_9L_30",
+    "aim_7f_sparrow_31"
+  ],
+  "groups": [
+    {
+      "name": "Fuselage",
+      "parts": [
+        {
+          "source": "Main_body_engine_9"
+        },
+        {
+          "source": "Main_body_Head_11"
+        },
+        {
+          "source": "nose_tip_12"
+        },
+        {
+          "source": "moving_canopy_ring_0"
+        }
+      ],
+      "component": "fuselage"
+    },
+    {
+      "name": "Canopy",
+      "parts": [
+        {
+          "source": "clamshell_Moving_canopy_25"
+        },
+        {
+          "source": "clamshell_canopy_26"
+        }
+      ],
+      "component": "pilot",
+      "preserve": true
+    },
+    {
+      "name": "WingRoot",
+      "parts": [
+        {
+          "source": "Main_Wings_10",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                -0.66,
+                0,
+                0
+              ]
+            },
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.66,
+                0,
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "fuselage",
+      "preserve": true
+    },
+    {
+      "name": "Wing_Left",
+      "parts": [
+        {
+          "source": "Main_Wings_10",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.660922,
+                0,
+                0
+              ]
+            },
+            {
+              "normal": [
+                -0.5,
+                0,
+                -1
+              ],
+              "point": [
+                0.000922,
+                0,
+                -3.205
+              ]
+            }
+          ]
+        },
+        {
+          "source": "wing_fold_port_16",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cube.016_13",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cube.017_15",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.005_14",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "leftWing"
+    },
+    {
+      "name": "LeadingEdge_Left",
+      "parts": [
+        {
+          "source": "Main_Wings_10",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.660922,
+                0,
+                0
+              ]
+            },
+            {
+              "normal": [
+                0.5,
+                0,
+                1
+              ],
+              "point": [
+                0.000922,
+                0,
+                -3.205
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "leftWing",
+      "pivot": [
+        1.750922,
+        0.232,
+        -4.08
+      ],
+      "animation": {
+        "control": "leadingEdge",
+        "axis": [
+          1,
+          0,
+          -0.5
+        ],
+        "min": 0,
+        "max": 22,
+        "sense": 1
+      },
+      "preserve": true
+    },
+    {
+      "name": "Aileron_Left",
+      "parts": [
+        {
+          "source": "Alteron_L_2"
+        }
+      ],
+      "component": "leftFlaperon",
+      "pivot": [
+        2.510922,
+        0.219,
+        -5.223
+      ],
+      "animation": {
+        "control": "roll",
+        "axis": [
+          1,
+          0,
+          -0.101
+        ],
+        "min": -21,
+        "max": 21,
+        "sense": 1
+      },
+      "preserve": true
+    },
+    {
+      "name": "Flap_Left",
+      "parts": [
+        {
+          "source": "Manuver_Wing_L_1"
+        }
+      ],
+      "component": "leftWing",
+      "pivot": [
+        1.410922,
+        0.245,
+        -5.122
+      ],
+      "animation": {
+        "control": "flaps",
+        "axis": [
+          1,
+          0,
+          -0.122
+        ],
+        "min": -30,
+        "max": 0,
+        "sense": -1
+      },
+      "preserve": true
+    },
+    {
+      "name": "Elevator_Left",
+      "parts": [
+        {
+          "source": "All_MovingTail_Plane_3",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "leftStabilator",
+      "pivot": [
+        0.510922,
+        0.061,
+        -6.56
+      ],
+      "animation": {
+        "control": "pitch",
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "min": -20,
+        "max": 20,
+        "sense": 1
+      },
+      "preserve": true
+    },
+    {
+      "name": "VerticalTail_Left",
+      "parts": [
+        {
+          "source": "dual_fin_stabilizer_4",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.013_6",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.014_7",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.015_8",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "leftFin"
+    },
+    {
+      "name": "Rudder_Left",
+      "parts": [
+        {
+          "source": "rudder_L_5"
+        }
+      ],
+      "component": "leftFin",
+      "pivot": [
+        0.632922,
+        0.753,
+        -6.357
+      ],
+      "animation": {
+        "control": "yaw",
+        "axis": [
+          0.34,
+          1,
+          -0.48
+        ],
+        "min": -23,
+        "max": 23,
+        "sense": 1
+      },
+      "preserve": true
+    },
+    {
+      "name": "Exhaust_Left",
+      "parts": [
+        {
+          "source": "engine.tip_27",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ],
+          "opaque": true
+        },
+        {
+          "source": "engine_ring_28",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ],
+          "opaque": true
+        }
+      ],
+      "component": "leftEngine"
+    },
+    {
+      "name": "LandingGear_Left",
+      "parts": [
+        {
+          "source": "Cylinder.011_36",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "NurbsPath.001_39",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "NurbsPath.002_40",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.020_41",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "NurbsPath.006_42",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "NurbsPath.007_43",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Torus.001_49",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Torus.004_50",
+          "clip": [
+            {
+              "normal": [
+                1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "leftGear",
+      "pivot": [
+        0.405922,
+        -0.15,
+        -4.238
+      ],
+      "animation": {
+        "control": "gear",
+        "axis": [
+          1,
+          0,
+          -0.82
+        ],
+        "rest": 0,
+        "end": 111
+      },
+      "lodFloor": 100
+    },
+    {
+      "name": "GearDoor_Main_Left",
+      "parts": [
+        {
+          "source": "Main_LandingGear_L_22"
+        }
+      ],
+      "component": "leftGear",
+      "pivot": [
+        0.457922,
+        -0.195,
+        -4.47
+      ],
+      "animation": {
+        "control": "gearDoor",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "rest": 0,
+        "end": -67,
+        "clearanceOpen": 36
+      },
+      "preserve": true,
+      "lodFloor": 30
+    },
+    {
+      "name": "GearDoor_Nose_Left",
+      "parts": [
+        {
+          "source": "Front_landingGear_L_18"
+        }
+      ],
+      "component": "noseGear",
+      "pivot": [
+        0.152922,
+        -0.095,
+        -1.509
+      ],
+      "animation": {
+        "control": "gearDoor",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "rest": 0,
+        "end": -41,
+        "clearanceOpen": 18
+      },
+      "preserve": true,
+      "lodFloor": 30
+    },
+    {
+      "name": "Wing_Right",
+      "parts": [
+        {
+          "source": "Main_Wings_10",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                -0.659078,
+                0,
+                0
+              ]
+            },
+            {
+              "normal": [
+                0.5,
+                0,
+                -1
+              ],
+              "point": [
+                0.000922,
+                0,
+                -3.205
+              ]
+            }
+          ]
+        },
+        {
+          "source": "wing_fold_port_16",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cube.016_13",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cube.017_15",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.005_14",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "rightWing"
+    },
+    {
+      "name": "LeadingEdge_Right",
+      "parts": [
+        {
+          "source": "Main_Wings_10",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                -0.659078,
+                0,
+                0
+              ]
+            },
+            {
+              "normal": [
+                -0.5,
+                0,
+                1
+              ],
+              "point": [
+                0.000922,
+                0,
+                -3.205
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "rightWing",
+      "pivot": [
+        -1.749078,
+        0.232,
+        -4.08
+      ],
+      "animation": {
+        "control": "leadingEdge",
+        "axis": [
+          1,
+          0,
+          0.5
+        ],
+        "min": 0,
+        "max": 22,
+        "sense": 1
+      },
+      "preserve": true
+    },
+    {
+      "name": "Aileron_Right",
+      "parts": [
+        {
+          "source": "Alteron_R_20"
+        }
+      ],
+      "component": "rightFlaperon",
+      "pivot": [
+        -2.5090779999999997,
+        0.219,
+        -5.223
+      ],
+      "animation": {
+        "control": "roll",
+        "axis": [
+          1,
+          0,
+          0.101
+        ],
+        "min": -21,
+        "max": 21,
+        "sense": -1
+      },
+      "preserve": true
+    },
+    {
+      "name": "Flap_Right",
+      "parts": [
+        {
+          "source": "Manuver_Wing_R_19"
+        }
+      ],
+      "component": "rightWing",
+      "pivot": [
+        -1.4090779999999998,
+        0.245,
+        -5.122
+      ],
+      "animation": {
+        "control": "flaps",
+        "axis": [
+          1,
+          0,
+          0.122
+        ],
+        "min": -30,
+        "max": 0,
+        "sense": -1
+      },
+      "preserve": true
+    },
+    {
+      "name": "Elevator_Right",
+      "parts": [
+        {
+          "source": "All_MovingTail_Plane_3",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "rightStabilator",
+      "pivot": [
+        -0.509078,
+        0.061,
+        -6.56
+      ],
+      "animation": {
+        "control": "pitch",
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "min": -20,
+        "max": 20,
+        "sense": 1
+      },
+      "preserve": true
+    },
+    {
+      "name": "VerticalTail_Right",
+      "parts": [
+        {
+          "source": "dual_fin_stabilizer_4",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.013_6",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.014_7",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.015_8",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "rightFin"
+    },
+    {
+      "name": "Rudder_Right",
+      "parts": [
+        {
+          "source": "rudder_R_24"
+        }
+      ],
+      "component": "rightFin",
+      "pivot": [
+        -0.631078,
+        0.753,
+        -6.357
+      ],
+      "animation": {
+        "control": "yaw",
+        "axis": [
+          -0.34,
+          1,
+          -0.48
+        ],
+        "min": -23,
+        "max": 23,
+        "sense": 1
+      },
+      "preserve": true
+    },
+    {
+      "name": "Exhaust_Right",
+      "parts": [
+        {
+          "source": "engine.tip_27",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ],
+          "opaque": true
+        },
+        {
+          "source": "engine_ring_28",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ],
+          "opaque": true
+        }
+      ],
+      "component": "rightEngine"
+    },
+    {
+      "name": "LandingGear_Right",
+      "parts": [
+        {
+          "source": "Cylinder.011_36",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "NurbsPath.001_39",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "NurbsPath.002_40",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Cylinder.020_41",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "NurbsPath.006_42",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "NurbsPath.007_43",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Torus.001_49",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "source": "Torus.004_50",
+          "clip": [
+            {
+              "normal": [
+                -1,
+                0,
+                0
+              ],
+              "point": [
+                0.000922,
+                0,
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "component": "rightGear",
+      "pivot": [
+        -0.40407800000000005,
+        -0.15,
+        -4.238
+      ],
+      "animation": {
+        "control": "gear",
+        "axis": [
+          1,
+          0,
+          0.82
+        ],
+        "rest": 0,
+        "end": 111
+      },
+      "lodFloor": 100
+    },
+    {
+      "name": "GearDoor_Main_Right",
+      "parts": [
+        {
+          "source": "Main_LandingGear_R_23"
+        }
+      ],
+      "component": "rightGear",
+      "pivot": [
+        -0.45607800000000004,
+        -0.195,
+        -4.47
+      ],
+      "animation": {
+        "control": "gearDoor",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "rest": 0,
+        "end": 67,
+        "clearanceOpen": -36
+      },
+      "preserve": true,
+      "lodFloor": 30
+    },
+    {
+      "name": "GearDoor_Nose_Right",
+      "parts": [
+        {
+          "source": "Front_landingGear_R_17"
+        }
+      ],
+      "component": "noseGear",
+      "pivot": [
+        -0.151078,
+        -0.095,
+        -1.509
+      ],
+      "animation": {
+        "control": "gearDoor",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "rest": 0,
+        "end": 41,
+        "clearanceOpen": -18
+      },
+      "preserve": true,
+      "lodFloor": 30
+    },
+    {
+      "name": "GearDoor_Nose_Aft",
+      "parts": [
+        {
+          "source": "Front_landingGear_L.002_21"
+        }
+      ],
+      "component": "noseGear",
+      "pivot": [
+        0.000922,
+        -0.183,
+        -2.448
+      ],
+      "animation": {
+        "control": "gearDoor",
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "rest": 0,
+        "end": -29
+      },
+      "preserve": true,
+      "lodFloor": 30
+    },
+    {
+      "name": "LandingGear_Nose",
+      "parts": [
+        {
+          "source": "Torus.002_32"
+        },
+        {
+          "source": "Torus.003_33"
+        },
+        {
+          "source": "Cylinder.007_34"
+        },
+        {
+          "source": "Cylinder.008_35"
+        },
+        {
+          "source": "Cylinder.010_37"
+        },
+        {
+          "source": "Cylinder.019_38"
+        },
+        {
+          "source": "Cylinder.009_45"
+        },
+        {
+          "source": "Cylinder.012_46"
+        },
+        {
+          "source": "Cylinder.030_47"
+        },
+        {
+          "source": "Cylinder.018_48"
+        }
+      ],
+      "component": "noseGear",
+      "pivot": [
+        0.000922,
+        -0.121,
+        -1.859
+      ],
+      "animation": {
+        "control": "gear",
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "rest": 0,
+        "end": -127
+      },
+      "lodFloor": 100
+    },
+    {
+      "name": "GearBrace_Nose",
+      "parts": [
+        {
+          "source": "Cylinder.029_44"
+        }
+      ],
+      "component": "noseGear",
+      "pivot": [
+        0.000922,
+        -0.064,
+        -2.481
+      ],
+      "animation": {
+        "control": "gear",
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "rest": 0,
+        "end": -35
+      },
+      "lodFloor": 70
+    }
+  ],
+  "anchors": [
+    {
+      "name": "HP_01",
+      "kind": "store",
+      "position": [
+        5.8622,
+        0.163,
+        -2.5128
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_02",
+      "kind": "store",
+      "position": [
+        3.451,
+        -0.328,
+        -2.321
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_03",
+      "kind": "store",
+      "position": [
+        2.2617,
+        -0.3223,
+        -1.5154
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_04",
+      "kind": "store",
+      "position": [
+        1.2451,
+        -0.7289,
+        -1.8415
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_05",
+      "kind": "store",
+      "position": [
+        0.0,
+        -0.679,
+        -1.3236
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_06",
+      "kind": "store",
+      "position": [
+        -1.2448,
+        -0.7289,
+        -1.8415
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_07",
+      "kind": "store",
+      "position": [
+        -2.2614,
+        -0.3223,
+        -1.5154
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_08",
+      "kind": "store",
+      "position": [
+        -3.4507,
+        -0.328,
+        -2.321
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_09",
+      "kind": "store",
+      "position": [
+        -5.8619,
+        0.163,
+        -2.5128
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "HP_Cannon_Muzzle",
+      "kind": "muzzle",
+      "position": [
+        0.0,
+        0.3127,
+        8.7355
+      ],
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "Engine_Exhaust_Left",
+      "kind": "exhaust",
+      "position": [
+        0.4835,
+        0.0307,
+        -7.5961
+      ],
+      "direction": [
+        0,
+        0,
+        -1
+      ],
+      "approximate": true
+    },
+    {
+      "name": "Engine_Exhaust_Right",
+      "kind": "exhaust",
+      "position": [
+        -0.4832,
+        0.0307,
+        -7.5961
+      ],
+      "direction": [
+        0,
+        0,
+        -1
+      ],
+      "approximate": true
+    }
+  ],
+  "lods": [
+    {
+      "ratio": 1,
+      "distance": 0,
+      "textureSize": 1024,
+      "quality": 87
+    },
+    {
+      "ratio": 0.48,
+      "distance": 170,
+      "textureSize": 512,
+      "quality": 84
+    },
+    {
+      "ratio": 0.2,
+      "distance": 460,
+      "textureSize": 256,
+      "quality": 82
+    }
+  ],
+  "clearance": [
+    [
+      "Wing_Left",
+      "LeadingEdge_Left"
+    ],
+    [
+      "Wing_Left",
+      "Flap_Left"
+    ],
+    [
+      "Wing_Left",
+      "Aileron_Left"
+    ],
+    [
+      "VerticalTail_Left",
+      "Rudder_Left"
+    ],
+    [
+      "Fuselage",
+      "Elevator_Left"
+    ],
+    [
+      "Fuselage",
+      "LandingGear_Left"
+    ],
+    [
+      "GearDoor_Main_Left",
+      "LandingGear_Left"
+    ],
+    [
+      "Wing_Right",
+      "LeadingEdge_Right"
+    ],
+    [
+      "Wing_Right",
+      "Flap_Right"
+    ],
+    [
+      "Wing_Right",
+      "Aileron_Right"
+    ],
+    [
+      "VerticalTail_Right",
+      "Rudder_Right"
+    ],
+    [
+      "Fuselage",
+      "Elevator_Right"
+    ],
+    [
+      "Fuselage",
+      "LandingGear_Right"
+    ],
+    [
+      "GearDoor_Main_Right",
+      "LandingGear_Right"
+    ],
+    [
+      "Fuselage",
+      "LandingGear_Nose"
+    ],
+    [
+      "GearDoor_Nose_Left",
+      "LandingGear_Nose"
+    ],
+    [
+      "GearDoor_Nose_Right",
+      "LandingGear_Nose"
+    ],
+    [
+      "GearDoor_Nose_Aft",
+      "LandingGear_Nose"
+    ],
+    [
+      "Fuselage",
+      "GearBrace_Nose"
+    ],
+    [
+      "GearDoor_Nose_Aft",
+      "GearBrace_Nose"
+    ]
+  ],
+  "opaqueMaterials": [
+    "Mains",
+    "Other"
+  ]
+}

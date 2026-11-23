@@ -1,0 +1,888 @@
+{
+  "original": {
+    "bytes": 17418260,
+    "triangles": 30946,
+    "primitives": 51,
+    "vertices": 25224,
+    "degenerate": 2,
+    "nodes": 105,
+    "meshDefinitions": 51,
+    "materials": 3,
+    "images": [
+      {
+        "mimeType": "image/png",
+        "bytes": 412954,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 2292113,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 590,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 3118691,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 74601,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 616379,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 72632,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 1529855,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 1747158,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 1070391,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 590,
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "mimeType": "image/png",
+        "bytes": 4831531,
+        "size": [
+          2048,
+          2048
+        ]
+      }
+    ],
+    "animationClips": [],
+    "skins": 0,
+    "bounds": [
+      [
+        -3.138897,
+        -0.789603,
+        -7.808377
+      ],
+      [
+        3.140739,
+        1.571492,
+        1.091077
+      ]
+    ],
+    "attribution": {
+      "author": "HeriFajar (https://sketchfab.com/HeriFajar)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/fa-18-hornet-low-poly-25a2485d6eb4428f89c014e03fb42047",
+      "title": "F/A-18 Hornet Low Poly"
+    }
+  },
+  "levels": [
+    {
+      "bytes": 3824660,
+      "triangles": 27506,
+      "primitives": 28,
+      "vertices": 19830,
+      "degenerate": 0,
+      "nodes": 69,
+      "meshDefinitions": 28,
+      "materials": 4,
+      "images": [
+        {
+          "mimeType": "image/webp",
+          "bytes": 553198,
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 11160,
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 489336,
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 5030,
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 287724,
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 22470,
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 168904,
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 1013516,
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 45472,
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 391830,
+          "size": [
+            1024,
+            1024
+          ]
+        }
+      ],
+      "animationClips": [],
+      "skins": 0,
+      "bounds": [
+        [
+          -5.850991,
+          -1.668074,
+          -8.110877
+        ],
+        [
+          5.850989,
+          2.860981,
+          8.96006
+        ]
+      ],
+      "attribution": {
+        "author": "HeriFajar (https://sketchfab.com/HeriFajar)",
+        "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+        "source": "https://sketchfab.com/3d-models/fa-18-hornet-low-poly-25a2485d6eb4428f89c014e03fb42047",
+        "title": "F/A-18 Hornet Low Poly",
+        "modifications": "Adapted for War Browser: normalized frame, mesh cleanup, rig and sockets, texture compression and LOD generation."
+      },
+      "groups": {
+        "Fuselage": 3190,
+        "Canopy": 122,
+        "WingRoot": 120,
+        "Wing_Left": 856,
+        "LeadingEdge_Left": 37,
+        "Aileron_Left": 12,
+        "Flap_Left": 32,
+        "Elevator_Left": 74,
+        "VerticalTail_Left": 1996,
+        "Rudder_Left": 20,
+        "Exhaust_Left": 1368,
+        "LandingGear_Left": 4896,
+        "GearDoor_Main_Left": 36,
+        "GearDoor_Nose_Left": 44,
+        "Wing_Right": 856,
+        "LeadingEdge_Right": 37,
+        "Aileron_Right": 12,
+        "Flap_Right": 32,
+        "Elevator_Right": 74,
+        "VerticalTail_Right": 1996,
+        "Rudder_Right": 20,
+        "Exhaust_Right": 1368,
+        "LandingGear_Right": 4896,
+        "GearDoor_Main_Right": 36,
+        "GearDoor_Nose_Right": 44,
+        "GearDoor_Nose_Aft": 68,
+        "LandingGear_Nose": 5072,
+        "GearBrace_Nose": 192
+      }
+    },
+    {
+      "bytes": 1318344,
+      "triangles": 13624,
+      "primitives": 28,
+      "vertices": 11262,
+      "degenerate": 0,
+      "nodes": 69,
+      "meshDefinitions": 28,
+      "materials": 4,
+      "images": [
+        {
+          "mimeType": "image/webp",
+          "bytes": 141524,
+          "size": [
+            512,
+            512
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 3696,
+          "size": [
+            512,
+            512
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 133478,
+          "size": [
+            512,
+            512
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 1818,
+          "size": [
+            512,
+            512
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 76324,
+          "size": [
+            512,
+            512
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 8512,
+          "size": [
+            512,
+            512
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 60608,
+          "size": [
+            512,
+            512
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 257858,
+          "size": [
+            512,
+            512
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 14324,
+          "size": [
+            512,
+            512
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 141742,
+          "size": [
+            512,
+            512
+          ]
+        }
+      ],
+      "animationClips": [],
+      "skins": 0,
+      "bounds": [
+        [
+          -5.850992,
+          -1.667769,
+          -8.110877
+        ],
+        [
+          5.850989,
+          2.860701,
+          8.960398
+        ]
+      ],
+      "attribution": {
+        "author": "HeriFajar (https://sketchfab.com/HeriFajar)",
+        "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+        "source": "https://sketchfab.com/3d-models/fa-18-hornet-low-poly-25a2485d6eb4428f89c014e03fb42047",
+        "title": "F/A-18 Hornet Low Poly",
+        "modifications": "Adapted for War Browser: normalized frame, mesh cleanup, rig and sockets, texture compression and LOD generation."
+      },
+      "groups": {
+        "Fuselage": 1531,
+        "Canopy": 122,
+        "WingRoot": 120,
+        "Wing_Left": 410,
+        "LeadingEdge_Left": 37,
+        "Aileron_Left": 12,
+        "Flap_Left": 32,
+        "Elevator_Left": 74,
+        "VerticalTail_Left": 958,
+        "Rudder_Left": 20,
+        "Exhaust_Left": 656,
+        "LandingGear_Left": 2350,
+        "GearDoor_Main_Left": 36,
+        "GearDoor_Nose_Left": 44,
+        "Wing_Right": 410,
+        "LeadingEdge_Right": 37,
+        "Aileron_Right": 12,
+        "Flap_Right": 32,
+        "Elevator_Right": 74,
+        "VerticalTail_Right": 957,
+        "Rudder_Right": 20,
+        "Exhaust_Right": 656,
+        "LandingGear_Right": 2350,
+        "GearDoor_Main_Right": 36,
+        "GearDoor_Nose_Right": 44,
+        "GearDoor_Nose_Aft": 68,
+        "LandingGear_Nose": 2435,
+        "GearBrace_Nose": 91
+      }
+    },
+    {
+      "bytes": 504544,
+      "triangles": 6183,
+      "primitives": 28,
+      "vertices": 5939,
+      "degenerate": 0,
+      "nodes": 69,
+      "meshDefinitions": 28,
+      "materials": 4,
+      "images": [
+        {
+          "mimeType": "image/webp",
+          "bytes": 36116,
+          "size": [
+            256,
+            256
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 1216,
+          "size": [
+            256,
+            256
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 38544,
+          "size": [
+            256,
+            256
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 714,
+          "size": [
+            256,
+            256
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 21376,
+          "size": [
+            256,
+            256
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 3460,
+          "size": [
+            256,
+            256
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 22196,
+          "size": [
+            256,
+            256
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 63712,
+          "size": [
+            256,
+            256
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 4858,
+          "size": [
+            256,
+            256
+          ]
+        },
+        {
+          "mimeType": "image/webp",
+          "bytes": 48968,
+          "size": [
+            256,
+            256
+          ]
+        }
+      ],
+      "animationClips": [],
+      "skins": 0,
+      "bounds": [
+        [
+          -5.843024,
+          -1.669707,
+          -8.110877
+        ],
+        [
+          5.843021,
+          2.860701,
+          8.961429
+        ]
+      ],
+      "attribution": {
+        "author": "HeriFajar (https://sketchfab.com/HeriFajar)",
+        "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+        "source": "https://sketchfab.com/3d-models/fa-18-hornet-low-poly-25a2485d6eb4428f89c014e03fb42047",
+        "title": "F/A-18 Hornet Low Poly",
+        "modifications": "Adapted for War Browser: normalized frame, mesh cleanup, rig and sockets, texture compression and LOD generation."
+      },
+      "groups": {
+        "Fuselage": 637,
+        "Canopy": 122,
+        "WingRoot": 120,
+        "Wing_Left": 171,
+        "LeadingEdge_Left": 37,
+        "Aileron_Left": 12,
+        "Flap_Left": 32,
+        "Elevator_Left": 74,
+        "VerticalTail_Left": 399,
+        "Rudder_Left": 20,
+        "Exhaust_Left": 274,
+        "LandingGear_Left": 977,
+        "GearDoor_Main_Left": 36,
+        "GearDoor_Nose_Left": 44,
+        "Wing_Right": 171,
+        "LeadingEdge_Right": 37,
+        "Aileron_Right": 12,
+        "Flap_Right": 32,
+        "Elevator_Right": 74,
+        "VerticalTail_Right": 399,
+        "Rudder_Right": 20,
+        "Exhaust_Right": 273,
+        "LandingGear_Right": 978,
+        "GearDoor_Main_Right": 36,
+        "GearDoor_Nose_Right": 44,
+        "GearDoor_Nose_Aft": 68,
+        "LandingGear_Nose": 1014,
+        "GearBrace_Nose": 70
+      }
+    }
+  ],
+  "clearance": [
+    {
+      "pose": "neutral",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 52,
+        "GearDoor_Main_Left / LandingGear_Left": 0,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 52,
+        "GearDoor_Main_Right / LandingGear_Right": 20,
+        "Fuselage / LandingGear_Nose": 0,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "surfaces minimum",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 41,
+        "Wing_Left / Aileron_Left": 18,
+        "VerticalTail_Left / Rudder_Left": 40,
+        "Fuselage / Elevator_Left": 51,
+        "Fuselage / LandingGear_Left": 52,
+        "GearDoor_Main_Left / LandingGear_Left": 0,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 41,
+        "Wing_Right / Aileron_Right": 18,
+        "VerticalTail_Right / Rudder_Right": 39,
+        "Fuselage / Elevator_Right": 51,
+        "Fuselage / LandingGear_Right": 52,
+        "GearDoor_Main_Right / LandingGear_Right": 20,
+        "Fuselage / LandingGear_Nose": 0,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "surfaces maximum",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 38,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 16,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 55,
+        "Fuselage / LandingGear_Left": 52,
+        "GearDoor_Main_Left / LandingGear_Left": 0,
+        "Wing_Right / LeadingEdge_Right": 38,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 16,
+        "VerticalTail_Right / Rudder_Right": 40,
+        "Fuselage / Elevator_Right": 55,
+        "Fuselage / LandingGear_Right": 52,
+        "GearDoor_Main_Right / LandingGear_Right": 20,
+        "Fuselage / LandingGear_Nose": 0,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 10%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 52,
+        "GearDoor_Main_Left / LandingGear_Left": 0,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 52,
+        "GearDoor_Main_Right / LandingGear_Right": 0,
+        "Fuselage / LandingGear_Nose": 0,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 20%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 52,
+        "GearDoor_Main_Left / LandingGear_Left": 0,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 52,
+        "GearDoor_Main_Right / LandingGear_Right": 0,
+        "Fuselage / LandingGear_Nose": 0,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 30%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 52,
+        "GearDoor_Main_Left / LandingGear_Left": 38,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 52,
+        "GearDoor_Main_Right / LandingGear_Right": 38,
+        "Fuselage / LandingGear_Nose": 0,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 40%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 201,
+        "GearDoor_Main_Left / LandingGear_Left": 74,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 201,
+        "GearDoor_Main_Right / LandingGear_Right": 82,
+        "Fuselage / LandingGear_Nose": 0,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 50%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 533,
+        "GearDoor_Main_Left / LandingGear_Left": 141,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 533,
+        "GearDoor_Main_Right / LandingGear_Right": 137,
+        "Fuselage / LandingGear_Nose": 124,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 60%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 209,
+        "GearDoor_Main_Left / LandingGear_Left": 10,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 209,
+        "GearDoor_Main_Right / LandingGear_Right": 10,
+        "Fuselage / LandingGear_Nose": 475,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 70%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 149,
+        "GearDoor_Main_Left / LandingGear_Left": 0,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 149,
+        "GearDoor_Main_Right / LandingGear_Right": 0,
+        "Fuselage / LandingGear_Nose": 130,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 80%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 180,
+        "GearDoor_Main_Left / LandingGear_Left": 0,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 180,
+        "GearDoor_Main_Right / LandingGear_Right": 0,
+        "Fuselage / LandingGear_Nose": 74,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 90%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 180,
+        "GearDoor_Main_Left / LandingGear_Left": 0,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 180,
+        "GearDoor_Main_Right / LandingGear_Right": 0,
+        "Fuselage / LandingGear_Nose": 74,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    },
+    {
+      "pose": "retraction 100%",
+      "pairs": {
+        "Wing_Left / LeadingEdge_Left": 20,
+        "Wing_Left / Flap_Left": 20,
+        "Wing_Left / Aileron_Left": 14,
+        "VerticalTail_Left / Rudder_Left": 39,
+        "Fuselage / Elevator_Left": 42,
+        "Fuselage / LandingGear_Left": 180,
+        "GearDoor_Main_Left / LandingGear_Left": 0,
+        "Wing_Right / LeadingEdge_Right": 21,
+        "Wing_Right / Flap_Right": 20,
+        "Wing_Right / Aileron_Right": 14,
+        "VerticalTail_Right / Rudder_Right": 47,
+        "Fuselage / Elevator_Right": 42,
+        "Fuselage / LandingGear_Right": 180,
+        "GearDoor_Main_Right / LandingGear_Right": 0,
+        "Fuselage / LandingGear_Nose": 74,
+        "GearDoor_Nose_Left / LandingGear_Nose": 0,
+        "GearDoor_Nose_Right / LandingGear_Nose": 0,
+        "GearDoor_Nose_Aft / LandingGear_Nose": 0,
+        "Fuselage / GearBrace_Nose": 42,
+        "GearDoor_Nose_Aft / GearBrace_Nose": 0
+      }
+    }
+  ]
+}
