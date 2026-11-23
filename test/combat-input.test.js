@@ -62,3 +62,19 @@ test('weapon prompts and defensive programs use real readiness and warning state
   assert.equal(countermeasureProgram('auto', 'mixed', ''), 'mixed');
   assert.equal(countermeasureProgram('flare', 'mixed', 'TRACK'), 'flare');
 });
+
+test('release classifies a long target hold correctly even if the main thread delays its timer', () => {
+  const actions = [];
+  const router = new FlightInput({ keys: keyDefaults }, { held: new Set(), clear() {} },
+    { flying: () => true, available: () => true },
+    { targetAction: () => actions.push('select'), clearTarget: () => actions.push('clear') }, () => {});
+  const event = (timeStamp) => ({ code: 'KeyR', timeStamp, target: {}, preventDefault() {} });
+  router.keydown(event(0));
+  router.keyup(event(500));
+  router.keydown(event(600));
+  router.keyup(event(700));
+  router.keydown(event(800));
+  router.clear();
+  router.keyup(event(900));
+  assert.deepEqual(actions, ['clear', 'select']);
+});

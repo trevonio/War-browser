@@ -21,10 +21,8 @@ export class FlightInput {
     if (event.repeat || this.presses.has(event.code)) return;
     this.presses.add(event.code);
     if (key === 'targetAction') {
-      this.targetTimer = setTimeout(() => {
-        this.targetTimer = undefined;
-        if (this.context.flying()) this.run('clearTarget');
-      }, targetHold);
+      this.targetStarted = event.timeStamp;
+      this.targetTimer = setTimeout(() => this.finishTarget(true), targetHold);
       return;
     }
     this.run(key);
@@ -34,15 +32,12 @@ export class FlightInput {
     this.presses.delete(event.code);
     if (event.code === this.settings.keys.cannonFire) this.actions.endCannon();
     if (event.code === this.settings.keys.targetAction && this.targetTimer !== undefined) {
-      clearTimeout(this.targetTimer);
-      this.targetTimer = undefined;
-      if (this.context.flying()) this.run('targetAction');
+      this.finishTarget(event.timeStamp - this.targetStarted >= targetHold);
     }
   }
 
   clear() {
-    clearTimeout(this.targetTimer);
-    this.targetTimer = undefined;
+    this.cancelTarget();
     this.presses.clear();
     this.controls.clear();
   }
@@ -50,6 +45,11 @@ export class FlightInput {
   cancelTarget() {
     clearTimeout(this.targetTimer);
     this.targetTimer = undefined;
+  }
+
+  finishTarget(clear) {
+    this.cancelTarget();
+    if (this.context.flying()) this.run(clear ? 'clearTarget' : 'targetAction');
   }
 
   run(key) {

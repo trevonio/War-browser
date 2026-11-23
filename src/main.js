@@ -801,7 +801,10 @@ async function boot() {
   const activeSight = () => sightActive ?? (groundWeapon(selectedWeapon()) || trigger.held);
 
   function weaponReadiness(weapon, rack) {
-    if (guidedWeapon(weapon)) return ordnance.guidance.status(weapon, rack, pod);
+    if (guidedWeapon(weapon)) {
+      const state = ordnance.guidance.status(weapon, rack, pod);
+      return !pod.mounted && ['LASER REQUIRED', 'DESIGNATE AREA', 'POINT TRACK REQUIRED'].includes(state) ? 'POD REQUIRED' : state;
+    }
     const state = rack.launchState(weapon, flight.elapsed);
     if (weapon === 'infrared' && !rack.infraredRequested && !['AMMO EMPTY', 'INHIBITED', 'CYCLING'].includes(state)) return 'SEEKER STANDBY';
     return state;
@@ -1261,7 +1264,7 @@ async function boot() {
     const state = guns ? (ammo === 0 ? 'AMMO EMPTY' : firing ? 'FIRING' : 'READY') : weaponReadiness(weapon, rack);
     const inFlight = screen === 'flying';
     ui['weapon-actions'].hidden = !inFlight;
-    ui['secondary-context'].hidden = guns;
+    ui['secondary-context'].hidden = guns || !canFire() || combatCamera.observing;
     ui['cannon-context'].hidden = pod.active;
     text('secondary-action', secondaryAction(weapon, state));
     text('cannon-count', cannon.ammo);
@@ -1337,7 +1340,7 @@ async function boot() {
     ui['toggle-podZoomOut'].disabled = !pod.canZoomOut;
     ui['pod-cursor-help'].hidden = keyboardFlight;
     ui['toggle-zoomCursor'].hidden = !podCursor;
-    text('pod-cursor-action', podCursor ? 'Slew' : 'Cursor');
+    text('pod-cursor-action', podCursor ? 'Resume slew' : 'Show pointer');
     text('pod-track', pod.state);
     const unit = pod.track ?? pod.observed;
     const side = unit?.faction === 'opposing' ? 'HOSTILE' : unit?.faction.toUpperCase();

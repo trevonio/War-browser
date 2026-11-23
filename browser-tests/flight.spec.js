@@ -532,8 +532,9 @@ test('BVR scope finds and locks an inbound contact and supports a radar missile'
   await page.keyboard.press('v');
   await expect(page.locator('#camera-status')).toBeHidden();
   expect(await locked(page)).toBe('viewport');
-  await page.keyboard.press('r', { delay: 600 });
+  await page.keyboard.down('r');
   await expect(mode).toHaveText('TWS');
+  await page.keyboard.up('r');
   await expect(page.locator('#missile-telemetry')).toHaveText('MIDCOURSE · COAST');
   await page.keyboard.press('r');
   await expect(mode).toHaveText('STT');

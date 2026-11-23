@@ -99,7 +99,7 @@ function completeBindings(preferred) {
   for (const [action, code] of Object.entries(keyDefaults)) {
     if (Object.hasOwn(bindings, action)) continue;
     const previous = legacyDefaults[action];
-    const binding = !used.has(code) ? code : previous && !used.has(previous) ? previous
+    const binding = !used.has(code) ? code : previous && !used.has(previous) && !reserved.has(previous) ? previous
       : spare.find((candidate) => !used.has(candidate) && !reserved.has(candidate));
     bindings[action] = binding;
     used.add(binding);
