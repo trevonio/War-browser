@@ -827,6 +827,11 @@ test('prepares seeded CAS, accepts a ground call, and restores pointer lock with
   await seed.press('Tab');
   await expect(page.locator('#cas-primary')).toHaveText('Relieve the friendly group');
   await expect(page.locator('#cas-intelligence')).toContainText('stronger armored group');
+  await expect.poll(() => page.evaluate(() => {
+    const launch = document.querySelector('#launch').getBoundingClientRect();
+    const briefing = document.querySelector('#briefing').getBoundingClientRect();
+    return launch.top >= briefing.top && launch.bottom <= briefing.bottom;
+  })).toBe(true);
   const timings = browserName === 'chromium' ? { briefing: await sample() } : null;
   await page.getByRole('button', { name: 'Loadout', exact: true }).click();
   const loadout = page.getByRole('dialog', { name: 'F-16C loadout' });

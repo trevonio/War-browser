@@ -424,7 +424,8 @@ input[type="range"] { max-width: min(29vw,8rem); }
 }
 
 #start-cas { color: #d4e6ba; }
-#briefing[data-cas="true"] { width: min(42rem, calc(100vw - 2rem)); }
+#briefing[data-cas="true"] { width: min(42rem, calc(100vw - 2rem)); scroll-padding-bottom: 3.7rem; }
+#briefing[data-cas="true"] #launch { position: sticky; bottom: .12rem; z-index: 1; box-shadow: 0 3px 11px #0c1a24a0; }
 #briefing[data-cas="true"] h1, #briefing[data-cas="true"] #aircraft-briefing-description { display: none; }
 #briefing[data-cas="true"] .start-choice button:not(#start-cas):not(#start-air) { display: none; }
 #cas-preparation { padding-top: .7rem; }
