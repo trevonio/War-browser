@@ -177,7 +177,7 @@ test('fine, medium and aggressive steering scale across aircraft and available a
       const full = turn(aircraft, speed, 90, 10);
       const oscillating = turn(aircraft, speed, 3.5, 5, true);
       assert.ok(fine.bank <= 13 && fine.rudder > .07 && fine.slip < 5 && fine.heading > 1.5);
-      assert.ok(medium.bank > fine.bank && medium.bank < 55, `${aircraft.id} ${speed}: medium bank ${medium.bank}`);
+      assert.ok(medium.bank >= 12 && medium.bank > fine.bank && medium.bank < 55, `${aircraft.id} ${speed}: medium bank ${medium.bank}`);
       assert.ok(full.bank >= 65 && Math.abs(full.heading - 90) < 11);
       assert.ok(oscillating.bank < 10 && oscillating.slip < 4);
     }

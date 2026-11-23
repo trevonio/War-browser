@@ -127,14 +127,15 @@ export class FlightInstructor {
     const config = spec.horizontalSteering ?? horizontalSteering;
     let rollBlend = 1;
     if (controls.pitchPriority && aimDirection) {
-      const horizon = Math.hypot(forward.x, forward.z) * Math.hypot(this.target.x, this.target.z);
+      const forwardHorizon = Math.hypot(forward.x, forward.z);
+      const horizon = forwardHorizon * Math.hypot(this.target.x, this.target.z);
       this.horizontal.crossVectors(forward, UP).normalize();
-      const headingError = Math.atan2(this.target.dot(this.horizontal) * Math.hypot(forward.x, forward.z),
+      const headingError = Math.atan2(this.target.dot(this.horizontal) * forwardHorizon,
         forward.x * this.target.x + forward.z * this.target.z);
       const horizontalWeight = smoothstep(horizon, .08, .55);
       const entered = Math.max(smoothstep(angle, .58, .95), (1 - horizontalWeight) * smoothstep(angle, .20, .50));
       const holding = smoothstep(angle, .025, .065);
-      this.committedTurn = Math.max(entered, this.committedTurn * (holding < 1 ? 1 - dt * (1 - holding) * 3 : 1));
+      this.committedTurn = Math.max(entered, this.committedTurn * (1 - dt * (1 - holding) * 3));
       const fineAuthority = 1 - this.committedTurn;
       const yawCapacity = clamp(spec.yawRate / .44 * flight.damage.yawAuthority * authority, 0, 1);
       const usableRudder = lerp(.58, 1, yawCapacity) * lerp(1, config.highSpeedRudder, smoothstep(speed, 190, 370));
@@ -153,7 +154,7 @@ export class FlightInstructor {
         this.horizontal.crossVectors(this.course, UP).normalize();
         const side = this.liftDemand.dot(this.horizontal);
         const fineLoad = clamp(side, -.16, .16);
-        const allowedBank = lerp(.19, config.maxBank, smoothstep(Math.abs(headingError), .11, .88));
+        const allowedBank = lerp(.19, config.maxBank, smoothstep(Math.abs(headingError), .10, .70));
         const bankLimit = Math.max(0.08, this.liftDemand.dot(this.gravity) / this.gravity.length()) * Math.tan(allowedBank);
         const bankedLoad = clamp(side, -bankLimit, bankLimit);
         const scheduled = lerp(fineLoad, bankedLoad, this.bankBlend);
