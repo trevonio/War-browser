@@ -4,6 +4,7 @@ import { groundLineOfSight } from '../ground/engagement.js';
 
 const { clamp, lerp } = MathUtils;
 const zooms = [41, 21, 9];
+const zoomLabels = ['WIDE', 'MEDIUM', 'NARROW'];
 const maxRange = 4200;
 const downForward = new Vector3(0, -.28, 1).normalize();
 const modeNames = ['Day', 'White Hot', 'Black Hot'];
@@ -71,7 +72,14 @@ export class TargetingPod {
     this.nextScan = -Infinity;
   }
 
+  clearDesignation() {
+    this.clearTrack();
+    this.hasCoordinates = this.designation.valid = false;
+    this.designation.target = null;
+  }
+
   slew(dx, dy) {
+    if (!dx && !dy) return;
     this.clearTrack();
     const gain = .00155 * zooms[this.zoom] / zooms[0];
     this.yaw -= dx * gain;
@@ -81,8 +89,16 @@ export class TargetingPod {
   }
 
   changeZoom(wheel) {
-    this.zoom = clamp(this.zoom + Math.sign(-wheel), 0, zooms.length - 1);
+    this.stepZoom(Math.sign(-wheel));
   }
+
+  stepZoom(step) {
+    this.zoom = clamp(this.zoom + step, 0, zooms.length - 1);
+  }
+
+  get zoomLabel() { return zoomLabels[this.zoom]; }
+  get canZoomIn() { return this.zoom < zooms.length - 1; }
+  get canZoomOut() { return this.zoom > 0; }
 
   cycleMode() { this.mode = (this.mode + 1) % modeNames.length; }
 
@@ -97,9 +113,10 @@ export class TargetingPod {
       && (!visible || groundLineOfSight(this.world, this.origin, point));
   }
 
-  observe(units) {
+  observe(units, visible = null) {
     let best = Infinity;
     let candidate = null;
+    const cone = Math.cos(MathUtils.degToRad(zooms[this.zoom] * (visible ? .45 : .14)));
     for (const unit of units) {
       if (!unit.active || unit.arrived) continue;
       this.point.copy(unit.position).y += unit.spec.dimensions[1] * .72;
@@ -108,8 +125,9 @@ export class TargetingPod {
       if (distance > maxRange || distance < 4) continue;
       const alignment = this.delta.dot(this.direction) / distance;
       const angularError = 1 - alignment;
-      const cone = Math.cos(MathUtils.degToRad(zooms[this.zoom] * .14));
-      if (alignment < cone || angularError >= best || !this.inside(this.point)) continue;
+      if (alignment < cone || !this.inside(this.point)) continue;
+      visible?.push(unit);
+      if (angularError >= best) continue;
       candidate = unit;
       best = angularError;
     }
@@ -140,18 +158,32 @@ export class TargetingPod {
       return true;
     }
     const unit = this.observe(units);
-    if (unit) {
-      this.track = unit;
-      this.area.copy(unit.position).y += unit.spec.dimensions[1] * .72;
-      this.hasArea = true;
-      this.state = 'POINT TRACK';
-    } else if (this.state === 'AREA TRACK') return false;
+    if (unit) this.setTrack(unit);
+    else if (this.state === 'AREA TRACK') return false;
     else {
       const terrain = this.terrainPoint();
       if (!terrain) return false;
       this.setArea(terrain);
     }
     this.nextScan = -Infinity;
+    return true;
+  }
+
+  setTrack(unit) {
+    this.clearTrack();
+    this.track = unit;
+    this.area.copy(unit.position).y += unit.spec.dimensions[1] * .72;
+    this.hasArea = true;
+    this.state = 'POINT TRACK';
+  }
+
+  cycleTrack(units) {
+    const candidates = [];
+    const nearest = this.observe(units, candidates);
+    if (!nearest) return false;
+    const index = candidates.indexOf(this.track);
+    const unit = index < 0 ? nearest : candidates[(index + 1) % candidates.length];
+    if (unit !== this.track) this.setTrack(unit);
     return true;
   }
 

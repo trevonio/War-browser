@@ -124,6 +124,12 @@
           <div class="instrument-label" id="cannon-label">M61A1 · 20 MM</div>
           <output id="cannon-ammo">510</output><span class="unit" id="cannon-unit">RDS</span>
           <div class="instrument-note" id="cannon-state">READY</div>
+          <div id="weapon-actions" class="weapon-actions" hidden>
+            <span id="weapon-station" class="instrument-note"></span>
+            <span id="secondary-context"><kbd id="secondary-key">Space</kbd> <b id="secondary-action"></b></span>
+            <span id="secondary-cycle"><kbd id="secondary-cycle-key">Q</kbd> Weapon <kbd id="key-targetAction">R</kbd> Target</span>
+            <span id="cannon-context">LMB / <kbd id="cannon-key">Enter</kbd> Cannon · <span id="cannon-count"></span></span>
+          </div>
           <span id="hit-confirmation" hidden>HIT CONFIRMED</span>
         </div>
       </div>
@@ -159,7 +165,7 @@
       <aside id="cas-radio" hidden aria-label="Ground radio">
         <div><b>GROUND RADIO</b><span id="cas-call-count"></span></div>
         <p id="cas-radio-message" role="status"></p>
-        <button id="cas-map-open" type="button"><kbd id="key-tacticalMap">Tab</kbd> Tactical map</button>
+        <button id="cas-map-open" type="button"><kbd id="key-tacticalMap">M</kbd> Tactical map</button>
       </aside>
       <div id="ground-contact-marker" hidden><span class="contact-symbol" aria-hidden="true"></span><span id="ground-contact-label"></span></div>
       <div id="opponent-marker" hidden><span class="contact-symbol" aria-hidden="true"></span><span id="contact-label"></span></div>
@@ -183,22 +189,34 @@
           <div class="scope-row"><span id="radar-contacts">0 CONTACTS</span><span id="radar-track">—</span></div>
           <div id="radar-closure"></div>
         </section>
+        <div class="scope-row"><span><kbd id="key-defensiveProgram">X</kbd> Countermeasures</span></div>
         <div class="scope-row"><span>FLARE <output id="remaining-flare">8</output></span><span>CHAFF <output id="remaining-chaff">8</output></span></div>
         <div id="missile-telemetry"></div>
         <div id="launch-feedback" role="status"></div>
       </section>
       <aside id="strike-stores" hidden aria-label="Precision avionics">
         <div id="strike-readiness"></div>
-        <span id="pod-toggle-hint"><kbd id="key-podView">7</kbd> Targeting pod</span>
-        <span id="surface-fire" hidden><kbd id="strike-chaff-key">K</kbd> Chaff <kbd id="strike-flare-key">J</kbd> Flares</span>
+        <span id="pod-toggle-hint"><kbd id="key-podView">C</kbd> Targeting pod</span>
+
       </aside>
       <section id="pod-view" hidden aria-label="Targeting pod">
         <div class="pod-telemetry"><b id="pod-mode">DAY</b><span id="pod-zoom"></span><span id="pod-track">FREE SLEW</span></div>
         <div class="pod-reticle" aria-hidden="true"></div>
         <div class="pod-target"><span id="pod-target"></span><b id="pod-designation"></b></div>
-        <div class="pod-help"><kbd id="pod-track-key">L</kbd> Track <kbd id="pod-mark-key">O</kbd> Designate
-          <kbd id="pod-laser-key">P</kbd> Laser <kbd id="key-podMode">0</kbd> Sensor
-          <kbd id="pod-center-key">I</kbd> Recenter <kbd>Wheel</kbd> Zoom</div>
+        <div class="pod-help">
+          <div class="pod-toolbar" role="group" aria-label="Pod controls">
+            <button id="toggle-podZoomOut" type="button" aria-label="Zoom out" title="Zoom out"><kbd id="key-podZoomOut">−</kbd></button>
+            <button id="toggle-podZoomIn" type="button" aria-label="Zoom in" title="Zoom in"><kbd id="key-podZoomIn">+</kbd></button>
+            <button id="toggle-podMode" type="button"><kbd id="key-podMode">0</kbd> Sensor</button>
+            <button id="toggle-zoomCursor" type="button" hidden>Resume slew</button>
+          </div>
+          <div class="pod-hints">
+            <span>LMB Designate</span>
+            <span><kbd id="pod-laser-key">P</kbd> Laser</span>
+            <span id="pod-cursor-help"><kbd id="pod-cursor-key">F</kbd> <span id="pod-cursor-action">Cursor</span></span>
+
+          </div>
+        </div>
       </section>
       <div id="ground-status" class="range-status stage-ground-status" hidden>
         <b id="ground-range-caption">GROUND RANGE</b>
@@ -213,13 +231,6 @@
         </span>
         <span><kbd id="key-weaponBomb">5</kbd> Bombs <kbd id="key-weaponRocket">6</kbd> Rockets <kbd id="key-jettisonTank">8</kbd> Drop tank</span>
         <span id="ground-rearm-hint" hidden><kbd id="key-rearmGround">9</kbd> Rearm range weapons</span>
-      </div>
-      <div id="combat-shortcuts" aria-label="Air combat shortcuts" hidden>
-        <span><kbd id="key-cycleWeapon">4</kbd> Weapon <kbd id="key-fireSelected">Space</kbd> Fire</span>
-        <span><kbd id="key-radarPower">P</kbd> Radar <kbd id="key-radarTarget">T</kbd> Contact <kbd id="key-radarLock">L</kbd> Lock</span>
-        <span><kbd id="key-radarMode">Y</kbd> Mode <kbd id="key-radarRange">U</kbd> Range <kbd id="key-radarScope">I</kbd> Scope</span>
-        <span><kbd id="key-flares">J</kbd> Flare <kbd id="key-chaff">K</kbd> Chaff</span>
-        <span><kbd id="missile-view-hint">N</kbd> Missile view <kbd id="target-view-hint">Z</kbd> Target view</span>
       </div>
     </section>
 
@@ -295,15 +306,15 @@
           <span id="camera-name" class="deck-value">Chase camera</span>
         </div>
       </div>
-      <div id="ready-help" class="ready-help"><span><kbd>Mouse</kbd> Aim · <kbd>Left click</kbd> Fire · <kbd>Esc</kbd> Release</span><span><kbd id="help-maneuver">W A S D</kbd> Maneuver</span><span><kbd id="help-throttle">Shift / Ctrl</kbd> Throttle</span></div>
+      <div id="ready-help" class="ready-help"><span><kbd>Mouse</kbd> Aim · <kbd>Left click</kbd> Cannon · <kbd>Esc</kbd> Release</span><span><kbd id="help-maneuver">W A S D</kbd> Maneuver</span><span><kbd id="help-throttle">Shift / Ctrl</kbd> Throttle</span></div>
       <div id="flight-actions" class="flight-actions" aria-label="Aircraft systems">
         <button id="toggle-burner" type="button" aria-pressed="false"><kbd id="key-afterburner">B</kbd><span>Afterburner <small id="burner-state">Off</small></span></button>
         <button id="toggle-gear" type="button" aria-pressed="false"><kbd id="key-gear">G</kbd><span>Gear <small id="gear-state">Up</small></span></button>
         <button id="toggle-stores" type="button" aria-pressed="true"><kbd id="key-stores">H</kbd><span>Stores <small id="stores-state">On</small></span></button>
-        <button id="toggle-airbrake" type="button" aria-pressed="false"><kbd id="key-airbrake">X</kbd><span>Airbrake <small id="brake-state">Off</small></span></button>
+        <button id="toggle-airbrake" type="button" aria-pressed="false"><kbd id="key-airbrake">/</kbd><span>Airbrake <small id="brake-state">Off</small></span></button>
         <button id="toggle-camera" type="button"><kbd id="key-camera">V</kbd><span>Camera <small id="camera-state">Chase</small></span></button>
-        <button id="toggle-sight" type="button" aria-pressed="false"><kbd id="key-sight">C</kbd><span>Gun computer <small id="sight-enabled">Off</small></span></button>
-        <button id="toggle-sightMode" type="button"><kbd id="key-sightMode">M</kbd><span>Sight mode <small id="sight-selected">CCIP</small></span></button>
+        <button id="toggle-sight" type="button" aria-pressed="false"><kbd id="key-sight">;</kbd><span>Gun computer <small id="sight-enabled">Off</small></span></button>
+        <button id="toggle-sightMode" type="button"><kbd id="key-sightMode">'</kbd><span>Sight mode <small id="sight-selected">CCIP</small></span></button>
         <button id="toggle-pause" type="button"><kbd id="key-pause">Esc</kbd><span>Pause</span></button>
       </div>
       <output id="elapsed" class="elapsed" aria-label="Elapsed flight time">00:00</output>
@@ -406,9 +417,25 @@
           <p class="settings-hint">Hold right mouse or the free-look key to look around. Scroll to adjust chase distance.</p>
         </section>
         <section aria-labelledby="keybinds-title">
-          <div class="keybind-header"><h3 id="keybinds-title">Key bindings</h3><button id="reset-keys" class="text-button" type="button">Restore defaults</button></div>
+          <div class="keybind-header"><h3 id="keybinds-title">Key bindings</h3><button id="reset-keys" class="text-button" type="button">Restore simple defaults</button></div>
+          <div class="binding-groups" role="group" aria-label="Control groups">
+            <button id="simple-bindings" class="utility-button" type="button" aria-pressed="true">Simple controls</button>
+            <button id="advanced-bindings" class="utility-button" type="button" aria-pressed="false">Advanced controls</button>
+          </div>
           <p id="rebind-message" class="settings-hint" aria-live="polite">Select a binding to change it.</p>
           <div id="bindings"></div>
+          <label class="settings-row" id="release-order-row" for="release-order" hidden>Hardpoint release order
+            <select id="release-order"><option value="mounted">Loadout order</option><option value="left">Left first</option><option value="right">Right first</option></select>
+          </label>
+        </section>
+        <section aria-labelledby="counter-program-title">
+          <h3 id="counter-program-title">Countermeasures</h3>
+          <label class="settings-row" for="counter-program">Program
+            <select id="counter-program"><option value="auto">Automatic</option><option value="flare">Flares</option><option value="chaff">Chaff</option><option value="mixed">Mixed</option></select>
+          </label>
+          <label class="settings-row" for="unknown-program">Unidentified threat
+            <select id="unknown-program"><option value="mixed">Mixed</option><option value="flare">Flares</option><option value="chaff">Chaff</option></select>
+          </label>
         </section>
       </div>
     </dialog>

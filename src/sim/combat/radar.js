@@ -90,11 +90,20 @@ export class Radar {
     this.revision++;
   }
 
-  selectNext() {
-    if (!this.power || this.locked) return;
+  selectNext(allowSwitch = false) {
+    if (!this.power || this.locked && !allowSwitch) return;
+    if (this.locked) this.clearSelection(false);
     const contacts = [...this.contacts.keys()];
     if (!contacts.length) return;
     this.selected = contacts[(contacts.indexOf(this.selected) + 1) % contacts.length];
+    this.revision++;
+  }
+
+  clearSelection(clearContact = true) {
+    this.locked = null;
+    if (clearContact) this.selected = null;
+    this.emissions.clear();
+    this.nextSweep = 0;
     this.revision++;
   }
 

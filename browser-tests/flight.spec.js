@@ -84,7 +84,7 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   await expect(page.locator('#gear-state')).toHaveText('Up');
   await page.keyboard.press('h');
   await expect(page.locator('#stores-state')).toHaveText('On');
-  await page.keyboard.press('x');
+  await page.keyboard.press('/');
   await expect(page.locator('#brake-state')).toHaveText('On');
 
   await page.keyboard.press('v');
@@ -323,7 +323,7 @@ test('mouse pitch stays in the current roll hemisphere through vertical correcti
   }
   expect((await sample()).minBankCosine).toBeGreaterThan(0.94);
 
-  await page.keyboard.press('r');
+  await page.keyboard.press('Backspace');
   await expect.poll(async () => (await sample()).elapsed).toBeLessThan(2);
   await page.evaluate(() => { window.flightSample.releaseAt = 2.85; });
   await page.keyboard.down('d');
@@ -434,8 +434,8 @@ test('dogfight briefing selects opponents, scores a cannon win, and restarts', a
   await startFlight(page);
   await expect(page.locator('#opponent-marker')).toBeVisible();
   await expect(page.locator('#opponent-status')).toHaveText('PATROL');
-  await page.keyboard.press('c');
-  await page.keyboard.press('m');
+  await page.keyboard.press(';');
+  await page.keyboard.press("'");
   await expect(page.locator('#sight-mode')).toHaveText('VISUAL LEAD');
   await expect(page.locator('#sight-state')).toHaveText(/^VALID/, { timeout: 8000 });
   await page.mouse.down({ button: 'left' });
@@ -474,19 +474,19 @@ test('gun computer displays training lead and a valid CCIP in a dive', async ({ 
   const readout = page.locator('#sight-readout');
   const marker = page.locator('#sight-marker');
   const state = page.locator('#sight-state');
-  await page.keyboard.press('c');
-  await page.keyboard.press('m');
+  await page.keyboard.press(';');
+  await page.keyboard.press("'");
   await expect(state).toHaveText(/^VALID · \d+ M$/);
   await expect(page.locator('#sight-mode')).toHaveText('TRAINING LEAD');
   await expect(marker).toBeVisible();
 
-  await page.keyboard.press('m');
+  await page.keyboard.press("'");
   await expect(state).toHaveText('NO IMPACT');
   await expect(marker).toBeHidden();
   await relativeMouse(page, 0, 930);
   await expect(state).toHaveText(/^VALID · \d+ M$/, { timeout: 18000 });
   await expect(marker).toHaveAttribute('data-mode', 'impact');
-  await page.keyboard.press('c');
+  await page.keyboard.press(';');
   await expect(readout).toBeHidden();
   await expect(marker).toBeHidden();
 });
@@ -504,7 +504,6 @@ test('BVR scope finds and locks an inbound contact and supports a radar missile'
   await expect(flightState).toHaveText('STT REQUIRED');
   await page.keyboard.press('Space');
   await expect(page.locator('#cannon-ammo')).toHaveText('2');
-  await page.keyboard.press('p');
   await expect(contacts).toHaveText('1 CONTACT');
   await page.keyboard.press('u');
   await expect(page.locator('#radar-range')).toHaveText('3.2');
@@ -514,8 +513,7 @@ test('BVR scope finds and locks an inbound contact and supports a radar missile'
   await page.keyboard.press('y');
   await expect(mode).toHaveText('TWS');
   await expect(contacts).toHaveText('1 CONTACT');
-  await page.keyboard.press('t');
-  await page.keyboard.press('l');
+  await page.keyboard.press('r');
   await expect(mode).toHaveText('STT');
   await expect(page.locator('#radar-track')).toHaveText(/^LOCK \d+\.\d KM$/);
   await expect(flightState).toHaveText('CLEARED');
@@ -534,10 +532,10 @@ test('BVR scope finds and locks an inbound contact and supports a radar missile'
   await page.keyboard.press('v');
   await expect(page.locator('#camera-status')).toBeHidden();
   expect(await locked(page)).toBe('viewport');
-  await page.keyboard.press('l');
+  await page.keyboard.press('r', { delay: 600 });
   await expect(mode).toHaveText('TWS');
   await expect(page.locator('#missile-telemetry')).toHaveText('MIDCOURSE · COAST');
-  await page.keyboard.press('l');
+  await page.keyboard.press('r');
   await expect(mode).toHaveText('STT');
   await expect(page.locator('#rwr-contact')).toHaveText(/TRACK|ACTIVE SEEKER/);
   await expect(page.locator('#missile-telemetry')).toHaveText(/SEEKER (ACTIVE|SEARCHING)/, { timeout: 18000 });
@@ -551,22 +549,30 @@ test('close-range missile exercise spends a store and releases finite countermea
   await page.getByRole('button', { name: 'Missile dogfight' }).click({ timeout: 20000 });
   await page.getByLabel('Opponent difficulty').selectOption('rookie');
   await startFlight(page);
+  await expect(page.locator('#cannon-state')).toHaveText('SEEKER STANDBY');
+  await expect(page.locator('#secondary-action')).toHaveText('ACQUIRE TARGET');
+  await page.mouse.down({ button: 'left' });
+  await expect.poll(async () => Number(await page.locator('#cannon-count').textContent())).toBeLessThan(510);
+  await page.mouse.up({ button: 'left' });
+  const cannonCount = await page.locator('#cannon-count').textContent();
+  await expect(page.locator('#cannon-ammo')).toHaveText('2');
+  await page.keyboard.down('Space');
   await expect(page.locator('#cannon-state')).toHaveText('CLEARED');
-  await page.keyboard.press('h');
-  await expect(page.locator('#stores-state')).toHaveText('Off');
-  await page.mouse.click(640, 360);
+  await page.keyboard.down('Space');
+  await expect(page.locator('#cannon-ammo')).toHaveText('2');
+  await expect.poll(async () => Math.abs(Number(await page.locator('#cannon-count').textContent()) - Number(cannonCount))).toBeLessThanOrEqual(1);
+  await page.keyboard.up('Space');
+  await page.keyboard.press('Space');
   await expect(page.locator('#cannon-ammo')).toHaveText('1');
   await expect(page.locator('#missile-telemetry')).toHaveText('IR MISSILE IN FLIGHT');
   await expect(page.locator('#rwr-contact')).toHaveText('CLEAR');
-  await page.keyboard.press('j');
-  await page.keyboard.press('k');
+  await page.keyboard.press('x');
   await expect(page.locator('#remaining-flare')).toHaveText('7');
   await expect(page.locator('#remaining-chaff')).toHaveText('3');
-  await page.keyboard.press('i');
   await expect(page.locator('#radar-panel')).toBeHidden();
   await page.keyboard.press('1');
   await expect(page.locator('#cannon-label')).toHaveText('M61A1 · 20 MM');
-  await page.keyboard.press('c');
+  await page.keyboard.press(';');
   await expect(page.locator('#sight-mode')).toBeVisible();
   await page.keyboard.press('2');
   await expect(page.locator('#cannon-label')).toHaveText('SIDEWINDER · IR');
@@ -590,7 +596,7 @@ test('Outnumbered tracks two opponents, preserves aim in target view, and record
   await expect(page.locator('#radar-contacts')).toHaveText('2 CONTACTS');
   await page.keyboard.press('t');
   await expect(page.locator('#contact-label')).toHaveText(/F-16C 01 · .* KM · SEARCH/);
-  await page.keyboard.press('z');
+  await page.keyboard.press(',');
   await expect(page.locator('#camera-view-label')).toHaveText('Target view · F-16C 01');
   await relativeMouse(page, 950, -350);
   expect(await locked(page)).toBe('viewport');
@@ -602,9 +608,9 @@ test('Outnumbered tracks two opponents, preserves aim in target view, and record
 
   await page.keyboard.press('1');
   await expect(page.locator('#cannon-ammo')).toHaveText('260');
-  await page.keyboard.down('Space');
+  await page.keyboard.down('Enter');
   await expect(page.locator('#cannon-ammo')).not.toHaveText('260');
-  await page.keyboard.up('Space');
+  await page.keyboard.up('Enter');
   await relativeMouse(page, 0, 750);
   await expect(page.getByRole('heading', { name: 'Mission lost' })).toBeVisible({ timeout: 36000 });
   await expect(page.locator('#result-enemies')).toHaveText('0 / 2');
@@ -648,7 +654,7 @@ test('selects, previews, and flies the Eagle, then launches in a mixed intercept
   await expect(page.locator('#engine-state')).toHaveText('AFTERBURNER', { timeout: 11000 });
   await page.keyboard.press('g');
   await expect(page.locator('#gear-state')).toHaveText('Down');
-  await page.keyboard.press('c');
+  await page.keyboard.press(';');
   await expect(page.locator('#sight-mode')).toHaveText('CCIP');
   await relativeMouse(page, 105, 30);
   expect(await locked(page)).toBe('viewport');
@@ -669,7 +675,7 @@ test('selects, previews, and flies the Eagle, then launches in a mixed intercept
   await expect(page.locator('#cannon-ammo')).toHaveText('3');
   await page.keyboard.press('j');
   await expect(page.locator('#remaining-flare')).toHaveText('9');
-  await page.keyboard.press('r');
+  await page.keyboard.press('Backspace');
   await expect(page.locator('#cannon-ammo')).toHaveText('4');
   await pauseFlight(page);
   await page.getByRole('button', { name: 'Back to briefing' }).click();
@@ -717,14 +723,13 @@ test('edits and restores a loadout, launches range stores, and records ground re
   await expect(rounds).toHaveText('2');
   await expect(page.locator('#ground-remaining')).toHaveText('5 / 5 TARGETS ACTIVE');
   await expect(page.locator('#external-fuel')).toHaveText(/KG EXTERNAL FUEL/);
-  await page.keyboard.press('c');
   await expect(page.locator('#sight-mode')).toHaveText('BOMB CCIP');
   await expect.poll(() => page.evaluate(() => document.querySelector('#sight-readout').getBoundingClientRect().bottom
     < document.querySelector('#flight-deck').getBoundingClientRect().top)).toBe(true);
   await expect(page.locator('#sight-state')).toHaveText(/^(VALID|OFFSCREEN) · \d+ M$/);
   await page.keyboard.press('Space');
   await expect(rounds).toHaveText('1');
-  await page.keyboard.press('6');
+  await page.keyboard.press('q');
   await expect(page.locator('#sight-mode')).toHaveText('ROCKET CCIP');
   await expect(rounds).toHaveText('14');
   await page.keyboard.press('Space');
@@ -772,7 +777,6 @@ test('flies both dynamic ground missions with visual contacts and the existing C
   const selected = await marker.getAttribute('data-contact');
   await page.keyboard.press('t');
   await expect(marker).not.toHaveAttribute('data-contact', selected);
-  await page.keyboard.press('c');
   await expect(page.locator('#sight-mode')).toHaveText('BOMB CCIP');
   await expect(page.locator('#sight-state')).toHaveText(/^(VALID|OFFSCREEN) · \d+ M$/);
   await page.keyboard.press('Space');
@@ -841,9 +845,8 @@ test('prepares seeded CAS, accepts a ground call, and restores pointer lock with
   await expect.poll(() => locked(page)).toBe('viewport');
   await expect(page.locator('#cas-call-count')).toContainText('support', { timeout: 12000 });
   if (timings) timings.flight = await sample();
-  await page.keyboard.press('c');
   await expect(page.locator('#sight-mode')).toHaveText('BOMB CCIP');
-  await page.keyboard.press('Tab');
+  await page.keyboard.press('m');
   const map = page.getByRole('dialog', { name: 'Tactical map' });
   await expect(map).toBeVisible();
   await expect.poll(() => locked(page)).toBeNull();
@@ -867,7 +870,7 @@ test('prepares seeded CAS, accepts a ground call, and restores pointer lock with
   await expect(page.locator('#cas-designation')).toBeVisible();
   await page.keyboard.press('Space');
   await expect(page.locator('#cannon-ammo')).toHaveText('1');
-  await page.keyboard.press('r');
+  await page.keyboard.press('Backspace');
   await expect(page.locator('#cannon-ammo')).toHaveText('2');
   await pauseFlight(page);
   await page.getByRole('button', { name: 'Back to CAS briefing' }).click();
@@ -952,7 +955,7 @@ test('uses the live targeting pod, saves a map fix, and follows an optical missi
   await expect.poll(() => locked(page)).toBe('viewport');
   await expect(page.locator('#strike-readiness')).toHaveText('LASER REQUIRED');
 
-  await page.keyboard.press('7');
+  await page.keyboard.press('c');
   const pod = page.getByRole('region', { name: 'Targeting pod' });
   await expect(pod).toBeVisible();
   const centered = await pod.locator('.pod-reticle').evaluate((element) => {
@@ -979,7 +982,7 @@ test('uses the live targeting pod, saves a map fix, and follows an optical missi
   await page.keyboard.press('0');
   await expect(page.locator('#pod-mode')).toHaveText('BLACK HOT');
   if (timings) timings.blackHot = await sample();
-  await page.keyboard.press('Tab');
+  await page.keyboard.press('m');
   const map = page.getByRole('dialog', { name: 'Tactical map' });
   await expect(map).toBeVisible();
   await map.locator('#cas-map-objective').click();
@@ -988,20 +991,39 @@ test('uses the live targeting pod, saves a map fix, and follows an optical missi
   await expect(page.locator('#pod-track')).toHaveText('AREA TRACK');
   await page.keyboard.press('o');
   await expect(page.locator('#pod-designation')).toHaveText(/^FIX /);
-  await page.keyboard.press('Tab');
+  await page.keyboard.press('m');
   await expect(map.locator('#cas-map-fix')).toContainText('Saved fix');
   await map.getByRole('button', { name: 'Return to flight' }).click();
   await expect.poll(() => locked(page)).toBe('viewport');
   await expect(page.locator('#pod-target')).toContainText('HOSTILE', { timeout: 4500 });
-  await page.keyboard.press('l');
+  await page.keyboard.press('r');
   await expect(page.locator('#pod-track')).toHaveText('POINT TRACK', { timeout: 5500 });
   await expect(page.locator('#pod-target')).toContainText('HOSTILE');
+  await page.keyboard.press('f');
+  await expect.poll(() => locked(page)).toBeNull();
+  const zoomIn = pod.getByRole('button', { name: 'Zoom in' });
+  const zoomOut = pod.getByRole('button', { name: 'Zoom out' });
+  await zoomIn.click();
+  await expect(page.locator('#pod-zoom')).toHaveText('MEDIUM');
+  await zoomIn.press('Space');
+  await expect(page.locator('#pod-zoom')).toHaveText('NARROW');
+  await expect(page.locator('#cannon-ammo')).toHaveText('1');
+  await expect(zoomIn).toBeDisabled();
+  await zoomOut.click();
+  await expect(page.locator('#pod-zoom')).toHaveText('MEDIUM');
+  await pod.getByRole('button', { name: 'Resume slew' }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await page.keyboard.press('Minus');
+  await expect(page.locator('#pod-zoom')).toHaveText('WIDE');
+  await page.keyboard.press('Equal');
+  await expect(page.locator('#pod-zoom')).toHaveText('MEDIUM');
+  await expect(page.locator('#pod-track')).toHaveText('POINT TRACK');
   await page.keyboard.press('p');
   await expect(page.locator('#pod-designation')).toHaveText('LASER ON');
   if (timings) await page.screenshot({ path: testInfo.outputPath('precision-pod.png') });
-  await page.keyboard.press('4');
+  await page.keyboard.press('q');
   await expect(page.locator('#cannon-label')).toHaveText('COORDINATE GLIDE BOMB');
-  await page.keyboard.press('4');
+  await page.keyboard.press('q');
   await expect(page.locator('#cannon-label')).toHaveText('OPTICAL STRIKE MISSILE');
   await expect(page.locator('#strike-readiness')).toHaveText('CLEARED');
   await page.keyboard.press('Space');
@@ -1024,9 +1046,37 @@ test('radar sites acquire aircraft and the RWR and countermeasure rack work in C
   await expect.poll(() => locked(page)).toBe('viewport');
   await expect(page.locator('#rwr-contact')).toHaveText(/^(SEARCH|TRACK|ACTIVE SEEKER)$/, { timeout: 11000 });
   const remaining = Number(await page.locator('#remaining-chaff').textContent());
-  await page.keyboard.press('k');
+  const flares = await page.locator('#remaining-flare').textContent();
+  await page.keyboard.press('x');
   await expect(page.locator('#remaining-chaff')).toHaveText(String(remaining - 1));
+  await expect(page.locator('#remaining-flare')).toHaveText(flares);
   await expect(page.locator('#rwr-bearing')).toHaveText(/° REL/);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
+});
+
+
+test('settings migrate legacy controls, expose advanced bindings and explain conflicts', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('war-browser:settings')) localStorage.setItem('war-browser:settings', JSON.stringify({
+      preset: 'low', keys: { sight: 'KeyC', yawLeft: 'KeyQ', camera: 'BracketLeft' },
+    }));
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const settings = page.getByRole('dialog', { name: 'Settings' });
+  await expect(settings.locator('[data-binding="podView"] kbd')).toHaveText('C');
+  await expect(settings.locator('[data-binding="camera"] kbd')).toHaveText('[');
+  await expect(settings.locator('[data-binding="radarMode"]')).toBeHidden();
+  await settings.getByRole('button', { name: 'Advanced controls' }).click();
+  await expect(settings.locator('[data-binding="podZoomIn"] kbd')).toHaveText('+');
+  await settings.locator('[data-binding="podZoomIn"]').click();
+  await page.keyboard.press('x');
+  await expect(settings.locator('#rebind-message')).toHaveText('Deploy countermeasure program moved to +.');
+  await expect(settings.locator('[data-binding="podZoomIn"] kbd')).toHaveText('X');
+  await settings.getByRole('button', { name: 'Restore advanced defaults' }).click();
+  await expect(settings.locator('[data-binding="podZoomIn"] kbd')).toHaveText('+');
+  await page.reload();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(settings.locator('[data-binding="camera"] kbd')).toHaveText('[');
 });

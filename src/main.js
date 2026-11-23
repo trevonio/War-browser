@@ -2,7 +2,8 @@ import * as T from 'three';
 import { aircraftRegistry, defaultAircraft } from './aircraft/registry.js';
 import { CannonAudio } from './audio/cannon-audio.js';
 import { attenuation, FlightSound } from './audio/flight-sound.js';
-import { canBind, Controls, keyDefaults, keyLabels, keyName, loadSettings, saveSettings } from './controls.js';
+import { canBind, Controls, keyLabels, keyName, loadSettings, resetBindings, saveSettings, simpleActions } from './controls.js';
+import { countermeasureProgram, FlightInput, secondaryAction } from './combat-input.js';
 import { FlightPointerLock } from './pointer-lock.js';
 import { opponentModes } from './sim/ai-pilot.js';
 import { cannonRoundMass } from './sim/cannon.js';
@@ -54,8 +55,6 @@ const flightLabels = {
   cas: 'CLOSE AIR SUPPORT', battlefield: 'BATTLEFIELD SUPPORT', convoy: 'CONVOY INTERDICTION',
   groundRange: 'GROUND ATTACK RANGE', short: 'MISSILE DOGFIGHT', intercept: 'BVR INTERCEPT', outnumbered: 'OUTNUMBERED',
 };
-const combatShortcuts = ['cycleWeapon', 'fireSelected', 'radarPower', 'radarTarget', 'radarLock',
-  'radarMode', 'radarRange', 'radarScope', 'flares', 'chaff'];
 
 requestAnimationFrame(async () => {
   try {
@@ -118,7 +117,12 @@ async function boot() {
   const capture = new FlightPointerLock(ui.viewport, {
     acquired: () => {
       ui['keyboard-flight'].hidden = true;
-      changeScreen('flying');
+      if (screen === 'flying' && podCursor) {
+        podCursor = false;
+        document.body.dataset.captured = 'true';
+        document.activeElement?.blur();
+        updatePodHud(pod.active);
+      } else changeScreen('flying');
     },
     lost: () => pauseFlight('Mouse capture released. Resume to capture it again.'),
     failed: (reason) => {
@@ -246,19 +250,24 @@ async function boot() {
   const weaponsAvailable = () => combat.enabled || Boolean(activeLoadout);
   const selectedWeapon = () => weaponsAvailable() ? combat.player.rack.selected : 'cannon';
   const groundWeapon = (type) => type === 'bomb' || type === 'rocket';
-  const canFire = () => screen === 'flying' && !ui.settings.open && (capture.locked || keyboardFlight);
+  const canFire = () => screen === 'flying' && !ui.settings.open && !podCursor && (capture.locked || keyboardFlight);
   const visualTrack = new VisualTrack();
   const droneTrack = { position: null, velocity: new T.Vector3() };
   const trigger = new CannonTrigger(ui.viewport, {
     enabled: canFire,
+    interact: () => {
+      if (!pod.active && !combatCamera.observing) return false;
+      if (pod.active) input.run('podDesignate');
+      return true;
+    },
     pressed: () => {
-      const weapon = selectedWeapon();
-      if (weapon !== 'cannon') queuedLaunch = weapon;
-      else if (cannon.ammo) audio.beginTrigger();
+      if (cannon.ammo) audio.beginTrigger();
+      invalidateSight();
       updateWeaponHud();
     },
     released: () => {
       audio.setFiring(false);
+      invalidateSight();
       updateWeaponHud();
     },
   }, signal);
@@ -281,13 +290,13 @@ async function boot() {
   const sightProjection = new T.Vector3();
   const sightBearing = new T.Vector3();
   const sightForward = new T.Vector3();
-  let sightActive = false;
+  let sightActive = null;
   let sightMode = 'impact';
   let nextSight = 0;
   let opticalTarget = null;
   let nextDamageTrail = 0;
   let combatEffects;
-  let scopeVisible = true;
+  let scopeVisible = null;
   let radarRevision = -1;
   let queuedLaunch = null;
   let lastWarning = '';
@@ -300,6 +309,8 @@ async function boot() {
   let startingPosition = 'air';
   let brake = false;
   let rebinding;
+  let advancedBindings = false;
+  let podCursor = false;
   let keyboardFlight = false;
   let viewportWidth = 0;
   let viewportHeight = 0;
@@ -329,7 +340,10 @@ async function boot() {
   }
 
   function changeScreen(next, pauseMessage = 'Your aircraft is holding position.') {
-    if (next !== 'flying') capture.release();
+    if (next !== 'flying') {
+      capture.release();
+      podCursor = false;
+    }
     if (next === 'complete' || next === 'failed') {
       combatCamera.returnToAircraft();
       pod.active = false;
@@ -346,7 +360,7 @@ async function boot() {
     trigger.clear();
     queuedLaunch = null;
     audio.setFiring(false);
-    controls.clear();
+    input.clear();
     accumulator = 0;
     if (next === 'paused') {
       text('pause-title', 'Paused');
@@ -462,6 +476,7 @@ async function boot() {
     if (director) ui['result-airframe-row'].hidden = false;
     if ((exercise || defenses.enabled) && !combatEffects) combatEffects = new CombatEffects(scene, visual, opponentVisual, combat, weaponEffects, [wingmanVisual]);
     combatEffects?.reset(defenses.enabled);
+    combat.player.rack.releaseOrder = settings.releaseOrder;
     activeOpponents[0] = dogfight.enabled;
     activeOpponents[1] = wingman.enabled;
     playerAirframe.reset();
@@ -469,7 +484,7 @@ async function boot() {
     trails.clear();
     combatCamera.reset();
     knownContacts.reset();
-    scopeVisible = true;
+    scopeVisible = null;
     radarRevision = -1;
     lastWarning = '';
     warningCueAt = 0;
@@ -698,6 +713,7 @@ async function boot() {
 
   function updateSettings() {
     saveSettings(settings);
+    combat.player.rack.releaseOrder = settings.releaseOrder;
     document.body.dataset.direct = String(keyboardFlight || settings.controlMode === 'direct');
     text('mouse-value', settings.mouseSensitivity.toFixed(1));
     text('camera-value', settings.cameraSensitivity.toFixed(1));
@@ -707,19 +723,18 @@ async function boot() {
     for (const action of ['afterburner', 'gear', 'stores', 'airbrake', 'camera', 'pause', 'sight', 'sightMode']) {
       text(`key-${action}`, keyName(settings.keys[action]));
     }
-    for (const action of [...combatShortcuts, 'weaponBomb', 'weaponRocket', 'jettisonTank', 'rearmGround']) {
+    for (const action of ['weaponBomb', 'weaponRocket', 'jettisonTank', 'rearmGround']) {
       text(`key-${action}`, keyName(settings.keys[action]));
     }
     for (const action of ['missileView', 'nextMissile', 'targetView']) text(`key-${action}`, keyName(settings.keys[action]));
-    for (const action of ['podView', 'podMode']) text(`key-${action}`, keyName(settings.keys[action]));
-    for (const [id, action] of Object.entries({ 'pod-track-key': 'radarLock', 'pod-mark-key': 'nextMissile',
-      'pod-laser-key': 'radarPower', 'pod-center-key': 'radarScope', 'strike-chaff-key': 'chaff', 'strike-flare-key': 'flares' })) {
-      text(id, keyName(settings.keys[action]));
+    for (const action of ['podView', 'podMode', 'targetAction', 'defensiveProgram', 'podZoomIn', 'podZoomOut']) {
+      text(`key-${action}`, keyName(settings.keys[action]));
     }
+    for (const [id, action] of Object.entries({ 'pod-cursor-key': 'freeLook', 'secondary-key': 'fireSelected',
+      'secondary-cycle-key': 'cycleWeapon', 'cannon-key': 'cannonFire' })) text(id, keyName(settings.keys[action]));
+    text('pod-laser-key', keyName(settings.keys.radarPower));
     text('key-tacticalMap', keyName(settings.keys.tacticalMap));
     text('ground-target-key', keyName(settings.keys.radarTarget));
-    text('missile-view-hint', keyName(settings.keys.missileView));
-    text('target-view-hint', keyName(settings.keys.targetView));
     text('restart-key', keyName(settings.keys.restart));
     text('help-maneuver', ['pitchUp', 'rollLeft', 'pitchDown', 'rollRight'].map((key) => keyName(settings.keys[key])).join(' '));
     text('help-throttle', [keyName(settings.keys.throttleUp), keyName(settings.keys.throttleDown)].join(' / '));
@@ -735,7 +750,12 @@ async function boot() {
   function renderBindings() {
     const owner = document.activeElement?.dataset.binding;
     ui.bindings.replaceChildren();
+    ui['release-order-row'].hidden = !advancedBindings;
+    pressed('simple-bindings', !advancedBindings);
+    pressed('advanced-bindings', advancedBindings);
+    text('reset-keys', advancedBindings ? 'Restore advanced defaults' : 'Restore simple defaults');
     for (const [action, label] of Object.entries(keyLabels)) {
+      if (simpleActions.has(action) === advancedBindings) continue;
       const button = document.createElement('button');
       const key = document.createElement('kbd');
       button.type = 'button';
@@ -756,6 +776,8 @@ async function boot() {
 
   function openSettings() {
     pauseFlight('Resume flight to recapture the mouse.');
+    advancedBindings = false;
+    renderBindings();
     ui.settings.showModal();
     ui['close-settings'].focus();
   }
@@ -765,12 +787,113 @@ async function boot() {
     const rack = combat.player.rack;
     const before = rack.selected;
     if (type) rack.select(type);
-    else rack.cycle();
+    else rack.cycleSecondary();
     if (rack.selected === before) return;
+    if (rack.selected === 'radar' && combat.enabled && !rack.radar.power) rack.radar.togglePower();
     queuedLaunch = null;
-    trigger.clear();
+    input.cancelTarget();
     lastClearance = false;
     invalidateSight();
+  }
+
+  const podActions = new Set(['podMode', 'podZoomIn', 'podZoomOut']);
+  const radarShown = () => scopeVisible ?? (selectedWeapon() === 'radar' || combat.player.radar.power);
+  const activeSight = () => sightActive ?? (groundWeapon(selectedWeapon()) || trigger.held);
+
+  function weaponReadiness(weapon, rack) {
+    if (guidedWeapon(weapon)) return ordnance.guidance.status(weapon, rack, pod);
+    const state = rack.launchState(weapon, flight.elapsed);
+    if (weapon === 'infrared' && !rack.infraredRequested && !['AMMO EMPTY', 'INHIBITED', 'CYCLING'].includes(state)) return 'SEEKER STANDBY';
+    return state;
+  }
+
+  function requestRadar(cycle) {
+    const { radar } = combat.player;
+    if (!radar.power) radar.togglePower();
+    if (cycle || !radar.selected) radar.selectNext(cycle);
+    if (!radar.locked && radar.selected && radar.toggleLock()) audio.cue('locked');
+    return radar.locked ? 'ACQUIRING' : radar.contacts.size ? 'LOCK REQUIRED' : 'NO RADAR CONTACT';
+  }
+
+  function designatePod() {
+    if (pod.state === 'TRACK LOST') pod.clearTrack();
+    if (!pod.hasArea) pod.select(podTargets());
+    else if (!pod.track && pod.observed) pod.cycleTrack(podTargets());
+    return pod.designate();
+  }
+
+  function smartRelease() {
+    if (!canFire() || combatCamera.observing || queuedLaunch) return;
+    const weapon = selectedWeapon();
+    if (weapon === 'cannon') return;
+    const { rack } = combat.player;
+    const state = weaponReadiness(weapon, rack);
+    let notice = state;
+    switch (state) {
+      case 'CLEARED':
+      case 'READY':
+        queuedLaunch = weapon;
+        return;
+      case 'SEEKER STANDBY':
+        rack.requestInfrared();
+        notice = 'ACQUIRING';
+        break;
+      case 'STT REQUIRED':
+        notice = requestRadar(false);
+        break;
+      case 'DESIGNATE AREA':
+      case 'LASER REQUIRED':
+      case 'POINT TRACK REQUIRED':
+        if (!podStation()) break;
+        if (!pod.active) actions.podView();
+        if (state === 'POINT TRACK REQUIRED') {
+          if (pod.cycleTrack(podTargets())) notice = 'POINT TRACK ACQUIRED';
+        } else if (designatePod()) {
+          if (weapon === 'laser' && !pod.laserArmed) pod.laser();
+          notice = weapon === 'laser' ? 'LASER REQUESTED' : 'COORDINATES SAVED';
+        }
+        break;
+    }
+    rack.message(notice, flight.elapsed);
+  }
+
+  function chooseTarget(clear) {
+    const { rack, radar } = combat.player;
+    const weapon = selectedWeapon();
+    if (pod.active || guidedWeapon(weapon)) {
+      if (clear) pod.clearDesignation();
+      else if (podStation()) {
+        if (!pod.active) actions.podView();
+        if (!pod.cycleTrack(podTargets())) rack.message('NO VISUAL TRACK', flight.elapsed);
+      }
+    } else if (combat.enabled && weapon === 'infrared') {
+      if (clear) rack.clearInfrared();
+      else rack.requestInfrared(true);
+    } else if (combat.enabled) {
+      if (clear) radar.clearSelection();
+      else rack.message(requestRadar(true), flight.elapsed);
+    } else if (battle.enabled) {
+      if (clear) {
+        groundObserver.clearSelection();
+        battle.director?.select(null);
+      } else actions.radarTarget();
+    }
+    queuedLaunch = null;
+    invalidateSight();
+  }
+
+  function togglePodCursor() {
+    if (!pod.active || keyboardFlight) return;
+    if (podCursor) {
+      capture.request();
+      return;
+    }
+    podCursor = true;
+    trigger.clear();
+    input.clear();
+    queuedLaunch = null;
+    capture.release();
+    document.body.dataset.captured = 'false';
   }
 
   const actions = {
@@ -783,9 +906,33 @@ async function boot() {
       if (!podStation()) return;
       combatCamera.returnToAircraft();
       pod.toggle();
+      trigger.clear();
+      input.cancelTarget();
+      queuedLaunch = null;
+      if (!pod.active && podCursor) capture.request();
       invalidateSight();
     },
     podMode() { if (pod.active) pod.cycleMode(); },
+    podZoomIn() { if (pod.active) pod.stepZoom(1); },
+    podZoomOut() { if (pod.active) pod.stepZoom(-1); },
+    zoomCursor: togglePodCursor,
+    freeLook() { if (pod.active) togglePodCursor(); },
+    podDesignate() {
+      const { rack } = combat.player;
+      rack.message(designatePod() ? 'COORDINATES SAVED' : 'NO VISUAL TRACK', flight.elapsed);
+    },
+    targetAction() { chooseTarget(false); },
+    clearTarget() { chooseTarget(true); },
+    cannonFire() { if (canFire() && !pod.active && !combatCamera.observing) trigger.setKey(true); },
+    endCannon() { trigger.setKey(false); },
+    fireSelected: smartRelease,
+    defensiveProgram() {
+      if (!canFire() || !combat.enabled && !defenses.enabled) return;
+      const { rack, warning } = combat.player;
+      const program = countermeasureProgram(settings.counterProgram, settings.unknownProgram, warning.state);
+      if (program === 'flare' || program === 'mixed') rack.deploy('flare', flight.elapsed, combat.decoys);
+      if (program === 'chaff' || program === 'mixed') rack.deploy('chaff', flight.elapsed, combat.decoys);
+    },
     missileView() {
       if (pod.active) actions.podView();
       combatCamera.cycle(flight, missileCameras());
@@ -796,7 +943,7 @@ async function boot() {
       } else combatCamera.next(flight, missileCameras());
     },
     targetView() { combatCamera.toggleTarget(knownContacts.current); },
-    sight() { sightActive = !sightActive; invalidateSight(); },
+    sight() { sightActive = !activeSight(); invalidateSight(); },
     sightMode() { sightMode = sightMode === 'impact' ? 'lead' : 'impact'; invalidateSight(); },
     weaponCannon() { changeWeapon('cannon'); },
     weaponInfrared() { changeWeapon('infrared'); },
@@ -848,21 +995,26 @@ async function boot() {
     },
     radarMode() { if (combat.enabled) combat.player.radar.cycleMode(); },
     radarRange() { if (combat.enabled) combat.player.radar.cycleRange(); },
-    radarScope() { if (pod.active) { pod.recenter(); return; } if (combat.enabled) { scopeVisible = !scopeVisible; radarRevision = -1; } },
+    radarScope() { if (pod.active) { pod.recenter(); return; } if (combat.enabled) { scopeVisible = !radarShown(); radarRevision = -1; } },
     flares() { if (combat.enabled || defenses.enabled) combat.player.rack.deploy('flare', flight.elapsed, combat.decoys); },
     chaff() { if (combat.enabled || defenses.enabled) combat.player.rack.deploy('chaff', flight.elapsed, combat.decoys); },
     pause() { changeScreen('paused'); },
     restart: restartFlight,
   };
 
-  for (const [name, run] of Object.entries(actions)) {
+  const input = new FlightInput(settings, controls, {
+    flying: () => screen === 'flying' && !ui.settings.open,
+    available: (key) => (key !== 'tacticalMap' || Boolean(battle.director)) && (!podActions.has(key) || pod.active),
+  }, actions, () => {
+    updateHud();
+    updateWeaponHud();
+    updatePodHud(pod.active);
+  });
+
+  for (const name of Object.keys(actions)) {
     ui[`toggle-${name === 'afterburner' ? 'burner' : name}`]?.addEventListener('click', () => {
-      if (screen === 'flying') {
-        run();
-        updateHud();
-        document.activeElement?.blur();
-      }
-    });
+      if (screen === 'flying') input.run(name);
+    }, { signal });
   }
   function selectCasContact(id, accept = false) {
     if (accept) battle.director.accept(id, battle.time);
@@ -946,7 +1098,7 @@ async function boot() {
   for (const [id, property] of Object.entries({ preset: 'preset', 'control-mode': 'controlMode', invert: 'invert',
     'mouse-sensitivity': 'mouseSensitivity', 'camera-sensitivity': 'cameraSensitivity',
     'aim-responsiveness': 'aimResponsiveness', 'camera-smoothing': 'cameraSmoothing',
-    'camera-turn-response': 'cameraTurnResponse' })) {
+    'camera-turn-response': 'cameraTurnResponse', 'counter-program': 'counterProgram', 'unknown-program': 'unknownProgram', 'release-order': 'releaseOrder' })) {
     const field = ui[id];
     if (field.type === 'checkbox') field.checked = settings[property];
     else field.value = settings[property];
@@ -956,10 +1108,18 @@ async function boot() {
       if (property === 'preset') applyPreset();
     });
   }
+  for (const [id, advanced] of [['simple-bindings', false], ['advanced-bindings', true]]) {
+    ui[id].addEventListener('click', () => {
+      advancedBindings = advanced;
+      rebinding = undefined;
+      text('rebind-message', 'Select a binding to change it.');
+      renderBindings();
+    }, { signal });
+  }
   ui['reset-keys'].addEventListener('click', () => {
-    settings.keys = { ...keyDefaults };
+    settings.keys = resetBindings(settings.keys, advancedBindings);
     rebinding = undefined;
-    text('rebind-message', 'Default bindings restored.');
+    text('rebind-message', 'Defaults restored for this group. A binding that occupied a restored key was moved.');
     renderBindings();
     updateSettings();
   });
@@ -971,14 +1131,18 @@ async function boot() {
       if (!rebinding) return;
       event.preventDefault();
       if (code !== 'Escape' && !canBind(code)) return;
+      let message = 'Select a binding to change it.';
       if (code !== 'Escape') {
         const conflict = Object.keys(settings.keys).find((action) => settings.keys[action] === code);
-        if (conflict) settings.keys[conflict] = settings.keys[rebinding];
+        if (conflict && conflict !== rebinding) {
+          message = `${keyLabels[conflict]} moved to ${keyName(settings.keys[rebinding])}.`;
+          settings.keys[conflict] = settings.keys[rebinding];
+        }
         settings.keys[rebinding] = code;
         updateSettings();
       }
       rebinding = undefined;
-      text('rebind-message', 'Select a binding to change it.');
+      text('rebind-message', message);
       renderBindings();
       return;
     }
@@ -993,30 +1157,16 @@ async function boot() {
       if (!event.repeat) requestFlight();
       return;
     }
-    const key = Object.keys(settings.keys).find((action) => settings.keys[action] === code);
-    if (!key || key === 'tacticalMap' && !battle.director) return;
     if (screen === 'paused' || screen === 'failed' || screen === 'complete') {
-      if (!event.repeat && key === 'restart') {
+      if (!event.repeat && code === settings.keys.restart) {
         event.preventDefault();
         restartFlight();
       }
       return;
     }
-    if (screen !== 'flying') return;
-    event.preventDefault();
-    if (key === 'fireSelected') {
-      if (!event.repeat && canFire()) trigger.setKey(true);
-      return;
-    }
-    controls.held.add(code);
-    if (!event.repeat) {
-      actions[key]?.();
-      updateHud();
-    }
+    input.keydown(event);
   }, { signal });
-  window.addEventListener('keyup', (event) => {
-    if (event.code === settings.keys.fireSelected) trigger.setKey(false);
-  }, { signal });
+  window.addEventListener('keyup', (event) => input.keyup(event), { signal });
 
   const deckSize = new ResizeObserver(([entry]) => {
     deckHeight = entry.borderBoxSize[0].blockSize;
@@ -1096,8 +1246,8 @@ async function boot() {
     pressed('toggle-gear', flight.gearDown);
     pressed('toggle-stores', flight.stores);
     pressed('toggle-airbrake', brake);
-    pressed('toggle-sight', sightActive);
-    text('sight-enabled', sightActive ? 'On' : 'Off');
+    pressed('toggle-sight', activeSight());
+    text('sight-enabled', sightActive === null ? 'Auto' : sightActive ? 'On' : 'Off');
     text('sight-selected', sightMode === 'impact' ? 'CCIP' : 'Lead');
     ui['toggle-gear'].disabled = flight.grounded;
   }
@@ -1108,7 +1258,17 @@ async function boot() {
     const firing = screen === 'flying' && trigger.held && cannon.ammo > 0;
     const guns = weapon === 'cannon';
     const ammo = guns ? cannon.ammo : rack.count(weapon);
-    const state = guidedWeapon(weapon) ? ordnance.guidance.status(weapon, rack, pod) : guns ? (ammo === 0 ? 'AMMO EMPTY' : firing ? 'FIRING' : 'READY') : rack.launchState(weapon, flight.elapsed);
+    const state = guns ? (ammo === 0 ? 'AMMO EMPTY' : firing ? 'FIRING' : 'READY') : weaponReadiness(weapon, rack);
+    const inFlight = screen === 'flying';
+    ui['weapon-actions'].hidden = !inFlight;
+    ui['secondary-context'].hidden = guns;
+    ui['cannon-context'].hidden = pod.active;
+    text('secondary-action', secondaryAction(weapon, state));
+    text('cannon-count', cannon.ammo);
+    ui['secondary-cycle'].hidden = !weaponsAvailable();
+    ui['weapon-station'].hidden = guns;
+    const station = guns ? null : rack.station(weapon);
+    text('weapon-station', station?.label ?? station?.name?.replaceAll('-', ' ') ?? '');
     text('cannon-label', guns ? `${flight.spec.cannon.name} · ${flight.spec.cannon.caliber} MM` : weapons[weapon].label);
     text('cannon-ammo', ammo);
     text('cannon-unit', guns ? 'RDS' : groundWeapon(weapon) ? (weapon === 'bomb' ? 'BMB' : 'RKT') : guidedWeapon(weapon) && weapon !== 'optical' ? 'BMB' : 'MSL');
@@ -1161,7 +1321,6 @@ async function boot() {
     const flying = screen === 'flying';
     ui['strike-stores'].hidden = !flying || !pod.mounted && !defenses.enabled && !guidedWeapon(weapon);
     ui['pod-toggle-hint'].hidden = !pod.mounted;
-    ui['surface-fire'].hidden = !defenses.enabled;
     const live = guidedWeapon(weapon) && ordnance.rounds.find((round) => round.active && round.kind === weapon);
     const release = live ? live.validGuide ? 'GUIDING' : 'GUIDANCE LOST · COAST'
       : guidedWeapon(weapon) ? ordnance.guidance.status(weapon, combat.player.rack, pod) : '';
@@ -1173,7 +1332,12 @@ async function boot() {
     ui['pod-view'].dataset.mode = pod.modeName;
     ui['pod-view'].dataset.track = pod.state;
     text('pod-mode', pod.modeName.toUpperCase());
-    text('pod-zoom', ['WIDE', 'MEDIUM', 'NARROW'][pod.zoom]);
+    text('pod-zoom', pod.zoomLabel);
+    ui['toggle-podZoomIn'].disabled = !pod.canZoomIn;
+    ui['toggle-podZoomOut'].disabled = !pod.canZoomOut;
+    ui['pod-cursor-help'].hidden = keyboardFlight;
+    ui['toggle-zoomCursor'].hidden = !podCursor;
+    text('pod-cursor-action', podCursor ? 'Slew' : 'Cursor');
     text('pod-track', pod.state);
     const unit = pod.track ?? pod.observed;
     const side = unit?.faction === 'opposing' ? 'HOSTILE' : unit?.faction.toUpperCase();
@@ -1185,12 +1349,12 @@ async function boot() {
   function updateCombatHud() {
     const enabled = (combat.enabled || defenses.enabled) && screen === 'flying';
     ui['combat-avionics'].hidden = !enabled;
-    ui['combat-shortcuts'].hidden = !combat.enabled || !enabled;
     if (!enabled) return;
     const { radar, warning, rack } = combat.player;
     const time = flight.elapsed;
-    ui['radar-panel'].hidden = !combat.enabled || !scopeVisible;
-    if (combat.enabled && scopeVisible && radar.revision !== radarRevision) {
+    const showRadar = combat.enabled && radarShown();
+    ui['radar-panel'].hidden = !showRadar;
+    if (showRadar && radar.revision !== radarRevision) {
       radarRevision = radar.revision;
       drawRadar(ui['radar-scope'], radar);
       text('radar-mode', radar.mode);
@@ -1235,13 +1399,13 @@ async function boot() {
     const canSee = !pod.active && Math.abs(directionMarker.z) < 1 && x >= 22 && x <= width - 22 && y >= 80 && y <= height - 72;
     const weapon = selectedWeapon();
     const transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
-    ui.boresight.hidden = !canSee || weapon !== 'cannon' || combatCamera.observing;
+    ui.boresight.hidden = !canSee || weapon !== 'cannon' && !trigger.held || combatCamera.observing;
     ui.boresight.style.transform = transform;
     const seeker = ui['seeker-marker'];
-    seeker.hidden = !canSee || weapon === 'cannon' || groundWeapon(weapon) || combatCamera.observing;
+    seeker.hidden = !canSee || !['infrared', 'radar'].includes(weapon) || trigger.held || combatCamera.observing;
     if (!seeker.hidden) {
       seeker.style.transform = transform;
-      seeker.dataset.ready = String(combat.player.rack.launchState(weapon, flight.elapsed) === 'CLEARED');
+      seeker.dataset.ready = String(weaponReadiness(weapon, combat.player.rack) === 'CLEARED');
     }
     if (!keyboardFlight && settings.controlMode === 'assist' && !controls.looking && !combatCamera.observing) renderAimMarker(width, height);
     ui['g-effect'].classList.toggle('red', flight.redout > flight.blackout);
@@ -1385,9 +1549,9 @@ ${battle.targets.filter((unit) => unit.active && unit.faction === 'friendly').le
   }
 
   function renderSight() {
-    const weapon = selectedWeapon();
+    const weapon = trigger.held ? 'cannon' : selectedWeapon();
     const usingGroundWeapon = groundWeapon(weapon);
-    const enabled = !pod.active && sightActive && screen === 'flying' && (weapon === 'cannon' || usingGroundWeapon);
+    const enabled = !pod.active && activeSight() && screen === 'flying' && (weapon === 'cannon' || usingGroundWeapon);
     ui['sight-readout'].hidden = !enabled;
     const marker = ui['sight-marker'];
     if (!enabled) {
@@ -1565,7 +1729,7 @@ ${battle.targets.filter((unit) => unit.active && unit.faction === 'friendly').le
         }
         if (activeLoadout && ordnance.active) ordnance.step(STEP, rack, battle.enabled ? battle.queryPlayer
           : ground.enabled ? groundColliders : range.structures);
-        if (!flight.failure && selectedWeapon() === 'cannon') cannon.step(STEP, firing, flight);
+        if (!flight.failure) cannon.step(STEP, firing, flight);
         if (combat.enabled) {
           for (const side of combat.enemies) side.fight.fire(combat.canFireCannon(side));
         } else if (dogfight.enabled) dogfight.fire();

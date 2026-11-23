@@ -30,19 +30,31 @@ and `npx playwright test` from a graphical session. On headless Linux, run
 | Input | Action |
 | --- | --- |
 | Mouse | Move the world-space aim point in Mouse assist mode |
-| Hold left mouse | Fire the internal cannon while in flight |
+| Left mouse / Enter | Hold to fire the cannon in flight |
+| Q | Cycle loaded secondary weapons |
+| R | Select and request the next eligible target. Hold to clear. |
+| Space | Acquire or launch the selected secondary weapon |
+| X | Deploy the selected countermeasure program |
+| C / M | Targeting pod / tactical map when available |
 | W / S | Pitch up / down |
 | A / D | Roll left / right |
-| Q / E | Yaw left / right |
+| Z / E | Yaw left / right |
 | Left Shift / Left Ctrl | Raise / lower throttle |
-| B | Toggle afterburner. Engagement requires engine spool-up. |
-| G | Extend or retract landing gear in the air |
-| H | Show or remove the external stores and change the loaded mass |
-| X | Toggle the airbrake or wheel brakes |
-| V | Switch between chase and nose HUD views |
-| Right mouse or F + move | Free look |
+| B / G | Afterburner / landing gear |
+| / | Airbrake or wheel brakes |
+| V / F | Switch camera / hold to free look |
+| Right mouse | Hold and move for free look |
 | Mouse wheel | Adjust chase distance |
-| Esc / Enter / R | Release the mouse and pause / start or resume / restart |
+| Esc / Backspace | Pause / restart |
+
+The weapon HUD shows what Space will do. A press that requests acquisition
+cannot release a store. Release the key and press it again after clearance.
+Q skips depleted stores and displays the next usable hardpoint. Advanced
+controls include a preference for left or right hardpoints and manual radar,
+weapon, camera, and ballistic-computer controls. Settings migrate old defaults
+and keep customized keys. Conflicts show which binding moves when reassigned.
+The automatic defensive program uses the aircraft's warning receiver and
+falls back to your selected program when the threat type is unavailable.
 
 Start or resume with a click or Enter to capture the mouse. Switching tabs or
 losing window focus pauses the flight and clears held inputs. If capture is
@@ -176,7 +188,7 @@ dogfight, and restarting repairs both aircraft.
 
 ## Gun computer
 
-Press **C** to toggle the gun computer and **M** to switch between CCIP
+Press **;** to toggle the gun computer and **'** to switch between CCIP
 and lead. Both bindings are configurable. CCIP shows the first terrain,
 water, or structure intersection predicted by the cannon's projectile
 model. In a dogfight, lead requires a visible contact near the gun axis.
@@ -200,7 +212,7 @@ aircraft physics, and quantities.
 | Input | Action |
 | --- | --- |
 | 1 / 2 / 3 / 4 | Select cannon / IR / radar missile / cycle |
-| Left click / Space | Fire the selected weapon |
+| Left click / Space | Fire cannon / acquire or release selected secondary weapon |
 | P / T / L | Power the radar / select contact / lock or unlock |
 | Y / U / I | Change search mode / scan range / show or hide the scope |
 | J / K | Release a flare / chaff |
@@ -292,7 +304,7 @@ Asymmetric store placement has no separate inertia or center-of-mass model.
 
 Choose **Ground attack range** with the F-16C to practice on two trucks, two
 armored targets, and a shelter. Use **5** for bombs, **6** for rockets, and
-**1** for the cannon. **C** toggles the impact cue and **Space** releases the
+**1** for the cannon. **;** toggles the impact cue and **Space** releases the
 selected weapon. Set single, paired, ripple, or salvo release in the
 briefing. **9** rearms the range weapons without clearing the mission tally.
 The first ground impact comes from the same fixed-step movement and collision
@@ -317,7 +329,7 @@ You can use your own compatible loadout.
   briefing checkbox marks all current visual contacts. Both displays rely
   on line of sight. The mission objective is shown on the terrain.
 - Use **1**, **5**, and **6** to select the cannon, bombs, and rockets.
-  **C** toggles the ballistic sight and **Space** fires the selected weapon.
+  **;** toggles the ballistic sight and **Space** fires the selected weapon.
   Aircraft weapons can hit either faction. The debrief reports friendly fire.
   Weapons rearm on restart. The separate **Ground attack range** still
   supports in-flight rearming.
@@ -339,7 +351,7 @@ scenario** to draw another setup. Difficulty changes force composition,
 deadlines, AI reactions, and the detail and lifetime of ground reports.
 Training contact markers have their own checkbox.
 
-Press **Tab** for the tactical map. The map pauses the sortie and releases the
+Press **M** for the tactical map. The map pauses the sortie and releases the
 mouse. Use the wheel or zoom buttons to zoom and drag or use the arrow keys
 to pan. Select an objective, known contact, or support request. Choose
 **Return to flight** to recapture the mouse. The reported area marker is an
@@ -373,17 +385,19 @@ the appropriate preset. A saved custom loadout takes precedence.
 
 | Input with a pod mounted | Action |
 | --- | --- |
-| 7 | Enter or exit the pod view |
+| C | Enter or exit the pod view |
 | Mouse | Slew the pod while its view is open |
-| Wheel | Select one of three zoom levels |
+| + / − / wheel | Select one of three zoom levels |
+| F | Show the pointer for the **+** and **−** buttons. Choose **Resume slew** or press **F** again to recapture. |
 | 0 | Cycle Day, White Hot, and Black Hot |
-| L | Select or clear a point track. Free slew can also select an area. |
+| Left click / R | Designate under the reticle / cycle observed tracks. Hold **R** to clear. |
+| L | Manually select or clear a point or area track |
 | O | Save the current designation in the pod view |
 | P | Toggle laser illumination in the pod view |
 | I | Recenter and clear tracking in the pod view |
-| 4 / Space | Cycle mounted weapons / release when cleared |
+| Q / Space | Cycle loaded secondary weapons / request acquisition or release when cleared |
 | N | Follow a launched optical missile |
-| Tab | Open the tactical map to cue the pod or inspect a saved fix |
+| M | Open the tactical map to cue the pod or inspect a saved fix |
 
 Laser practice bombs need live illumination. Coordinate glide bombs
 keep their release coordinates. Optical strike missiles need an observed

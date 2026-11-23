@@ -28,6 +28,7 @@ export function simulatedHeat(flight) {
 }
 
 const airOnly = ['air'];
+const secondaryOrder = ['infrared', 'radar', 'bomb', 'rocket', 'laser', 'gps', 'optical'];
 const attached = (station, damage) => !station.used && damage.condition(station.wing) > 0;
 
 export class WeaponRack {
@@ -51,6 +52,9 @@ export class WeaponRack {
     this.flare = loadout?.flare ?? 0;
     this.chaff = loadout?.chaff ?? 0;
     this.seeker = { infrared: this.blankSeeker(), radar: this.blankSeeker() };
+    this.infraredContacts = [];
+    this.infraredPreference = null;
+    this.infraredRequested = false;
     this.selected = 'cannon';
     this.select(selected);
     this.nextDecoy = { flare: 0, chaff: 0 };
@@ -81,7 +85,14 @@ export class WeaponRack {
   }
 
   station(type) {
-    return this.stations.find((entry) => entry.type === type && entry.remaining > 0 && attached(entry, this.flight.damage));
+    const wing = this.releaseOrder === 'left' ? 'leftWing' : this.releaseOrder === 'right' ? 'rightWing' : null;
+    let next;
+    for (const station of this.stations) {
+      if (station.type !== type || station.remaining <= 0 || !attached(station, this.flight.damage)) continue;
+      if (!wing || station.wing === wing) return station;
+      next ??= station;
+    }
+    return next;
   }
 
   count(type) {
@@ -104,6 +115,33 @@ export class WeaponRack {
     this.select(options[(options.indexOf(this.selected) + 1) % options.length]);
   }
 
+  cycleSecondary() {
+    const current = secondaryOrder.indexOf(this.selected);
+    for (let step = 1; step <= secondaryOrder.length; step++) {
+      const type = secondaryOrder[(current + step) % secondaryOrder.length];
+      if (!this.station(type)) continue;
+      this.select(type);
+      break;
+    }
+  }
+
+  requestInfrared(cycle = false) {
+    const current = this.infraredPreference ?? this.seeker.infrared.target;
+    const index = this.infraredContacts.indexOf(current);
+    if (cycle || !this.infraredRequested) {
+      this.infraredPreference = cycle && this.infraredContacts.length
+        ? this.infraredContacts[(index + 1) % this.infraredContacts.length] : current;
+      this.seeker.infrared = this.blankSeeker();
+      this.nextAcquire = 0;
+    }
+    this.infraredRequested = true;
+  }
+
+  clearInfrared() {
+    this.infraredRequested = false;
+    this.infraredPreference = null;
+  }
+
   update(time, contacts) {
     if (time < this.nextAcquire || this.flight.failure) return;
     this.nextAcquire = time + 0.10;
@@ -121,6 +159,9 @@ export class WeaponRack {
     let selected = null;
     let selectedRange = 0;
     let strongest = 0.16;
+    const infrared = type === 'infrared';
+    if (infrared) this.infraredContacts.length = 0;
+    const preference = infrared ? this.infraredPreference : null;
     for (const contact of contacts) {
       const target = type === 'infrared' ? contact : contact.target;
       if (target.failure) continue;
@@ -134,10 +175,12 @@ export class WeaponRack {
       if (alignment < cone) continue;
       const heat = type === 'infrared' ? simulatedHeat(target) : contact.quality;
       const score = heat * alignment / (0.70 + range / config.maxRange);
-      if (score < strongest || (type === 'infrared' && !hasLineOfSight(this.world, this.flight.position, estimate))) continue;
+      if (score < 0.16 || (infrared && !hasLineOfSight(this.world, this.flight.position, estimate))) continue;
+      if (infrared) this.infraredContacts.push(target);
+      if (target !== preference && score < strongest) continue;
       selected = target;
       selectedRange = range;
-      strongest = score;
+      strongest = target === preference ? Infinity : score;
     }
     if (seeker.target !== selected) seeker.since = time;
     seeker.target = selected;

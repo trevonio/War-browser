@@ -1,5 +1,5 @@
 export class CannonTrigger {
-  constructor(viewport, { enabled, pressed, released }, signal) {
+  constructor(viewport, { enabled, pressed, released, interact }, signal) {
     this.held = false;
     this.pointerHeld = false;
     this.keyHeld = false;
@@ -9,7 +9,7 @@ export class CannonTrigger {
     this.pressed = pressed;
     this.released = released;
     viewport.addEventListener('mousedown', (event) => {
-      if (event.button === 0 && enabled()) {
+      if (event.button === 0 && enabled() && !interact?.(event)) {
         this.pointerHeld = true;
         this.setHeld(true);
       }

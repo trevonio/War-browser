@@ -13,6 +13,7 @@ export class GroundObserver {
   reset() {
     this.contacts.clear();
     this.selected = null;
+    this.selectionCleared = false;
     this.nextScan = 0;
   }
 
@@ -43,10 +44,16 @@ export class GroundObserver {
     for (const [id, contact] of this.contacts) {
       if (!contact.unit.active || time - contact.time > 0.65) this.contacts.delete(id);
     }
-    if (!this.contacts.has(this.selected)) this.selected = best;
+    if (!this.contacts.has(this.selected)) this.selected = this.selectionCleared ? null : best;
+  }
+
+  clearSelection() {
+    this.selected = null;
+    this.selectionCleared = true;
   }
 
   cycle() {
+    this.selectionCleared = false;
     const ids = [...this.contacts.keys()];
     if (ids.length) this.selected = ids[(ids.indexOf(this.selected) + 1) % ids.length];
   }
