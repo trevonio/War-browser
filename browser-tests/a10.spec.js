@@ -216,6 +216,8 @@ for (const penalized of [false, true]) {
     await page.locator('#launch').click();
     await page.setViewportSize({ width: 760, height: 480 });
     await locked(page);
+    // The launch button may have left the automation cursor below the smaller viewport.
+    await page.mouse.move(380, 240);
     await expect.poll(() => page.evaluate(() => window.qualificationTest.launched), { timeout: 90000 }).toBe(true);
     if (!penalized) {
       await page.evaluate(() => {
@@ -257,13 +259,21 @@ for (const penalized of [false, true]) {
         state.target = state.battle.targets.find((unit) => unit.id === id);
       }, id);
       if (await page.evaluate(() => window.qualificationTest.target.disabled)) continue;
-      await page.mouse.down();
-      if (id.startsWith('qual-friendly')) {
-        await expect.poll(() => page.evaluate(() => window.qualificationTest.battle.friendlyFire)).toBeGreaterThan(0);
-      } else {
-        await expect.poll(() => page.evaluate(() => window.qualificationTest.target.disabled)).toBe(true);
+      const ammo = Number(await page.locator('#cannon-count').textContent());
+      await page.keyboard.down('Enter');
+      try {
+        await expect.poll(async () => {
+          if (await page.locator('#mission-results').isVisible()) return true;
+          return Number(await page.locator('#cannon-count').textContent()) < ammo;
+        }, { timeout: 10000 }).toBe(true);
+        if (id.startsWith('qual-friendly')) {
+          await expect.poll(() => page.evaluate(() => window.qualificationTest.battle.friendlyFire), { timeout: 12000 }).toBeGreaterThan(0);
+        } else {
+          await expect.poll(() => page.evaluate(() => window.qualificationTest.target.disabled), { timeout: 12000 }).toBe(true);
+        }
+      } finally {
+        await page.keyboard.up('Enter');
       }
-      await page.mouse.up();
     }
     const outcome = penalized ? 'ended' : 'complete';
     await expect(page.getByRole('heading', { name: 'A-10C Gun and Rocket Qualification ' + outcome })).toBeVisible();
