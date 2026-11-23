@@ -11,7 +11,7 @@ export const keyDefaults = {
   radarPower: 'KeyP', radarTarget: 'KeyT', radarLock: 'KeyL', radarMode: 'KeyY', radarRange: 'KeyU', radarScope: 'KeyI',
   flares: 'KeyJ', chaff: 'KeyK',
   weaponBomb: 'Digit5', weaponRocket: 'Digit6', jettisonTank: 'Digit8', rearmGround: 'Digit9',
-  missileView: 'KeyN', nextMissile: 'KeyO', targetView: 'KeyZ',
+  tacticalMap: 'Tab', missileView: 'KeyN', nextMissile: 'KeyO', targetView: 'KeyZ',
 };
 
 export const keyLabels = {
@@ -26,15 +26,15 @@ export const keyLabels = {
   radarMode: 'Change radar scan mode', radarRange: 'Change radar scan range', radarScope: 'Show or hide radar scope',
   flares: 'Release flare', chaff: 'Release chaff',
   weaponBomb: 'Select bombs', weaponRocket: 'Select rockets', jettisonTank: 'Drop external tank', rearmGround: 'Rearm range weapons',
-  missileView: 'Cycle missile camera or return', nextMissile: 'View next launched missile', targetView: 'Toggle selected target view',
+  tacticalMap: 'Tactical map', missileView: 'Cycle missile camera or return', nextMissile: 'View next launched missile', targetView: 'Toggle selected target view',
 };
 
 export function keyName(code) {
-  const labels = { Escape: 'Esc', Space: 'Space', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' };
+  const labels = { Escape: 'Esc', Tab: 'Tab', Space: 'Space', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' };
   return labels[code] || code.replace(/^(Key|Digit)/, '').replace(/(Left|Right)$/, '').replace('Control', 'Ctrl');
 }
 
-export const canBind = (code) => /^(Key[A-Z]|Digit[0-9]|Arrow(Up|Down|Left|Right)|Shift(Left|Right)|Control(Left|Right)|Alt(Left|Right)|Space)$/.test(code);
+export const canBind = (code) => /^(Tab|Key[A-Z]|Digit[0-9]|Arrow(Up|Down|Left|Right)|Shift(Left|Right)|Control(Left|Right)|Alt(Left|Right)|Space)$/.test(code);
 
 const defaults = {
   preset: 'medium', controlMode: 'assist', mouseSensitivity: 1, cameraSensitivity: 1,

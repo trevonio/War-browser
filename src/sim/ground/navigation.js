@@ -14,6 +14,7 @@ export function traversable(world, x, z, nextX, nextZ, radius, maxSlope) {
 
 export class RoadNetwork {
   constructor(world, points, links) {
+    this.world = world;
     this.points = points;
     this.edges = links.filter(([from, to]) => this.canJoin(world, points[from], points[to]));
     this.adjacent = Object.fromEntries(Object.keys(points).map((id) => [id, []]));

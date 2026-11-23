@@ -792,3 +792,122 @@ test('flies both dynamic ground missions with visual contacts and the existing C
   await expect(page.locator('#cannon-ammo')).toHaveText('2');
   expect(errors).toEqual([]);
 });
+
+test('prepares seeded CAS, accepts a ground call, and restores pointer lock without carrying mouse input', async ({ page, browserName }, testInfo) => {
+  const sample = () => page.evaluate(() => new Promise((resolve) => {
+    const samples = [];
+    requestAnimationFrame(function collect(start) {
+      let last = start;
+      requestAnimationFrame(function frame(now) {
+        samples.push(now - last);
+        last = now;
+        if (now - start < 1400) requestAnimationFrame(frame);
+        else {
+          samples.sort((a, b) => a - b);
+          resolve({ fps: +(1000 * samples.length / (now - start)).toFixed(1),
+            p95: +samples[Math.floor((samples.length - 1) * .95)].toFixed(1) });
+        }
+      });
+    });
+  }));
+  await page.addInitScript(() => localStorage.setItem('war-browser:settings', JSON.stringify({ preset: 'low' })));
+  await page.setViewportSize({ width: 1050, height: 650 });
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Close Air Support' }).click();
+  const mission = page.getByLabel('CAS mission');
+  const seed = page.getByLabel('Mission seed');
+  await expect(mission.locator('option')).toHaveCount(4);
+  const originalSeed = await seed.inputValue();
+  await page.getByRole('button', { name: 'Generate scenario', exact: true }).click();
+  await expect(seed).not.toHaveValue(originalSeed);
+  await mission.selectOption('emergency');
+  await seed.fill('123457');
+  await seed.press('Tab');
+  await expect(page.locator('#cas-primary')).toHaveText('Relieve the friendly group');
+  await expect(page.locator('#cas-intelligence')).toContainText('stronger armored group');
+  const timings = browserName === 'chromium' ? { briefing: await sample() } : null;
+  await page.getByRole('button', { name: 'Loadout', exact: true }).click();
+  const loadout = page.getByRole('dialog', { name: 'F-16C loadout' });
+  await loadout.getByRole('combobox', { name: 'Preset', exact: true }).selectOption('Ground Attack');
+  await loadout.getByRole('button', { name: 'Apply to aircraft' }).click();
+  await page.getByRole('button', { name: /Start mission/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(page.locator('#cas-call-count')).toContainText('support', { timeout: 12000 });
+  if (timings) timings.flight = await sample();
+  await page.keyboard.press('c');
+  await expect(page.locator('#sight-mode')).toHaveText('BOMB CCIP');
+  await page.keyboard.press('Tab');
+  const map = page.getByRole('dialog', { name: 'Tactical map' });
+  await expect(map).toBeVisible();
+  await expect.poll(() => locked(page)).toBeNull();
+  const elapsed = await page.locator('#elapsed').textContent();
+  const heading = await page.locator('#heading').textContent();
+  const pixels = await map.locator('canvas').evaluate((canvas) => canvas.toDataURL());
+  await map.getByRole('button', { name: 'Zoom in' }).click();
+  await expect.poll(() => map.locator('canvas').evaluate((canvas) => canvas.toDataURL())).not.toBe(pixels);
+  await map.locator('canvas').press('ArrowRight');
+  await map.getByRole('button', { name: /^Accept Urgent/ }).first().click();
+  await expect(map.locator('#cas-map-selection')).toContainText('Reported area');
+  await expect(map.locator('#cas-map-radio')).toContainText('Support request accepted');
+  if (timings) {
+    timings.map = await sample();
+    await page.screenshot({ path: testInfo.outputPath('tactical-map.png') });
+  }
+  await expect(page.locator('#elapsed')).toHaveText(elapsed);
+  await expect(page.locator('#heading')).toHaveText(heading);
+  await map.getByRole('button', { name: 'Return to flight' }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await expect(page.locator('#cas-designation')).toBeVisible();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#cannon-ammo')).toHaveText('1');
+  await page.keyboard.press('r');
+  await expect(page.locator('#cannon-ammo')).toHaveText('2');
+  await pauseFlight(page);
+  await page.getByRole('button', { name: 'Back to CAS briefing' }).click();
+  await expect(seed).toHaveValue('123457');
+  await expect(mission).toHaveValue('emergency');
+  await page.getByRole('button', { name: /Start mission/ }).click();
+  await expect.poll(() => locked(page)).toBe('viewport');
+  await relativeMouse(page, 0, 835);
+  await expect(page.locator('#mission-results')).toBeVisible({ timeout: 26000 });
+  await expect(page.locator('#result-cas-objectives')).toContainText('Seed 123457');
+  await expect(page.locator('#result-damage')).toContainText('components damaged');
+  await expect(page.locator('#result-bombs')).toHaveText('0');
+  await expect(page.getByRole('button', { name: /Restart same scenario/ })).toBeVisible();
+  if (timings) {
+    timings.debrief = await sample();
+    console.log('Stage 2.9 CAS game screens, Low 1050×650', JSON.stringify(timings));
+  }
+  await page.getByRole('button', { name: 'Generate another scenario' }).click();
+  await expect(seed).not.toHaveValue('123457');
+  await page.getByRole('button', { name: /Choose aircraft/ }).click();
+  await page.getByRole('button', { name: 'Fly F-15C' }).click();
+  await expect(page.getByRole('button', { name: /Start mission/ })).toBeDisabled();
+  await expect(page.locator('#cas-aircraft-status')).toContainText('F-15C is configured for air combat');
+  expect(errors).toEqual([]);
+});
+
+test('small horizontal mouse corrections use sideslip and little bank while a large move commands a turn', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('war-browser:settings', JSON.stringify({ preset: 'low' })));
+  await page.setViewportSize({ width: 1030, height: 650 });
+  await page.goto('/');
+  await page.getByRole('checkbox', { name: 'Measurements', exact: true }).check();
+  await startFlight(page);
+  const bank = page.locator('#test-bank');
+  const heading = page.locator('#heading');
+  const initialHeading = Number(await heading.textContent());
+  await relativeMouse(page, 56, 0);
+  await expect.poll(async () => Math.abs(Number(await bank.textContent())), { timeout: 4000 }).toBeGreaterThan(1);
+  await expect.poll(async () => (Number(await heading.textContent()) - initialHeading + 360) % 360, { timeout: 6000 }).toBeGreaterThan(1);
+  expect(Math.abs(Number(await bank.textContent()))).toBeLessThan(14);
+  expect(Math.abs(Number(await page.locator('#test-slip').textContent()))).toBeLessThan(8);
+  for (const offset of [-105, 105, -105, 105]) {
+    await relativeMouse(page, offset, 0);
+    expect(Math.abs(Number(await bank.textContent()))).toBeLessThan(16);
+  }
+  await relativeMouse(page, 1257, 0);
+  await expect.poll(async () => Math.abs(Number(await bank.textContent())), { timeout: 10000 }).toBeGreaterThan(55);
+  await expect.poll(async () => (Number(await heading.textContent()) - initialHeading + 360) % 360, { timeout: 14000 }).toBeGreaterThan(65);
+});

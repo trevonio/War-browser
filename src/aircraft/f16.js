@@ -1,3 +1,4 @@
+import { horizontalSteering } from '../sim/instructor.js';
 import { centerFuelStation, storeStationPair } from '../sim/loadouts.js';
 import { f16CombatLoadouts } from './f16-ordnance.js';
 import { standardRadar } from '../sim/combat/radar.js';
@@ -42,6 +43,7 @@ export const f16 = {
   baseDrag: 0.024,
   inducedDrag: 0.101,
   waveDrag: 0.039,
+  horizontalSteering: { ...horizontalSteering, fineAngle: .105, fullBankAngle: .64 },
   controlSpeed: 120,
   pitchRate: 0.93,
   rollRate: 2.7,

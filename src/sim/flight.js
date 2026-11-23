@@ -138,7 +138,7 @@ export class Flight {
     const liftLimit = 0.95 * (spec.maxG * liftScale - spec.baseLift) / spec.liftSlope;
     const downLimit = 0.95 * (spec.minG * liftScale - spec.baseLift) / spec.liftSlope;
     const instructor = this.instructor;
-    if (controls.assisted) instructor.update(this, controls, speed, authority, liftScale, GRAVITY);
+    if (controls.assisted) instructor.update(this, controls, speed, authority, liftScale, GRAVITY, dt, sideslip);
 
     const trimG = 1 / Math.max(0.36, Math.cos(bank));
     const levelAlpha = (trimG * liftScale - spec.baseLift) / spec.liftSlope;

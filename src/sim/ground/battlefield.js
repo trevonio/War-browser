@@ -65,8 +65,9 @@ export class GroundBattle {
     this.reset(null);
   }
 
-  reset(id, difficulty = 'regular', limit, seed = 87351) {
-    this.mission = groundMissions[id];
+  reset(id, difficulty = 'regular', limit, seed = 87351, director = null) {
+    this.director = director;
+    this.mission = director?.plan ?? groundMissions[id];
     this.key = id;
     this.enabled = Boolean(this.mission);
     this.difficulty = groundDifficulty[difficulty] ?? groundDifficulty.regular;
@@ -81,7 +82,7 @@ export class GroundBattle {
     this.noticeUntil = 0;
     this.randomState = seed;
     this.weapons.clear();
-    let definitions = id === 'convoy' ? convoyVehicles(this.roads) : id === 'battlefield' ? supportVehicles((seed % 266 + 266) % 266 - 103) : [];
+    let definitions = director?.plan.definitions ?? (id === 'convoy' ? convoyVehicles(this.roads) : id === 'battlefield' ? supportVehicles((seed % 266 + 266) % 266 - 103) : []);
     if (limit !== undefined) {
       const template = id === 'battlefield' && limit < definitions.length
         ? definitions.map((_, index) => definitions[Math.floor(index / 2) + index % 2 * (definitions.length / 2)])
@@ -92,11 +93,18 @@ export class GroundBattle {
           * Math.floor(index / template.length) * 67 };
       });
     }
-    this.targets = definitions.map((definition) => new GroundVehicle(this.world, definition,
-      groundVehicles[definition.type], (vehicle, context, destroyed) => this.damaged(vehicle, context, destroyed)));
+    this.targets = [];
+    this.spawn(definitions);
     this.transports = this.targets.filter((unit) => unit.objective === 'deliver');
     this.engagement = new GroundEngagement(this.world, this.targets, this.weapons, () => this.random());
     this.occupied = (owner, x, z, radius) => this.occupiedAt(owner, x, z, radius);
+  }
+
+  spawn(definitions) {
+    for (const definition of definitions) {
+      this.targets.push(new GroundVehicle(this.world, definition, groundVehicles[definition.type],
+        (vehicle, context, destroyed) => this.damaged(vehicle, context, destroyed)));
+    }
   }
 
   random() {
@@ -153,10 +161,12 @@ export class GroundBattle {
       moveVehicle(unit, dt, this.time, detail === 2 ? .045 : detail === 1 ? .08 : .125, this.occupied);
     }
     this.weapons.step(dt);
-    this.evaluate(dt);
+    if (this.director) this.director.update(this);
+    else this.evaluate(dt);
   }
 
   damaged(unit, hit, destroyed) {
+    this.director?.damageEvent(this, unit, hit, destroyed);
     if (hit.amount > 0 && hit.source === 'player') {
       this.hits.add(unit.id);
       this.hitCount = this.hits.size;
@@ -211,6 +221,7 @@ export class GroundBattle {
   finish(outcome, reason) {
     this.outcome = outcome;
     this.reason = reason;
+    this.director?.finish(this, outcome, reason);
   }
 
   get convoyStopped() { return this.transports.filter((unit) => unit.disabled).length; }

@@ -324,3 +324,35 @@ You can use your own compatible loadout.
 
 Ground battles and convoy movement advance during unpaused flight regardless
 of player distance. The F-15C retains its air-to-air role.
+
+## Close Air Support
+
+Choose **Close Air Support** from mission preparation and select **Armored
+Breakthrough**, **Convoy Protection**, **Emergency Air Support**, or
+**Battlefield Interdiction**. The briefing shows the primary and secondary
+objectives, friendly starting forces, available intelligence, and the
+recommended **Ground Attack** preset. CAS uses the F-16C. Its existing loadout
+editor and gun, bomb, and rocket controls apply.
+
+Enter a mission seed to reproduce its starting conditions or choose **Generate
+scenario** to draw another setup. Difficulty changes force composition,
+deadlines, AI reactions, and the detail and lifetime of ground reports.
+Training contact markers have their own checkbox.
+
+Press **Tab** for the tactical map. The map pauses the sortie and releases the
+mouse. Use the wheel or zoom buttons to zoom and drag or use the arrow keys
+to pan. Select an objective, known contact, or support request. Choose
+**Return to flight** to recapture the mouse. The reported area marker is an
+estimate from the call. Use the separate visual contact and existing CCIP
+cues for the attack. Press **T** to cycle current visual contacts or available
+ground reports.
+
+After a mission, use **Restart same scenario** to replay its seed, **Generate
+another scenario** for a new setup, or return to the CAS briefing to change
+the loadout or difficulty. The debrief includes objective states, accepted
+calls completed, actual unit losses, friendly fire, ammunition spent, airframe
+damage, and sortie duration.
+
+During mouse-aim flight, small sideways aiming errors use rudder assistance
+and limited bank. Larger errors progressively command a coordinated turn.
+Free flight's **Measurements** option includes bank and sideslip.

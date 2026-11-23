@@ -1,6 +1,8 @@
 import * as T from 'three';
 import { createF16Visual, createOpponentVisual } from '../src/aircraft/f16-visual.js';
 import { f16 } from '../src/aircraft/f16.js';
+import { CasDirector } from '../src/sim/cas/director.js';
+import { createCasScenario } from '../src/sim/cas/scenarios.js';
 import { GroundBattle } from '../src/sim/ground/battlefield.js';
 import { Flight, STEP, neutralControls } from '../src/sim/flight.js';
 import { PracticeRange } from '../src/sim/practice.js';
@@ -16,9 +18,13 @@ const modes = [
   ['empty', 0, 2, 1], ['five', 5, 2, 1], ['ten', 10, 2, 1], ['twenty', 20, 2, 1],
   ['firing', 20, 28, 1], ['explosions', 20, 28, 1], ['airSupport', 20, 28, 1], ['mixedAircraft', 20, 28, 4],
 ];
+const casModes = [
+  ['normal', 12, 3, 1], ['ten', 10, 15, 1], ['twenty', 20, 16, 1], ['firing', 20, 26, 1],
+  ['airSupport', 18, 23, 1], ['reinforcements', 14, 0, 1], ['completion', 12, 0, 1],
+];
 const stations = { offset: [0, 0, 0], release: [0, 0, 0], rotation: [0, 0, 0] };
 
-export async function measureBattle(renderer) {
+export async function measureBattle(renderer, cas = false) {
   const scene = new T.Scene();
   const world = new WorldView(scene, renderer);
   const camera = new T.PerspectiveCamera(51, 800 / 450, .3, 90000);
@@ -98,8 +104,33 @@ export async function measureBattle(renderer) {
   }
 
   const report = {};
-  for (const [mode, count, warmSeconds, planes] of modes) {
-    battle.reset('battlefield', 'regular', count, 87351);
+  for (const [mode, count, warmSeconds, planes] of cas ? casModes : modes) {
+    let director = null;
+    let warm = warmSeconds;
+    if (cas) {
+      const plan = createCasScenario('breakthrough', 123457, 'regular', battle.roads);
+      const base = plan.definitions;
+      if (count !== base.length) {
+        const friendly = base.filter((unit) => unit.faction === 'friendly');
+        const hostile = base.filter((unit) => unit.faction === 'opposing');
+        const groups = [friendly, hostile];
+        const targets = Array.from({ length: count }, (_, index) => {
+          const group = groups[index % groups.length];
+          const entry = Math.floor(index / groups.length);
+          const original = group[entry % group.length];
+          const step = Math.floor(entry / group.length);
+          return { ...original, id: `${original.id}-${index}`, z: original.z + (index % 2 ? 1 : -1) * step * 75 };
+        });
+        plan.definitions = targets;
+      }
+      if (mode === 'reinforcements') warm = plan.reliefAt - 1;
+      if (mode === 'completion') {
+        plan.timeLimit = 24;
+        warm = plan.timeLimit - 1;
+      }
+      director = new CasDirector(plan);
+    }
+    battle.reset(cas ? 'cas' : 'battlefield', 'regular', cas ? undefined : count, director?.plan.seed ?? 87351, director);
     effects.clear();
     ordnance.clear();
     peak = { ai: 0, projectiles: 0, draws: 0, particles: 0, bombImpacts: 0, rocketImpacts: 0 };
@@ -109,7 +140,7 @@ export async function measureBattle(renderer) {
       flight.reset({ ...scenarios.battlefield, x: -235 + index * 67, y: 140 + index * 14, z: -1950 - index * 45 });
     }
     emit = false;
-    while (battle.time < warmSeconds && !battle.outcome) battle.step(STEP, camera.position);
+    while (battle.time < warm && !battle.outcome) battle.step(STEP, camera.position);
     emit = true;
     draw(positions, 0);
     let previous = await new Promise(requestAnimationFrame);
@@ -157,6 +188,7 @@ export async function measureBattle(renderer) {
       ...peak,
       groundShots: battle.weapons.shots - startShots,
       aircraft: planes,
+      ...(director ? { calls: director.requests.length, relief: director.reinforcement, outcome: battle.outcome } : {}),
       geometries: renderer.info.memory.geometries,
       textures: renderer.info.memory.textures,
       heapMiB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null,

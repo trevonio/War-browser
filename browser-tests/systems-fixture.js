@@ -327,4 +327,4 @@ async function measureAirCombat(mode) {
   return { fps: await sampleFrames(render), ...peak, drawCalls: renderer.info.render.calls };
 }
 
-window.flightSystemsTest = { checkRig, checkImpact, measure, measureAirCombat, measureFleet: () => measureFleet(renderer), measureGroundStores: () => measureGroundStores(renderer), measureBattle: () => measureBattle(renderer) };
+window.flightSystemsTest = { checkRig, checkImpact, measure, measureAirCombat, measureFleet: () => measureFleet(renderer), measureGroundStores: () => measureGroundStores(renderer), measureBattle: () => measureBattle(renderer), measureCasBattle: () => measureBattle(renderer, true) };

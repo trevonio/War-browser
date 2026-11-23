@@ -6,6 +6,8 @@ import { canBind, Controls, keyDefaults, keyLabels, keyName, loadSettings, saveS
 import { FlightPointerLock } from './pointer-lock.js';
 import { opponentModes } from './sim/ai-pilot.js';
 import { cannonRoundMass } from './sim/cannon.js';
+import { CasDirector } from './sim/cas/director.js';
+import { casMissions, createCasScenario } from './sim/cas/scenarios.js';
 import { GroundBattle, groundMissions } from './sim/ground/battlefield.js';
 import { GroundObserver } from './sim/ground/ground-observer.js';
 import { GroundRange } from './sim/ground-range.js';
@@ -19,6 +21,7 @@ import { sightInterval, VisualTrack } from './sim/gun-computer.js';
 import { PracticeRange } from './sim/practice.js';
 import { range, scenarios } from './sim/range.js';
 import { CannonTrigger } from './trigger.js';
+import { CasInterface } from './view/cas-interface.js';
 import { BattlefieldView } from './view/battlefield-view.js';
 import { AircraftHangar } from './view/aircraft-hangar.js';
 import { AircraftPreview, describeAircraft } from './view/aircraft-picker.js';
@@ -44,7 +47,7 @@ const pressed = (id, value) => {
 const debug = import.meta.env.DEV && new URLSearchParams(location.search).has('debug');
 const flightLabels = {
   air: 'FREE FLIGHT', runway: 'FREE FLIGHT', practice: 'CANNON RANGE', dogfight: 'DOGFIGHT',
-  battlefield: 'BATTLEFIELD SUPPORT', convoy: 'CONVOY INTERDICTION',
+  cas: 'CLOSE AIR SUPPORT', battlefield: 'BATTLEFIELD SUPPORT', convoy: 'CONVOY INTERDICTION',
   groundRange: 'GROUND ATTACK RANGE', short: 'MISSILE DOGFIGHT', intercept: 'BVR INTERCEPT', outnumbered: 'OUTNUMBERED',
 };
 const combatShortcuts = ['cycleWeapon', 'fireSelected', 'radarPower', 'radarTarget', 'radarLock',
@@ -145,6 +148,13 @@ async function boot() {
     },
   });
   const groundObserver = new GroundObserver(range);
+  let casUI;
+  let mapKeyboard = false;
+  let casBackdropDirty = true;
+  let restoreMapAim = false;
+  const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
+  ui['cas-seed'].value = String(randomSeed());
+  for (const [id, mission] of Object.entries(casMissions)) ui['cas-mission'].add(new Option(mission.label, id));
   const groundSortie = () => ground.enabled || battle.enabled;
   const smokePoint = new T.Vector3();
   const groundColliders = [...range.structures, ...ground.targets];
@@ -296,10 +306,11 @@ async function boot() {
     if (next !== 'flying') capture.release();
     if (next === 'complete' || next === 'failed') combatCamera.returnToAircraft();
     screen = next;
+    casBackdropDirty = true;
     document.body.dataset.screen = next;
     const flightLabel = flightLabels[startingPosition];
     text('phase', {
-      ready: 'PREFLIGHT', flying: flightLabel, paused: 'PAUSED', failed: 'FLIGHT ENDED', complete: 'MISSION ENDED',
+      ready: 'PREFLIGHT', flying: flightLabel, map: 'TACTICAL MAP', paused: 'PAUSED', failed: 'FLIGHT ENDED', complete: 'MISSION ENDED',
     }[next]);
     text('pause-mode', flightLabel);
     ui['mission-results'].hidden = next !== 'complete';
@@ -315,7 +326,8 @@ async function boot() {
     document.body.dataset.direct = String(keyboardFlight || settings.controlMode === 'direct');
     document.body.dataset.captured = String(next === 'flying' && capture.locked);
     if (next === 'flying') {
-      alignAim();
+      if (!restoreMapAim) alignAim();
+      restoreMapAim = false;
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     } else {
       ui['keyboard-flight'].hidden = next !== 'paused' || !keyboardFlight;
@@ -329,7 +341,7 @@ async function boot() {
   }
 
   function requestFlight() {
-    if (stopped || switchingAircraft || ui.settings.open || ui['aircraft-dialog'].open || ui['loadout-dialog'].open) return;
+    if (stopped || switchingAircraft || !readyAircraft() || ui['cas-map-dialog'].open || ui.settings.open || ui['aircraft-dialog'].open || ui['loadout-dialog'].open) return;
     keyboardFlight = false;
     audio.unlock();
     capture.request();
@@ -344,8 +356,19 @@ async function boot() {
     }
   }
 
+  function readyAircraft() {
+    return startingPosition !== 'cas' || flight.spec.weaponDomains.includes('ground');
+  }
+
   function reset(next) {
-    const start = scenarios[startingPosition];
+    restoreMapAim = false;
+    const difficulty = ui['combat-difficulty'].value;
+    const selectedSeed = ui['cas-seed'];
+    if (!selectedSeed.validity.valid) selectedSeed.value = String(randomSeed());
+    const seed = startingPosition === 'cas' ? Number(selectedSeed.value) : randomSeed();
+    const director = startingPosition === 'cas'
+      ? new CasDirector(createCasScenario(ui['cas-mission'].value, seed, difficulty, battle.roads)) : null;
+    const start = director?.plan.start ?? scenarios[startingPosition];
     const exercise = combatExercises[startingPosition];
     flight.reset(start);
     const testing = startingPosition === 'air' || startingPosition === 'runway';
@@ -360,13 +383,13 @@ async function boot() {
     wingman.reset(exercise?.wingman ? 'aggressive' : null, start, exercise?.wingman);
     combat.reset(exercise ? startingPosition : null, ui['combat-difficulty'].value);
     ground.reset(startingPosition === 'groundRange');
-    battle.reset(startingPosition, ui['combat-difficulty'].value, undefined, Math.floor(Math.random() * 1000000));
+    battle.reset(startingPosition, difficulty, undefined, seed, director);
     groundObserver.reset();
     if (battle.enabled && !battlefieldView) battlefieldView = new BattlefieldView(scene, battle, range);
     if (ground.enabled && !groundView) groundView = new GroundRangeView(scene, ground.targets);
     ordnance.clear();
     const saved = loadoutBook.entry(flight.spec).active;
-    const assignment = saved ?? (groundSortie() ? availablePresets(flight.spec)['Ground Attack'] : null);
+    const assignment = saved ?? (groundSortie() && readyAircraft() ? availablePresets(flight.spec)['Ground Attack'] : null);
     activeLoadout = assignment && missionLoadout(flight.spec, assignment, startingPosition);
     const rack = combat.player.rack;
     if (activeLoadout) {
@@ -386,6 +409,8 @@ async function boot() {
     for (const id of ['result-enemies-row', 'result-missiles-row', 'result-airframe-row']) ui[id].hidden = groundSortie();
     ui['result-ground-forces-row'].hidden = !battle.enabled;
     ui['result-friendly-fire-row'].hidden = !battle.enabled;
+    for (const id of ['result-cas-objectives-row', 'result-cas-support-row', 'cas-replay-new']) ui[id].hidden = !director;
+    if (director) ui['result-airframe-row'].hidden = false;
     if (exercise && !combatEffects) combatEffects = new CombatEffects(scene, visual, opponentVisual, combat, weaponEffects, [wingmanVisual]);
     combatEffects?.reset();
     activeOpponents[0] = dogfight.enabled;
@@ -462,7 +487,7 @@ async function boot() {
       wingmanId = second;
       installSortie(...assets);
       updateAircraftIdentity();
-      selectStart(groundSortie() && !flight.spec.weaponDomains.includes('ground') ? 'air' : startingPosition);
+      selectStart(startingPosition !== 'cas' && groundSortie() && !flight.spec.weaponDomains.includes('ground') ? 'air' : startingPosition);
       applyPreset();
       try { localStorage.setItem('war-browser:aircraft', aircraftId); } catch { /* Selection remains active. */ }
       return true;
@@ -472,7 +497,7 @@ async function boot() {
       return false;
     } finally {
       switchingAircraft = false;
-      ui.launch.disabled = false;
+      ui.launch.disabled = !readyAircraft();
     }
   }
 
@@ -560,6 +585,17 @@ async function boot() {
 
   function selectStart(next) {
     startingPosition = next;
+    const isCas = next === 'cas';
+    ui.briefing.dataset.cas = String(isCas);
+    ui.briefing.setAttribute('aria-labelledby', isCas ? 'cas-mission-title' : 'aircraft-title');
+    text('start-air', isCas ? 'Back to flight modes' : 'Air start');
+    ui['cas-preparation'].hidden = !isCas;
+    ui['start-detail'].hidden = isCas;
+    pressed('start-cas', isCas);
+    ui.launch.disabled = switchingAircraft || !readyAircraft();
+    ui.launch.firstChild.textContent = isCas ? 'Start mission ' : 'Start flight ';
+    ui.restart.firstChild.textContent = isCas ? 'Restart same scenario ' : 'Restart flight ';
+    ui.return.textContent = isCas ? 'Back to CAS briefing' : 'Back to briefing';
     pressed('start-air', next === 'air');
     pressed('start-runway', next === 'runway');
     pressed('start-practice', next === 'practice');
@@ -572,10 +608,15 @@ async function boot() {
     ui['opponent-choice'].hidden = next !== 'dogfight';
     ui['opponent-aircraft-choice'].hidden = next !== 'dogfight' && !combatExercises[next];
     ui['wingman-choice'].hidden = next !== 'outnumbered';
-    ui['combat-choice'].hidden = !combatExercises[next] && !groundMissions[next];
-    ui['battle-briefing-options'].hidden = !groundMissions[next];
+    ui['combat-choice'].hidden = !combatExercises[next] && !groundMissions[next] && !isCas;
+    ui['combat-choice'].firstChild.textContent = isCas ? 'CAS difficulty ' : 'Opponent difficulty ';
+    ui['battle-briefing-options'].hidden = !groundMissions[next] && !isCas;
     text('briefing-mode', flightLabels[next]);
     reset('ready');
+    if (isCas) {
+      casUI ??= new CasInterface(ui, range, battle.roads, selectCasContact, signal);
+      casUI.briefing(battle.mission, readyAircraft(), text);
+    }
     const loadoutNote = loadoutBook.entry(flight.spec).active && activeLoadout
       ? ` · CUSTOM LOADOUT${activeLoadout.restricted ? ' · MISSION STORE LIMITS APPLIED' : ''}`
       : next === 'outnumbered' ? ' · MISSION LOADOUT' : '';
@@ -590,6 +631,7 @@ async function boot() {
   }
 
   function resize() {
+    casBackdropDirty = true;
     const preset = presets[settings.preset];
     const width = viewportWidth = ui.viewport.clientWidth;
     const height = viewportHeight = ui.viewport.clientHeight;
@@ -617,6 +659,7 @@ async function boot() {
       text(`key-${action}`, keyName(settings.keys[action]));
     }
     for (const action of ['missileView', 'nextMissile', 'targetView']) text(`key-${action}`, keyName(settings.keys[action]));
+    text('key-tacticalMap', keyName(settings.keys.tacticalMap));
     text('ground-target-key', keyName(settings.keys.radarTarget));
     text('missile-view-hint', keyName(settings.keys.missileView));
     text('target-view-hint', keyName(settings.keys.targetView));
@@ -711,8 +754,15 @@ async function boot() {
     radarPower() { if (combat.enabled) combat.player.radar.togglePower(); },
     radarTarget() {
       if (combat.enabled) combat.player.radar.selectNext();
-      else if (battle.enabled) groundObserver.cycle();
+      else if (battle.enabled && groundObserver.contacts.size) {
+        groundObserver.cycle();
+        battle.director?.select(null);
+      } else if (battle.director) {
+        const known = [...battle.director.contacts.keys()];
+        if (known.length) battle.director.select(known[(known.indexOf(battle.director.selected) + 1) % known.length]);
+      }
     },
+    tacticalMap() { openCasMap(); },
     radarLock() {
       if (!combat.enabled) return;
       const { radar, rack } = combat.player;
@@ -739,6 +789,42 @@ async function boot() {
       }
     });
   }
+  function selectCasContact(id, accept = false) {
+    if (accept) battle.director.accept(id, battle.time);
+    else battle.director.select(id);
+    if (ui['cas-map-dialog'].open) casUI.battle(battle, flight, text);
+  }
+
+  function openCasMap() {
+    if (!battle.director || screen !== 'flying') return;
+    mapKeyboard = keyboardFlight;
+    changeScreen('map');
+    casUI.battle(battle, flight, text);
+    ui['cas-map-dialog'].showModal();
+    ui['cas-map-close'].focus();
+  }
+
+  function closeCasMap() {
+    ui['cas-map-dialog'].close();
+    restoreMapAim = true;
+    if (mapKeyboard) changeScreen('flying');
+    else requestFlight();
+  }
+
+  function generateCasScenario() {
+    ui['cas-seed'].value = String(randomSeed());
+    selectStart('cas');
+  }
+
+  ui['cas-map-open'].addEventListener('click', openCasMap, { signal });
+  ui['cas-map-close'].addEventListener('click', closeCasMap, { signal });
+  ui['cas-map-dialog'].addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeCasMap();
+  }, { signal });
+  ui['start-cas'].addEventListener('click', () => selectStart('cas'), { signal });
+  for (const id of ['cas-new-seed', 'cas-replay-new']) ui[id].addEventListener('click', generateCasScenario, { signal });
+  for (const id of ['cas-mission', 'cas-seed']) ui[id].addEventListener('change', () => selectStart('cas'), { signal });
   ui['start-air'].addEventListener('click', () => selectStart('air'));
   ui['start-runway'].addEventListener('click', () => selectStart('runway'));
   ui['start-practice'].addEventListener('click', () => selectStart('practice'));
@@ -771,7 +857,7 @@ async function boot() {
   ui.viewport.addEventListener('mousedown', (event) => {
     if (event.button === 0 && (screen === 'ready' || screen === 'paused')) requestFlight();
   }, { signal });
-  ui.return.addEventListener('click', () => reset('ready'));
+  ui.return.addEventListener('click', () => selectStart(startingPosition));
   ui['open-settings'].addEventListener('click', openSettings);
   ui['close-settings'].addEventListener('click', () => ui.settings.close());
   ui.settings.addEventListener('close', () => {
@@ -819,6 +905,7 @@ async function boot() {
       renderBindings();
       return;
     }
+    if (ui['cas-map-dialog'].open) return;
     if (code === 'Escape' && (screen === 'flying' || capture.pending)) {
       event.preventDefault();
       pauseFlight('Mouse capture released. Resume to capture it again.');
@@ -830,7 +917,7 @@ async function boot() {
       return;
     }
     const key = Object.keys(settings.keys).find((action) => settings.keys[action] === code);
-    if (!key) return;
+    if (!key || key === 'tacticalMap' && !battle.director) return;
     if (screen === 'paused' || screen === 'failed' || screen === 'complete') {
       if (!event.repeat && key === 'restart') {
         event.preventDefault();
@@ -880,6 +967,10 @@ async function boot() {
       text('test-mass', Math.round(flight.mass).toLocaleString('en-US'));
       text('test-turn', flight.turnRate.toFixed(1));
       text('test-alpha', T.MathUtils.radToDeg(flight.alpha).toFixed(1));
+      const { forward, up, localVelocity } = flight;
+      const bank = Math.atan2((-forward.z * up.x + forward.x * up.z) / Math.max(.0001, Math.hypot(forward.x, forward.z)), up.y);
+      text('test-bank', T.MathUtils.radToDeg(bank).toFixed(1));
+      text('test-slip', T.MathUtils.radToDeg(Math.atan2(localVelocity.x, Math.max(1, localVelocity.z))).toFixed(1));
       text('test-fuel', Math.round(flight.totalFuel).toLocaleString('en-US'));
       text('test-thrust', (flight.thrust / 1000).toFixed(1));
       for (const [index, engine] of flight.engines.states.entries()) {
@@ -954,7 +1045,8 @@ async function boot() {
       text('ground-remaining', ground.enabled ? `${ground.remaining} / ${ground.targets.length} TARGETS ACTIVE` : '');
       if (battle.enabled) {
         const seconds = Math.max(0, Math.ceil(battle.mission.timeLimit - battle.time));
-        const objective = battle.key === 'convoy' ? `${battle.convoyStopped} / ${battle.transports.length} TRANSPORTS STOPPED`
+        const objective = battle.director ? (battle.director.progress ?? battle.mission.primary).toUpperCase()
+          : battle.key === 'convoy' ? `${battle.convoyStopped} / ${battle.transports.length} TRANSPORTS STOPPED`
           : `CONTROL · FRIENDLY ${Math.min(100, Math.floor(battle.controls.friendly / .26))}% · HOSTILE ${Math.min(100, Math.floor(battle.controls.opposing / .26))}%`;
         text('battle-objective', `${objective} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
         text('battle-losses', `LOSSES · FRIENDLY ${battle.losses.friendly} · HOSTILE ${battle.losses.opposing}`);
@@ -965,6 +1057,7 @@ async function boot() {
       text('ground-feedback', notice);
       text('external-fuel', flight.externalCapacity ? `${Math.floor(flight.externalFuel)} KG EXTERNAL FUEL` : '');
     }
+    casUI?.radio(screen === 'flying' ? battle.director : null, text);
     text('cannon-state', state);
     ui['hit-confirmation'].hidden = screen !== 'flying' || flight.elapsed >= hitFeedbackUntil;
     ui['cannon-state'].classList.toggle('weapon-active', state === 'FIRING' || state === 'CLEARED' || ammo === 0);
@@ -1085,6 +1178,14 @@ async function boot() {
 
   function renderGroundContact(camera) {
     const marker = ui['ground-contact-marker'];
+    const designation = ui['cas-designation'];
+    const director = battle.director;
+    const assigned = screen === 'flying' ? director?.designation(battle) : null;
+    designation.hidden = !assigned;
+    if (assigned) {
+      text('cas-designation-label', `${assigned.label.toUpperCase()}${assigned.approximate ? ' · REPORTED AREA' : ''}`);
+      contactMarker.update(designation, assigned.position, camera, viewportWidth, viewportHeight);
+    }
     const contact = battle.enabled && screen === 'flying' ? groundObserver.track : null;
     marker.hidden = !contact;
     if (!contact) return;
@@ -1105,7 +1206,11 @@ async function boot() {
   function updateBattleDebug() {
     ui['battle-debug'].hidden = !debug || !battle.enabled || screen !== 'flying';
     if (ui['battle-debug'].hidden) return;
-    text('battle-debug', battle.targets.map((unit) => {
+    const director = battle.director;
+    const status = director ? `Seed ${director.plan.seed} · ${director.phase} · ${director.primary.state}/${director.secondary.state} · relief ${director.reinforcement}
+${battle.targets.filter((unit) => unit.active && unit.faction === 'friendly').length} friendly · ${battle.targets.filter((unit) => unit.active && unit.faction === 'opposing').length} hostile · ${battle.weapons.count} active rounds · ${director.requests.filter((item) => item.state === 'active').length} calls · ${director.contacts.size} known contacts
+` : '';
+    text('battle-debug', status + battle.targets.map((unit) => {
       const route = unit.route[unit.drive.waypoint];
       const location = route ? `${unit.drive.waypoint + 1}/${unit.route.length} (${route.join(', ')})` : 'done';
       const health = Object.entries(unit.health.health).map(([part, condition]) => `${part} ${Math.round(condition * 100)}%`).join(' ');
@@ -1232,7 +1337,16 @@ async function boot() {
     const title = battle.outcome === 'win' ? 'complete' : battle.outcome === 'draw' ? 'drawn' : 'ended';
     showGroundResult(`${label} ${title}`, battle.reason, `${battle.hitCount} hit · ${battle.playerDisabled.size} stopped · ${battle.destroyed} destroyed by you`);
     text('result-ground-forces', `${battle.losses.friendly} friendly · ${battle.losses.opposing} hostile destroyed`);
-    text('result-friendly-fire', `${battle.friendlyFire} damaging hits`);
+    const director = battle.director;
+    text('result-friendly-fire', director ? `${director.incidents.size} friendly vehicles hit · ${battle.friendlyFire} damaging impacts` : `${battle.friendlyFire} damaging hits`);
+    if (director) {
+      const objectives = [director.primary, director.secondary].map(({ state }) => state).join(' / ');
+      text('result-cas-objectives', `Primary / secondary · ${objectives} · Seed ${director.plan.seed}`);
+      const supported = director.requests.filter((item) => item.accepted && item.state === 'completed').length;
+      text('result-cas-support', `${supported} accepted and completed · ${director.requests.length} issued`);
+      const parts = Object.values(flight.damage.health);
+      text('result-damage', `${parts.filter((health) => health < 1).length} of ${parts.length} components damaged`);
+    }
   }
 
   function finishGroundRange(complete) {
@@ -1291,6 +1405,8 @@ async function boot() {
     const realDt = (time - (previousFrame ?? time)) / 1000;
     const dt = Math.min(0.10, realDt);
     previousFrame = time;
+    if (screen === 'map' || battle.director && !casBackdropDirty
+      && (screen === 'ready' || screen === 'complete' && presentationAge > 1.1)) return;
     if (screen === 'flying') {
       const command = controls.sample(brake, !keyboardFlight && settings.controlMode === 'assist');
       // Allow slow frames to catch up while bounding work after a browser stall.
@@ -1413,7 +1529,13 @@ async function boot() {
     const camera = combatCamera.update(view.camera, aircraft, observed, blend, dt);
     listener = camera;
     groundView?.update(camera);
-    if (battle.enabled && screen === 'flying') groundObserver.scan(battle.time, flight.position, camera, battle.targets);
+    if (battle.enabled && screen === 'flying') {
+      const scan = battle.time >= groundObserver.nextScan;
+      groundObserver.scan(battle.time, flight.position, camera, battle.targets);
+      if (scan && battle.director) for (const { unit, position, time } of groundObserver.contacts.values()) {
+        battle.director.remember(unit, position, time, 'Visual');
+      }
+    }
     battlefieldView?.update(camera, blend, groundObserver, ui['ground-assistance'].checked && screen === 'flying');
     renderGroundContact(camera);
     releasedStores?.update(blend);
@@ -1444,6 +1566,7 @@ async function boot() {
       lastHudTime = time;
     }
     renderer.render(scene, camera);
+    casBackdropDirty = false;
     if (debug && realDt > 0) updateMetrics(realDt);
   }
 

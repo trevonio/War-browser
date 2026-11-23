@@ -98,3 +98,19 @@ test('profiles dynamic ground battles across forces, explosions, air support, an
   expect(report.mixedAircraft.draws).toBeGreaterThan(report.firing.draws);
   expect(errors).toEqual([]);
 });
+
+test('profiles dedicated CAS field activity, arrivals and mission resolution', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Measure scenarios on one software renderer.');
+  await page.goto('http://127.0.0.1:4174/browser-tests/systems-fixture.html');
+  await page.waitForFunction(() => Boolean(window.flightSystemsTest), undefined, { timeout: 25000 });
+  const report = await page.evaluate(() => window.flightSystemsTest.measureCasBattle());
+  console.log('Stage 2.9 CAS software WebGL, Medium 800×450', JSON.stringify(report));
+  expect(report.ten.ai).toBe(10);
+  expect(report.twenty.ai).toBe(20);
+  expect(report.firing.projectiles).toBeGreaterThan(1);
+  expect(report.firing.calls).toBeGreaterThan(0);
+  expect(report.airSupport.bombImpacts).toBe(2);
+  expect(report.airSupport.rocketImpacts).toBe(5);
+  expect(report.reinforcements.relief).toBe('arrived');
+  expect(report.completion.outcome).toMatch(/^(win|loss)$/);
+});

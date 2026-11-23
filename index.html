@@ -33,6 +33,7 @@
       <button id="open-aircraft" class="utility-button" type="button">Choose aircraft <b id="aircraft-current">F-16C</b></button>
       <button id="open-loadouts" class="utility-button" type="button">Loadout</button>
       <div class="start-choice" role="group" aria-label="Starting position">
+        <button id="start-cas" type="button" aria-pressed="false">Close Air Support</button>
         <button id="start-air" type="button" aria-pressed="true">Air start</button>
         <button id="start-runway" type="button" aria-pressed="false">Runway 36</button>
         <button id="start-practice" type="button" aria-pressed="false">Cannon range</button>
@@ -73,6 +74,27 @@
         <label>Rocket release <select id="rocket-mode"><option value="single">Single</option><option value="burst">Salvo</option></select></label>
       </div>
       <label id="battle-briefing-options" hidden><input id="ground-assistance" type="checkbox"> Mark all visually identified ground contacts</label>
+      <section id="cas-preparation" aria-label="Close Air Support mission preparation" hidden>
+        <div class="cas-briefing-fields">
+          <label>CAS mission <select id="cas-mission"></select></label>
+          <label>Mission seed <input id="cas-seed" type="number" min="0" max="4294967295" step="1" required></label>
+          <button id="cas-new-seed" type="button">Generate scenario</button>
+        </div>
+        <h2 id="cas-mission-title"></h2>
+        <p id="cas-description"></p>
+        <div class="cas-briefing-grid">
+          <canvas id="cas-preview" width="380" height="240" role="img" aria-label="Known battlefield locations"></canvas>
+          <dl>
+            <div><dt>Primary</dt><dd id="cas-primary"></dd></div>
+            <div><dt>Secondary</dt><dd id="cas-secondary"></dd></div>
+            <div><dt>Friendly forces</dt><dd id="cas-friendly"></dd></div>
+            <div><dt>Known opposition</dt><dd id="cas-intelligence"></dd></div>
+            <div><dt>Operational area</dt><dd>Coastal training sector</dd></div>
+            <div><dt>Recommended preset</dt><dd>Ground Attack</dd></div>
+          </dl>
+        </div>
+        <p id="cas-aircraft-status" role="status"></p>
+      </section>
       <div id="start-detail" class="start-detail">2,950 FT MSL · 358 KTS</div>
       <button class="primary-button" id="launch" type="button">Start flight <kbd>Enter</kbd></button>
     </section>
@@ -133,6 +155,12 @@
         <span>OPPONENT <output id="opponent-integrity">100</output>%</span>
         <span>AIRFRAME <output id="player-integrity">100</output>%</span>
       </div>
+      <div id="cas-designation" hidden><span aria-hidden="true"></span><b id="cas-designation-label"></b></div>
+      <aside id="cas-radio" hidden aria-label="Ground radio">
+        <div><b>GROUND RADIO</b><span id="cas-call-count"></span></div>
+        <p id="cas-radio-message" role="status"></p>
+        <button id="cas-map-open" type="button"><kbd id="key-tacticalMap">Tab</kbd> Tactical map</button>
+      </aside>
       <div id="ground-contact-marker" hidden><span class="contact-symbol" aria-hidden="true"></span><span id="ground-contact-label"></span></div>
       <div id="opponent-marker" hidden><span class="contact-symbol" aria-hidden="true"></span><span id="contact-label"></span></div>
       <div id="camera-status" hidden>
@@ -184,11 +212,34 @@
 
     <pre id="battle-debug" aria-label="Ground AI diagnostics" hidden></pre>
 
+    <dialog id="cas-map-dialog" aria-labelledby="cas-map-title">
+      <div class="cas-map-heading"><h2 id="cas-map-title">Tactical map</h2><button id="cas-map-close" type="button">Return to flight</button></div>
+      <div class="cas-map-layout">
+        <div>
+          <canvas id="cas-map-canvas" width="590" height="470" tabindex="0" role="img" aria-label="Tactical map. Use arrow keys to pan and plus or minus to zoom."></canvas>
+          <div class="cas-map-controls">
+            <button id="cas-map-zoom-in" type="button" aria-label="Zoom in">+</button>
+            <button id="cas-map-zoom-out" type="button" aria-label="Zoom out">−</button>
+            <span class="cas-map-legend"><i></i> Friendly</span><span class="cas-map-legend hostile"><i></i> Hostile report</span><span>◌ Last known · ◎ Objective</span>
+          </div>
+        </div>
+        <div class="cas-map-information">
+          <section><h3>Objectives</h3><button id="cas-map-objective" type="button"></button><p id="cas-map-secondary"></p></section>
+          <section><h3>Support requests</h3><div id="cas-map-requests"></div></section>
+          <section><h3>Known contacts</h3><div id="cas-map-contacts"></div></section>
+          <p id="cas-map-selection" role="status"></p>
+          <section><h3>Radio log</h3><ol id="cas-map-radio"></ol></section>
+        </div>
+      </div>
+    </dialog>
+
     <aside id="test-overlay" aria-label="Flight test measurements" hidden>
       <b>Flight test</b>
       <dl>
         <div><dt>Aircraft mass</dt><dd><output id="test-mass"></output> kg</dd></div>
         <div><dt>Heading rate</dt><dd><output id="test-turn"></output> °/s</dd></div>
+        <div><dt>Bank</dt><dd><output id="test-bank"></output> °</dd></div>
+        <div><dt>Sideslip</dt><dd><output id="test-slip"></output> °</dd></div>
         <div><dt>Angle of attack</dt><dd><output id="test-alpha"></output> °</dd></div>
         <div><dt>Fuel</dt><dd><output id="test-fuel"></output> kg</dd></div>
         <div><dt>Total thrust</dt><dd><output id="test-thrust"></output> kN</dd></div>
@@ -208,6 +259,8 @@
         <div id="result-bombs-row" hidden><dt>Bombs released</dt><dd id="result-bombs"></dd></div>
         <div id="result-rockets-row" hidden><dt>Rockets fired</dt><dd id="result-rockets"></dd></div>
         <div id="result-targets-row" hidden><dt>Ground targets</dt><dd id="result-targets"></dd></div>
+        <div id="result-cas-objectives-row" hidden><dt>Objectives</dt><dd id="result-cas-objectives"></dd></div>
+        <div id="result-cas-support-row" hidden><dt>Support calls</dt><dd id="result-cas-support"></dd></div>
         <div id="result-ground-forces-row" hidden><dt>Ground force losses</dt><dd id="result-ground-forces"></dd></div>
         <div id="result-friendly-fire-row" hidden><dt>Friendly fire</dt><dd id="result-friendly-fire"></dd></div>
         <div id="result-airframe-row"><dt>Airframe damage</dt><dd id="result-damage"></dd></div>
@@ -216,6 +269,7 @@
       <button id="resume" class="primary-button" type="button">Resume flight <kbd>Enter</kbd></button>
       <button id="keyboard-flight" class="secondary-button" type="button" hidden>Fly with keyboard</button>
       <button id="restart" class="secondary-button" type="button">Restart flight <kbd id="restart-key">R</kbd></button>
+      <button id="cas-replay-new" class="text-button" type="button" hidden>Generate another scenario</button>
       <button id="return" class="text-button" type="button">Back to briefing</button>
     </section>
 

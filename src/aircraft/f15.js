@@ -1,3 +1,4 @@
+import { horizontalSteering } from '../sim/instructor.js';
 import { centerFuelStation, storeStationPair } from '../sim/loadouts.js';
 import { f16 } from './f16.js';
 
@@ -37,6 +38,7 @@ export const f15 = {
   ],
   baseLift: 0.063, liftSlope: 3.94, stallAngle: 0.285,
   baseDrag: 0.019, inducedDrag: 0.092, waveDrag: 0.026, maxMach: 2.5,
+  horizontalSteering: { ...horizontalSteering, fineAngle: .086, fullBankAngle: .57, rollGain: 3, response: 8.6, highSpeedRudder: .48 },
   controlSpeed: 124, pitchRate: 0.79, rollRate: 1.94, yawRate: 0.42, maxG: 9, minG: -2.7,
   gearClearance: 1.79, gearTime: 1.14, chaseDistance: 37,
   damageComponents: components,

@@ -4,6 +4,12 @@ const { clamp, lerp, smoothstep } = MathUtils;
 const UP = new Vector3(0, 1, 0);
 const BODY_RIGHT = new Vector3(-1, 0, 0);
 
+export const horizontalSteering = {
+  fineAngle: .10, fullBankAngle: .61, maxBank: 1.47, rudderGain: 3.6,
+  rollGain: 3.1, damping: .78, response: 9.5, hysteresis: .016, slipLimit: .085,
+  highSpeedRudder: .52,
+};
+
 const tuning = {
   courseGain: 0.82,
   rolloutLead: 0.34,
@@ -29,6 +35,7 @@ export class FlightInstructor {
     this.liftDemand = new Vector3();
     this.turnSide = new Vector3();
     this.levelRight = new Vector3();
+    this.horizontal = new Vector3();
     this.reset();
   }
 
@@ -38,9 +45,11 @@ export class FlightInstructor {
     this.lastRollSign = 1;
     this.holdingOpposite = false;
     this.pitchDominant = false;
+    this.bankBlend = 0;
+    this.committedTurn = 0;
   }
 
-  update(flight, controls, speed, authority, liftScale, gravity) {
+  update(flight, controls, speed, authority, liftScale, gravity, dt, sideslip) {
     const { forward, up, velocity, orientation, spec } = flight;
     const { aimDirection, aimHint, aimResponsiveness } = controls;
     this.rudder = 0;
@@ -90,9 +99,7 @@ export class FlightInstructor {
     const lead = tuning.rolloutLead * (1 - smoothstep(angle, 0.1, 0.65));
     this.liftDemand.copy(this.gravity).multiplyScalar(1 + lead)
       .addScaledVector(this.tangent, turnLoad).addScaledVector(this.lift, -flight.g * lead);
-    const demand = this.liftDemand.length();
     let localUp = this.liftDemand.dot(this.lift);
-    let localRight = this.liftDemand.dot(this.right);
     const maxAlpha = lerp(spec.stallAngle - 0.035, spec.stallAngle + 0.01, authority);
     const attainableLoad = (spec.baseLift + maxAlpha * spec.liftSlope) / liftScale;
     const turnSpeed = Math.max(60, speed);
@@ -117,6 +124,49 @@ export class FlightInstructor {
       return;
     }
 
+    const config = spec.horizontalSteering ?? horizontalSteering;
+    let rollBlend = 1;
+    if (controls.pitchPriority && aimDirection) {
+      const horizon = Math.hypot(forward.x, forward.z) * Math.hypot(this.target.x, this.target.z);
+      this.horizontal.crossVectors(forward, UP).normalize();
+      const headingError = Math.atan2(this.target.dot(this.horizontal) * Math.hypot(forward.x, forward.z),
+        forward.x * this.target.x + forward.z * this.target.z);
+      const horizontalWeight = smoothstep(horizon, .08, .55);
+      const entered = Math.max(smoothstep(angle, .58, .95), (1 - horizontalWeight) * smoothstep(angle, .20, .50));
+      const holding = smoothstep(angle, .025, .065);
+      this.committedTurn = Math.max(entered, this.committedTurn * (holding < 1 ? 1 - dt * (1 - holding) * 3 : 1));
+      const fineAuthority = 1 - this.committedTurn;
+      const yawCapacity = clamp(spec.yawRate / .44 * flight.damage.yawAuthority * authority, 0, 1);
+      const usableRudder = lerp(.58, 1, yawCapacity) * lerp(1, config.highSpeedRudder, smoothstep(speed, 190, 370));
+      const hysteresis = config.hysteresis * (1 - this.bankBlend * 2);
+      const fineAngle = config.fineAngle * usableRudder + hysteresis;
+      const desiredBlend = smoothstep(Math.abs(headingError), fineAngle, config.fullBankAngle * lerp(.76, 1, usableRudder));
+      this.bankBlend = lerp(this.bankBlend, desiredBlend, 1 - Math.exp(-dt * (config.response + desiredBlend * 8)));
+      const fineRudder = clamp(headingError * config.rudderGain, -.46, .46);
+      const slipMargin = 1 - smoothstep(Math.abs(sideslip), config.slipLimit * .55, config.slipLimit);
+      const rudderAuthority = usableRudder * slipMargin * horizontalWeight;
+      this.rudder = fineRudder * (1 - this.bankBlend) * rudderAuthority * fineAuthority;
+
+      // Limit only the horizontal component. Preserve the vertical lift demand
+      // and the original turn plane for large commands and near the poles.
+      if (horizontalWeight > 0 && this.gravity.lengthSq() > .12 ** 2) {
+        this.horizontal.crossVectors(this.course, UP).normalize();
+        const side = this.liftDemand.dot(this.horizontal);
+        const fineLoad = clamp(side, -.16, .16);
+        const allowedBank = lerp(.19, config.maxBank, smoothstep(Math.abs(headingError), .11, .88));
+        const bankLimit = Math.max(0.08, this.liftDemand.dot(this.gravity) / this.gravity.length()) * Math.tan(allowedBank);
+        const bankedLoad = clamp(side, -bankLimit, bankLimit);
+        const scheduled = lerp(fineLoad, bankedLoad, this.bankBlend);
+        const verticalCommand = 1 - smoothstep(Math.abs(this.tangent.dot(this.horizontal)), .27, .65);
+        const fullTurn = Math.max(verticalCommand, smoothstep(angle, .72, 1.18));
+        this.liftDemand.addScaledVector(this.horizontal, (scheduled - side) * horizontalWeight * (1 - fullTurn) * fineAuthority);
+        localUp = this.liftDemand.dot(this.lift);
+      }
+      rollBlend = Math.max(this.bankBlend, 1 - horizontalWeight, this.committedTurn);
+    }
+    const demand = this.liftDemand.length();
+    let localRight = this.liftDemand.dot(this.right);
+
     // For gentle pushovers use signed lift from an upright attitude. Larger
     // turns bank the lift vector toward the target and pull positively.
     const gentlePush = angle < 0.24 && localUp < 0 && Math.abs(localRight) < demand * 0.45
@@ -131,8 +181,8 @@ export class FlightInstructor {
     } else if (Math.abs(rollError) > 0.12) {
       this.lastRollSign = Math.sign(rollError);
     }
-    this.roll = clamp(rollError * tuning.rollGain - flight.rates.z * tuning.rollDamping,
-      -spec.rollRate, spec.rollRate);
+    this.roll = clamp(rollError * lerp(config.rollGain, tuning.rollGain, rollBlend)
+      - flight.rates.z * lerp(config.damping, tuning.rollDamping, rollBlend), -spec.rollRate, spec.rollRate);
 
     const load = gentlePush
       ? -Math.min(demand, 1.35)

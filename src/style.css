@@ -422,3 +422,55 @@ input[type="range"] { max-width: min(29vw,8rem); }
   background: #10171be8; color: #d7eff1; font: .65rem/1.35 var(--mono); white-space: pre-wrap;
   pointer-events: none;
 }
+
+#start-cas { color: #d4e6ba; }
+#briefing[data-cas="true"] { width: min(42rem, calc(100vw - 2rem)); }
+#briefing[data-cas="true"] h1, #briefing[data-cas="true"] #aircraft-briefing-description { display: none; }
+#briefing[data-cas="true"] .start-choice button:not(#start-cas):not(#start-air) { display: none; }
+#cas-preparation { padding-top: .7rem; }
+.cas-briefing-fields { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; }
+.cas-briefing-fields label { display: grid; gap: .3rem; font-size: .75rem; }
+#cas-seed { width: 8.3rem; padding: .48rem .55rem; border: 1px solid #627782; border-radius: 4px; color: inherit; background: #1a2933; }
+#cas-mission-title { margin: .8rem 0 .25rem; font-size: clamp(1.3rem, 3.2vw, 2.1rem); }
+#cas-description, #cas-aircraft-status { margin: .3rem 0 .65rem; font-size: .84rem; }
+#cas-aircraft-status { color: #f0b498; }
+#cas-aircraft-status:empty { display: none; }
+.cas-briefing-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 1fr); align-items: start; gap: .7rem; }
+.cas-briefing-grid canvas, #cas-map-canvas { display: block; width: 100%; height: auto; border: 1px solid #849b916e; border-radius: 3px; }
+.cas-briefing-grid dl { display: grid; gap: .36rem; margin: 0; font-size: .75rem; }
+.cas-briefing-grid dt { color: #bacdba; font: .64rem var(--mono); text-transform: uppercase; }
+.cas-briefing-grid dd { margin: .1rem 0 0; }
+#cas-radio { position: absolute; bottom: max(6rem, calc(var(--deck-height, 0px) + .65rem)); left: 50%; transform: translateX(-50%); width: min(24vw, 18rem); padding: .45rem .55rem; color: #e0ead7; background: #162630db; border-top: 1px solid #8cbcae; font: .68rem/1.36 var(--mono); }
+#cas-radio div { display: flex; justify-content: space-between; column-gap: .4rem; }
+#cas-radio p { margin: .23rem 0 .35rem; color: #edf1e9; }
+#cas-map-open { pointer-events: auto; padding: .17rem .3rem; font: inherit; }
+#cas-call-count { color: #ffdb9b; }
+#cas-designation { position: absolute; width: 20px; height: 20px; top: 0; left: 0; color: #ffe0a0; }
+#cas-designation > span { position: absolute; inset: 0; border: 1px dashed currentColor; border-radius: 50%; }
+#cas-designation-label { position: absolute; left: 50%; bottom: 24px; width: max-content; max-width: min(218px, 36vw); transform: translateX(-50%); padding: .17rem .25rem; background: #182129dd; text-align: center; font: 650 .59rem var(--mono); }
+#cas-designation[data-edge="true"] > span { transform: rotate(calc(-45deg + var(--contact-angle))); border-style: solid; border-width: 2px 2px 0 0; border-radius: 0; }
+#cas-map-dialog { width: min(62rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); padding: clamp(.7rem, 2vw, 1.4rem); color: #e7eeea; background: #17262f; border: 1px solid #6c8b8d; border-radius: 6px; }
+#cas-map-dialog::backdrop { background: #0a141bd9; }
+.cas-map-heading { display: flex; gap: 1rem; justify-content: space-between; align-items: center; margin-bottom: .65rem; }
+#cas-map-dialog button { color: inherit; background: #243a45; border: 1px solid #55717a; border-radius: 3px; }
+#cas-map-dialog button:hover { background: #31515d; }
+.cas-map-heading h2 { margin: 0; font-size: 1.65rem; }
+.cas-map-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(13rem, 1fr); gap: .85rem; }
+#cas-map-canvas { cursor: grab; touch-action: none; }
+.cas-map-controls { margin-top: .45rem; display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; font: .65rem var(--mono); }
+.cas-map-legend i { display: inline-block; width: .45rem; height: .45rem; background: #91e0cb; }
+.cas-map-legend.hostile i { background: #f5a48d; }
+.cas-map-information { display: grid; gap: .65rem; min-width: 0; max-height: min(64vh, 33rem); overflow: auto; padding-right: .3rem; font-size: .76rem; }
+.cas-map-information h3 { margin: 0 0 .32rem; font-size: .86rem; color: #d9e6bd; }
+.cas-map-information p { margin: .25rem 0; }
+.cas-map-information section div { display: grid; gap: .26rem; }
+.cas-map-information button { text-align: left; padding: .33rem .4rem; font-size: .72rem; }
+.cas-map-information button[aria-pressed="true"] { border-color: #ddcb8f; color: #ffecaf; }
+#cas-map-selection:empty { display: none; }
+#cas-map-radio { display: grid; gap: .3rem; margin: 0; padding-left: 1rem; }
+@media (max-width: 650px) {
+  .cas-map-layout, .cas-briefing-grid { grid-template-columns: 1fr; }
+  #cas-preview { max-width: 16rem; }
+  .cas-map-information { max-height: none; }
+  #cas-radio { bottom: auto; top: 7.4rem; width: min(52vw, 15rem); }
+}
