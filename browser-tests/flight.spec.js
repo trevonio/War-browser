@@ -108,6 +108,7 @@ test('the production build flies, operates aircraft systems, and restarts', asyn
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByLabel('Quality preset').selectOption('low');
   await page.getByLabel('Control mode').selectOption('direct');
+  await page.getByRole('button', { name: 'Advanced controls' }).click();
   await page.getByRole('button', { name: /External stores/ }).click();
   await page.keyboard.press('j');
   await page.getByRole('button', { name: 'Close settings' }).click();
@@ -555,13 +556,15 @@ test('close-range missile exercise spends a store and releases finite countermea
   await page.mouse.down({ button: 'left' });
   await expect.poll(async () => Number(await page.locator('#cannon-count').textContent())).toBeLessThan(510);
   await page.mouse.up({ button: 'left' });
+  const firingEnded = await page.locator('#elapsed').textContent();
+  await expect(page.locator('#elapsed')).not.toHaveText(firingEnded);
   const cannonCount = await page.locator('#cannon-count').textContent();
   await expect(page.locator('#cannon-ammo')).toHaveText('2');
   await page.keyboard.down('Space');
   await expect(page.locator('#cannon-state')).toHaveText('CLEARED');
   await page.keyboard.down('Space');
   await expect(page.locator('#cannon-ammo')).toHaveText('2');
-  await expect.poll(async () => Math.abs(Number(await page.locator('#cannon-count').textContent()) - Number(cannonCount))).toBeLessThanOrEqual(1);
+  await expect(page.locator('#cannon-count')).toHaveText(cannonCount);
   await page.keyboard.up('Space');
   await page.keyboard.press('Space');
   await expect(page.locator('#cannon-ammo')).toHaveText('1');
