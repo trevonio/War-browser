@@ -37,6 +37,7 @@ export class AIPilot {
     this.status = opponentModes[mode].start;
     this.altitude = spawn.y;
     this.course = spawn.heading;
+    this.patrolDirection = spawn.patrolDirection ?? 1;
     this.patrolSince = 0;
     this.nextDecision = 0;
     this.maneuverUntil = 0;
@@ -119,7 +120,7 @@ export class AIPilot {
       const returning = phase >= patrolTurnDuration + patrolLeg;
       const turnTime = phase % (patrolTurnDuration + patrolLeg) - patrolLeg;
       const route = (returning ? Math.PI : 0) + clamp(turnTime, 0, patrolTurnDuration) * patrolTurnRate;
-      this.setCourse(this.course + route, clamp((this.altitude - flight.position.y) / 900, -0.18, 0.20));
+      this.setCourse(this.course + route * this.patrolDirection, clamp((this.altitude - flight.position.y) / 900, -0.18, 0.20));
     }
 
     // Route over nearby terrain using the same pitch and lift authority as a player.

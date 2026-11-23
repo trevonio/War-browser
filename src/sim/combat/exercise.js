@@ -9,7 +9,10 @@ import { WeaponRack, weapons } from './weapons.js';
 export const combatExercises = {
   hornetQualification: {
     label: 'F/A-18C Multirole Qualification', initialWeapon: 'radar', opponentMode: 'defensive', radarRange: 2,
-    opponent: { x: -320, y: 1060, z: 9300, speed: 161, heading: Math.PI + .034, exercise: 'short' },
+    opponent: {
+      x: -1130, y: 1560, z: 9300, speed: 161, heading: Math.PI - .085,
+      patrolDirection: -1, exercise: 'short',
+    },
   },
   short: {
     label: 'Missile dogfight',

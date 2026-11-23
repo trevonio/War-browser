@@ -206,6 +206,13 @@ test('the Hornet qualification starts airborne opposition safely and requires cr
   assert.equal(flight.grounded, true);
   assert.equal(enemy.opponent.grounded, false);
   assert.ok(enemy.opponent.position.y > 900);
+  const hold = { ...neutralControls, throttle: -1, brakes: true };
+  for (let tick = 0; tick < 175 / STEP; tick++) {
+    flight.step(hold);
+    enemy.update(combat.adjust);
+    combat.step(STEP);
+    assert.equal(enemy.opponent.failure, '');
+  }
   assert.equal(qualificationAirStatus(combat), null);
   enemy.opponentHull.hit('fuselage', 200);
   assert.match(qualificationAirStatus(combat).reason, /before you scored a hit/);

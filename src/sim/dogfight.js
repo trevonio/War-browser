@@ -91,10 +91,10 @@ export class Dogfight {
     if (this.managesPlayerHull) this.playerHull.reset(this.enabled);
     this.opponentHull.reset(false);
     if (!this.enabled) return;
-    const { x, y, z, speed, heading } = opponentStart ?? spawns[mode];
+    const { x, y, z, speed, heading, patrolDirection } = opponentStart ?? spawns[mode];
     const scenario = {
       ...start, x: start.x + x, y: start.y + y, z: start.z + z,
-      heading, speed: speed * this.pilot.speedScale, runway: false,
+      heading, speed: speed * this.pilot.speedScale, runway: false, patrolDirection,
     };
     this.opponent.reset(scenario);
     this.opponentHull.reset(true);
