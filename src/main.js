@@ -16,7 +16,7 @@ import { AirDefenses } from './sim/strike/defenses.js';
 import { GroundBattle, groundMissions } from './sim/ground/battlefield.js';
 import { GroundObserver } from './sim/ground/ground-observer.js';
 import { GroundRange } from './sim/ground-range.js';
-import { availablePresets, LoadoutBook, missionLoadout } from './sim/loadouts.js';
+import { availablePresets, LoadoutBook, missionLoadout, resolveLoadout } from './sim/loadouts.js';
 import { applyGroundImpact, RangeOrdnance } from './sim/range-ordnance.js';
 import { createSortie } from './sim/sortie.js';
 import { combatExercises } from './sim/combat/exercise.js';
@@ -195,7 +195,8 @@ async function boot() {
     blast(point, true);
   });
   let releasedStores;
-  const audio = new CannonAudio(aircraftRegistry[aircraftId].spec.cannon.rpm);
+  const initialCannon = aircraftRegistry[aircraftId].spec.cannon;
+  const audio = new CannonAudio(initialCannon.rpm, initialCannon.audio);
   const sound = new FlightSound(audio);
   let listener = view.camera;
   const blast = (point, launch) => audio.blast(attenuation(listener.position.distanceTo(point), launch ? 225 : 420), launch);
@@ -245,7 +246,7 @@ async function boot() {
     [{ fight: dogfight, visual: opponentVisual }, { fight: wingman, visual: wingmanVisual }] = opponents;
     activeOpponents = [false, false];
     classicCandidates = [dogfight.opponent];
-    audio.setRate(flight.spec.cannon.rpm);
+    audio.setRate(flight.spec.cannon.rpm, flight.spec.cannon.audio);
   }
   const weaponsAvailable = () => combat.enabled || Boolean(activeLoadout);
   const selectedWeapon = () => weaponsAvailable() ? combat.player.rack.selected : 'cannon';
@@ -400,7 +401,9 @@ async function boot() {
   }
 
   function readyAircraft() {
-    return startingPosition !== 'cas' || flight.spec.weaponDomains.includes('ground');
+    if (startingPosition === 'cas') return flight.spec.weaponDomains.includes('ground');
+    if (['intercept', 'outnumbered'].includes(startingPosition)) return flight.spec.radarAvailable !== false;
+    return true;
   }
 
   function reset(next) {
@@ -521,7 +524,12 @@ async function boot() {
       ui[id].disabled = !spec.weaponDomains.includes('ground');
       ui[id].title = ui[id].disabled ? 'Requires an air-to-ground-capable aircraft' : '';
     }
+    for (const id of ['start-intercept', 'start-outnumbered']) {
+      ui[id].disabled = spec.radarAvailable === false;
+      ui[id].title = ui[id].disabled ? 'Requires an aircraft equipped with air-search radar' : '';
+    }
     ui['start-qualification'].hidden = spec.id !== 'a10c';
+    ui['toggle-flaps'].hidden = !spec.flaps;
     ui['toggle-burner'].hidden = !(spec.afterburnerThrust > 0);
     text('aircraft-briefing-description', spec.description);
   }
@@ -575,13 +583,29 @@ async function boot() {
     let inspected = aircraftId;
     let angle = 0.71;
     let rotateFrame = 0;
+    let previewMounts, previewOwner;
+    const detachStores = () => {
+      previewMounts?.dispose();
+      previewOwner = null;
+    };
+    dialog.addEventListener('close', detachStores, { signal });
+    signal.addEventListener('abort', detachStores, { once: true });
     const draw = () => {
       rotateFrame = 0;
       const assets = assetsById.get(inspected);
       if (!assets || !dialog.open) return;
       const spec = aircraftRegistry[inspected].spec;
       text('preview-name', spec.name);
-      ui['hangar-preview'].src = preview.draw(assets, angle, 510, 190);
+      if (previewOwner !== assets.own) {
+        detachStores();
+        previewOwner = assets.own;
+        previewMounts = new AttachedStores(previewOwner, modelStores);
+        const assignment = loadoutBook.entry(spec).active ?? (spec === flight.spec && activeLoadout
+          ? Object.fromEntries(activeLoadout.stations.map(({ name, id }) => [name, id])) : {});
+        previewMounts.reset(resolveLoadout(spec, assignment).stations);
+        previewMounts.update({ stores: true, customStores: true, damage: { condition: () => 1 } });
+      }
+      ui['hangar-preview'].src = preview.draw(assets, angle, 510, 190, spec.previewDistance);
       ui['hangar-preview'].alt = `Rotatable preview of ${spec.name}`;
     };
     const rotate = (amount) => {
@@ -632,7 +656,7 @@ async function boot() {
         try {
           const assets = await hangar.load(id);
           assetsById.set(id, assets);
-          inspect.querySelector('img').src = preview.draw(assets, 0.71, 240, 118);
+          inspect.querySelector('img').src = preview.draw(assets, 0.71, 240, 118, aircraftRegistry[id].spec.previewDistance);
           if (id === inspected) draw();
         } catch {
           text('aircraft-status', 'An aircraft preview could not be loaded.');
@@ -651,7 +675,8 @@ async function boot() {
   }
 
   function selectStart(next) {
-    if (next === 'qualification' && flight.spec.id !== 'a10c') next = 'air';
+    if (next === 'qualification' && flight.spec.id !== 'a10c'
+      || ['intercept', 'outnumbered'].includes(next) && flight.spec.radarAvailable === false) next = 'air';
     startingPosition = next;
     const isCas = next === 'cas';
     ui.briefing.dataset.cas = String(isCas);
@@ -725,7 +750,7 @@ async function boot() {
     text('aim-response-value', settings.aimResponsiveness.toFixed(1));
     text('camera-smoothing-value', settings.cameraSmoothing.toFixed(1));
     text('camera-turn-value', settings.cameraTurnResponse.toFixed(1));
-    for (const action of ['afterburner', 'gear', 'stores', 'airbrake', 'camera', 'pause', 'sight', 'sightMode']) {
+    for (const action of ['afterburner', 'gear', 'flaps', 'stores', 'airbrake', 'camera', 'pause', 'sight', 'sightMode']) {
       text(`key-${action}`, keyName(settings.keys[action]));
     }
     for (const action of ['weaponBomb', 'weaponRocket', 'jettisonTank', 'rearmGround']) {
@@ -817,6 +842,7 @@ async function boot() {
 
   function requestRadar(cycle) {
     const { radar } = combat.player;
+    if (!radar.available) return 'USE VISUAL TRACK';
     if (!radar.power) radar.togglePower();
     if (cycle || !radar.selected) radar.selectNext(cycle);
     if (!radar.locked && radar.selected && radar.toggleLock()) audio.cue('locked');
@@ -907,6 +933,7 @@ async function boot() {
   const actions = {
     afterburner() { flight.toggleAfterburner(); },
     gear() { if (!flight.grounded) flight.gearDown = !flight.gearDown; },
+    flaps() { flight.cycleFlaps(); },
     stores() { flight.stores = !flight.stores; },
     airbrake() { brake = !brake; },
     camera() { if (pod.active) actions.podView(); else if (combatCamera.observing) combatCamera.returnToAircraft(); else view.cycle(); },
@@ -1012,7 +1039,8 @@ async function boot() {
 
   const input = new FlightInput(settings, controls, {
     flying: () => screen === 'flying' && !ui.settings.open,
-    available: (key) => (key !== 'tacticalMap' || Boolean(battle.director)) && (!podActions.has(key) || pod.active),
+    available: (key) => (key !== 'tacticalMap' || Boolean(battle.director)) && (!podActions.has(key) || pod.active)
+      && (key !== 'flaps' || Boolean(flight.spec.flaps)),
   }, actions, () => {
     updateHud();
     updateWeaponHud();
@@ -1066,7 +1094,6 @@ async function boot() {
   ui['start-runway'].addEventListener('click', () => selectStart('runway'));
   ui['start-practice'].addEventListener('click', () => selectStart('practice'));
   ui['start-ground-range'].addEventListener('click', () => selectStart('groundRange'));
-  ui['start-qualification'].addEventListener('click', () => selectStart('qualification'));
   for (const key of Object.keys(groundMissions)) ui[`start-${key}`].addEventListener('click', () => selectStart(key));
   const editor = new LoadoutEditor(ui, hangar, preview, modelStores, loadoutBook, () => selectStart(startingPosition), signal);
   ui['open-loadouts'].addEventListener('click', () => editor.open(flight.spec), { signal });
@@ -1231,7 +1258,13 @@ async function boot() {
     ui['fuel-external'].hidden = !flight.externalCapacity;
     if (flight.externalCapacity) text('fuel-external', `${Math.floor(flight.externalFuel)} KG EXT`);
     text('g-force', flight.g.toFixed(1));
-    text('gear-state', gearMoving ? 'In transit' : flight.gear > 0.98 ? 'Down' : 'Up');
+    text('gear-state', flight.gearDown && flight.gearDamaged ? 'Damaged' : gearMoving ? 'In transit' : flight.gear > 0.98 ? 'Down' : 'Up');
+    text('flaps-state', flight.spec.flaps?.labels[flight.flapIndex] ?? 'Up');
+    ui['engine-balance'].hidden = !flight.spec.flaps;
+    if (flight.spec.flaps) {
+      const engineState = ({ power, spool }) => power > 0 ? Math.round(spool * power * 100) + '%' : 'OUT';
+      text('engine-balance', `L ${engineState(flight.engines.states[0])} · R ${engineState(flight.engines.states[1])}`);
+    }
     text('burner-state', flight.spec.afterburnerThrust <= 0 ? 'Not installed' : flight.afterburner ? 'On' : flight.burnerArmed ? 'Spooling' : 'Off');
     text('stores-state', flight.stores ? 'On' : 'Off');
     text('brake-state', brake ? 'On' : 'Off');
@@ -1259,6 +1292,14 @@ async function boot() {
     text('sight-enabled', sightActive === null ? 'Auto' : sightActive ? 'On' : 'Off');
     text('sight-selected', sightMode === 'impact' ? 'CCIP' : 'Lead');
     ui['toggle-gear'].disabled = flight.grounded;
+  }
+
+  function qualificationProgress() {
+    const zone = battle.mission.objective;
+    const x = zone.x - flight.position.x;
+    const z = zone.z - flight.position.z;
+    const azimuth = (Math.round(T.MathUtils.radToDeg(Math.atan2(-x, z))) + 360) % 360;
+    return `${battle.playerDisabled.size} / ${battle.qualificationTargets.length} DISABLED · RANGE ${(Math.hypot(x, z) / 1000).toFixed(1)} KM ${String(azimuth).padStart(3, '0')}°`;
   }
 
   function updateWeaponHud() {
@@ -1291,10 +1332,11 @@ async function boot() {
       text('ground-remaining', ground.enabled ? `${ground.remaining} / ${ground.targets.length} TARGETS ACTIVE` : '');
       if (battle.enabled) {
         const seconds = Math.max(0, Math.ceil(battle.mission.timeLimit - battle.time));
-        const objective = battle.director ? (battle.director.progress ?? battle.mission.primary).toUpperCase()
+        const progress = battle.director ? (battle.director.progress ?? battle.mission.primary).toUpperCase()
+          : battle.key === 'qualification' ? qualificationProgress()
           : battle.key === 'convoy' ? `${battle.convoyStopped} / ${battle.transports.length} TRANSPORTS STOPPED`
           : `CONTROL · FRIENDLY ${Math.min(100, Math.floor(battle.controls.friendly / .26))}% · HOSTILE ${Math.min(100, Math.floor(battle.controls.opposing / .26))}%`;
-        text('battle-objective', `${objective} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
+        text('battle-objective', `${progress} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
         text('battle-losses', `LOSSES · FRIENDLY ${battle.losses.friendly} · HOSTILE ${battle.losses.opposing}`);
         text('ground-identification', groundObserver.track ? '' : 'NO VISUAL CONTACT');
       }
@@ -1346,6 +1388,7 @@ async function boot() {
     ui['toggle-podZoomOut'].disabled = !pod.canZoomOut;
     ui['pod-cursor-help'].hidden = keyboardFlight;
     ui['toggle-zoomCursor'].hidden = !podCursor;
+    ui['pod-drag-help'].hidden = !podCursor && !keyboardFlight;
     text('pod-cursor-action', podCursor ? 'Resume slew' : 'Show pointer');
     text('pod-track', pod.state);
     const unit = pod.track ?? pod.observed;
@@ -1361,7 +1404,7 @@ async function boot() {
     if (!enabled) return;
     const { radar, warning, rack } = combat.player;
     const time = flight.elapsed;
-    const showRadar = combat.enabled && radarShown();
+    const showRadar = combat.enabled && radar.available && radarShown();
     ui['radar-panel'].hidden = !showRadar;
     if (showRadar && radar.revision !== radarRevision) {
       radarRevision = radar.revision;
@@ -1433,9 +1476,9 @@ async function boot() {
       root.position.copy(opponent.previousPosition).lerp(opponent.position, blend);
       root.quaternion.copy(opponent.previousOrientation).slerp(opponent.orientation, blend);
       const distant = root.position.distanceToSquared(listener.position) > 1150 ** 2;
-      model.setDistant(distant);
-      if (!distant) {
-        model.update(opponent, time, blend);
+      model.setDistant?.(distant);
+      if (!distant || model.hasLOD) {
+        model.update(opponent, time, blend, fight.cannon);
         if (opponent.customStores) enemyStores[index].update(opponent);
       } else enemyStores[index].root.visible = false;
     }
@@ -1612,7 +1655,14 @@ ${battle.targets.filter((unit) => unit.active && unit.faction === 'friendly').le
   function finishBattle() {
     const { label } = battle.mission;
     const title = battle.outcome === 'win' ? 'complete' : battle.outcome === 'draw' ? 'drawn' : 'ended';
-    showGroundResult(`${label} ${title}`, battle.reason, `${battle.hitCount} hit · ${battle.playerDisabled.size} stopped · ${battle.destroyed} destroyed by you`);
+    const qualification = battle.key === 'qualification';
+    const targets = qualification ? `${battle.qualificationDamaged} damaged · ${battle.playerDisabled.size} / ${battle.qualificationTargets.length} disabled`
+      : `${battle.hitCount} hit · ${battle.playerDisabled.size} stopped · ${battle.destroyed} destroyed by you`;
+    showGroundResult(`${label} ${title}`, battle.reason, targets);
+    if (qualification) {
+      const accuracy = cannon.fired ? ` · ${(100 * battle.cannonHits / cannon.fired).toFixed(1)}% hostile hit rate` : '';
+      text('result-guns', `${cannon.fired} fired · ${battle.cannonHits} hostile hits${accuracy}`);
+    }
     text('result-ground-forces', `${battle.losses.friendly} friendly · ${battle.losses.opposing} hostile destroyed`);
     const director = battle.director;
     text('result-friendly-fire', director ? `${director.incidents.size} friendly vehicles hit · ${battle.friendlyFire} damaging impacts` : `${battle.friendlyFire} damaging hits`);
@@ -1799,7 +1849,7 @@ ${battle.targets.filter((unit) => unit.active && unit.faction === 'friendly').le
     }
     aircraft.renderMovement.copy(aircraft.position).sub(previousRenderPosition);
     previousRenderPosition.copy(aircraft.position);
-    visual.update(flight, time / 1000, blend);
+    visual.update(flight, time / 1000, blend, cannon);
     if (activeLoadout) attachedStores.update(flight);
     aircraft.visible = !pod.active && (view.mode === 'chase' || screen === 'ready' || flight.failure);
     const aim = !keyboardFlight && settings.controlMode === 'assist' ? controls.aim : null;
@@ -1829,7 +1879,8 @@ ${battle.targets.filter((unit) => unit.active && unit.faction === 'friendly').le
     }
     const thermal = inPod ? pod.mode : 0;
     world.setThermal(thermal);
-    battlefieldView?.update(camera, blend, groundObserver, !inPod && ui['ground-assistance'].checked && screen === 'flying',
+    const showContacts = !inPod && screen === 'flying' && (battle.key === 'qualification' || ui['ground-assistance'].checked);
+    battlefieldView?.update(camera, blend, groundObserver, showContacts,
       thermal, defenses.enabled ? defenses.battery : null);
     renderGroundContact(camera);
     updatePodHud(inPod);

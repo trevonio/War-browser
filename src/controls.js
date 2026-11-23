@@ -18,7 +18,7 @@ export const keyDefaults = {
   ...legacyDefaults, yawLeft: 'KeyZ', airbrake: 'Slash', restart: 'Backspace',
   sight: 'Semicolon', sightMode: 'Quote', cycleWeapon: 'KeyQ', targetView: 'Comma',
   tacticalMap: 'KeyM', podView: 'KeyC', targetAction: 'KeyR', defensiveProgram: 'KeyX',
-  cannonFire: 'Enter', podZoomIn: 'Equal', podZoomOut: 'Minus',
+  cannonFire: 'Enter', podZoomIn: 'Equal', podZoomOut: 'Minus', flaps: 'Digit7',
 };
 
 export const simpleActions = new Set([
@@ -32,7 +32,7 @@ export const defensivePrograms = ['auto', 'flare', 'chaff', 'mixed'];
 export const keyLabels = {
   pitchUp: 'Pitch up', pitchDown: 'Pitch down', rollLeft: 'Roll left', rollRight: 'Roll right', yawLeft: 'Yaw left',
   yawRight: 'Yaw right', throttleUp: 'Throttle up', throttleDown: 'Throttle down', afterburner: 'Afterburner',
-  gear: 'Landing gear', stores: 'External stores', airbrake: 'Airbrake / wheel brakes', camera: 'Switch camera',
+  gear: 'Landing gear', flaps: 'Cycle flap position', stores: 'External stores', airbrake: 'Airbrake / wheel brakes', camera: 'Switch camera',
   freeLook: 'Free look', pause: 'Pause', restart: 'Restart flight',
   sight: 'Toggle gun computer', sightMode: 'Change gun computer mode',
   weaponCannon: 'Select cannon', weaponInfrared: 'Select infrared missile', weaponRadar: 'Select radar missile',
@@ -141,8 +141,8 @@ export class Controls {
     document.addEventListener('mousemove', (event) => {
       if (!session.flying()) return;
       const sensor = session.sensor?.();
-      if (sensor && session.locked()) {
-        sensor.slew(event.movementX, event.movementY);
+      if (sensor) {
+        if (session.locked() || this.orbiting) sensor.slew(event.movementX, event.movementY);
         return;
       }
       if (session.observing?.()) return;

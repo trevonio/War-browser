@@ -33,16 +33,7 @@ export function configurableStations(spec) {
 }
 
 export function availablePresets(spec) {
-  if (spec.id === 'a10c') return {
-    'Gun Run': {HP_01:'infrared',HP_11:'infrared'},
-    'Mixed CAS': {HP_03:'bomb',HP_04:'rocket',HP_08:'rocket',HP_09:'bomb'},
-    'Precision Support': {HP_03:'laser',HP_05:'optical',HP_06:'pod',HP_07:'gps',HP_09:'laser'},
-    'Clean': {},
-    'Ground Attack': {HP_03:'bomb',HP_04:'rocket',HP_08:'rocket',HP_09:'bomb'},
-    'Precision Strike': {HP_03:'laser',HP_05:'optical',HP_06:'pod',HP_07:'gps'},
-    'Armored Target Attack': {HP_05:'optical',HP_06:'pod',HP_07:'optical'},
-    'Air Superiority': {HP_01:'infrared',HP_11:'infrared'},
-  };
+  if (spec.loadoutPresets) return spec.loadoutPresets;
   const air = Object.fromEntries(spec.hardpoints.map(({ name, type }) => [name, type]));
   const ir = Object.fromEntries(Object.entries(air).filter(([, type]) => type === 'infrared'));
   const radar = Object.fromEntries(Object.entries(air).filter(([, type]) => type === 'radar'));

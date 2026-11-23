@@ -1,5 +1,8 @@
+const cannonVoice = { tone: 125, crack: .85, bass: .75 };
+
 export class CannonAudio {
-  constructor(rpm) {
+  constructor(rpm, profile = cannonVoice) {
+    this.profile = profile;
     this.rate = rpm / 60;
     this.firing = false;
     this.lastPulse = -Infinity;
@@ -7,9 +10,10 @@ export class CannonAudio {
     this.lastBlast = -Infinity;
   }
 
-  setRate(rpm) {
+  setRate(rpm, profile = cannonVoice) {
     const rate = rpm / 60;
-    if (rate === this.rate) return;
+    if (rate === this.rate && profile === this.profile) return;
+    this.profile = profile;
     this.setFiring(false);
     this.rate = rate;
     this.dispose();
@@ -23,6 +27,7 @@ export class CannonAudio {
       if (!this.context) {
         this.context = new AudioContext();
         const { sampleRate } = this.context;
+        const { tone, crack: crackGain, bass } = this.profile;
         const period = 1 / this.rate;
         this.buffer = this.context.createBuffer(1, Math.round(sampleRate * period * 37), sampleRate);
         const samples = this.buffer.getChannelData(0);
@@ -35,8 +40,8 @@ export class CannonAudio {
           const pulse = time % period;
           const crack = Math.exp(-pulse * 450);
           rumble += (noise - rumble) * 0.14;
-          samples[i] = Math.tanh((noise - rumble) * crack * 0.85 + rumble * 0.67
-            + Math.sin(pulse * 2 * Math.PI * 125) * Math.exp(-pulse * 260) * 0.75);
+          samples[i] = Math.tanh((noise - rumble) * crack * crackGain + rumble * 0.67
+            + Math.sin(pulse * 2 * Math.PI * tone) * Math.exp(-pulse * 260) * bass);
         }
       }
       if (this.context.state === 'suspended') {

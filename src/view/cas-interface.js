@@ -30,7 +30,7 @@ export class CasInterface {
     text('cas-friendly', [...counts].map(([type, count]) => `${count} × ${groundVehicles[type].name}`).join(' · '));
     text('cas-intelligence', plan.intel);
     text('cas-recommended', plan.loadout ?? 'Ground Attack');
-    text('cas-aircraft-status', supported ? '' : 'Choose the F-16C to launch. The F-15C is configured for air combat.');
+    text('cas-aircraft-status', supported ? '' : 'Choose the F-16C or A-10C to launch. The F-15C is configured for air combat.');
     this.preview.show(plan, this.roads);
   }
 

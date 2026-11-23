@@ -64,3 +64,20 @@ Los tres comparten nombres: puedes animar solo el nodo visible o sincronizar los
 - Flaps = abisagrados simples (sin traslación Fowler). Camuflaje: un solo gris + banda azul en deriva; sin decales.
 - El visor y la carga en Three.js **no se probaron en navegador** (solo comprobada la sintaxis JS con Node); el GLB se validó con un parser propio (accesores, límites, índices, nombres únicos).
 - Longitud 16,32 m · envergadura 17,49 m · altura 4,53 m medidas sobre el GLB exportado.
+
+## War Browser integration
+
+The detailed GLB in the game is the supplied repository asset. The two
+lower-detail GLBs were regenerated with the supplied Python generator.
+The generator reproduced the detailed asset's vertex and texture buffer
+and its node transforms. The original detailed GLB remains the source for
+the highest detail level. Each asset is cached, and aircraft instances
+share its geometry and materials. Lower detail omits selected cosmetic
+meshes and keeps the animated hinges and attachment nodes.
+
+The runtime rotates the cloned visual subtree once into simulator
+coordinates. It checks every store attachment and cannon muzzle against
+the aircraft configuration in all three assets. Rendering selects the
+detail level with distance hysteresis and applies the current pose when
+switching levels. The A-10C uses the shared flight, damage, weapons, and
+targeting systems. All flight and weapon parameters are game-tuned.

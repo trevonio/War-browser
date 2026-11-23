@@ -101,7 +101,7 @@ export class FlightInstructor {
       .addScaledVector(this.tangent, turnLoad).addScaledVector(this.lift, -flight.g * lead);
     let localUp = this.liftDemand.dot(this.lift);
     const maxAlpha = lerp(spec.stallAngle - 0.035, spec.stallAngle + 0.01, authority);
-    const attainableLoad = (spec.baseLift + maxAlpha * spec.liftSlope) / liftScale;
+    const attainableLoad = (spec.baseLift + flight.flapLift + maxAlpha * spec.liftSlope) / liftScale;
     const turnSpeed = Math.max(60, speed);
     this.pitchLead = -(flight.g - this.lift.y) * gravity / turnSpeed * tuning.pitchFeedforward;
     this.yawLead = this.right.y * gravity / turnSpeed * tuning.yawFeedforward;
@@ -120,7 +120,7 @@ export class FlightInstructor {
       this.roll = clamp((levelRoll + trimBank) * levelWeight * tuning.levelGain - flight.rates.z * tuning.rollDamping,
         -tuning.levelRate, tuning.levelRate);
       const load = clamp(localUp, spec.minG * 0.95, Math.min(loadLimit, attainableLoad));
-      this.alpha = (load * liftScale - spec.baseLift) / spec.liftSlope;
+      this.alpha = (load * liftScale - spec.baseLift - flight.flapLift) / spec.liftSlope;
       return;
     }
 
@@ -188,7 +188,7 @@ export class FlightInstructor {
     const load = gentlePush
       ? -Math.min(demand, 1.35)
       : Math.min(loadLimit, attainableLoad, Math.max(0.06, localUp));
-    this.alpha = (load * liftScale - spec.baseLift) / spec.liftSlope;
+    this.alpha = (load * liftScale - spec.baseLift - flight.flapLift) / spec.liftSlope;
   }
 
   usePitch(angle) {

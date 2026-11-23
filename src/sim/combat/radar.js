@@ -29,6 +29,7 @@ export class Radar {
     this.world = world;
     this.own = own;
     this.config = own.spec?.radar ?? standardRadar;
+    this.available = own.spec?.radarAvailable !== false;
     this.contacts = new Map();
     this.emissions = new Map();
     this.line = new Vector3();
@@ -40,7 +41,7 @@ export class Radar {
   }
 
   reset(power = false, rangeIndex = 2) {
-    this.power = power;
+    this.power = this.available && power;
     this.scanMode = 'SEARCH';
     this.rangeIndex = rangeIndex;
     this.revision = 0;
@@ -69,6 +70,7 @@ export class Radar {
   }
 
   togglePower() {
+    if (!this.available) return;
     this.power = !this.power;
     this.clear();
   }

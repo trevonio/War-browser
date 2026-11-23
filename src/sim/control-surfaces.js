@@ -20,12 +20,12 @@ export class ControlSurfaces {
     this.demand = { ...this.angles };
   }
 
-  reset(gear, speed) {
-    this.command(0, 0, 0, gear, speed, 0);
+  reset(gear, speed, flap) {
+    this.command(0, 0, 0, gear, speed, 0, 0, flap);
     for (const name of this.names) this.previous[name] = this.angles[name] = this.demand[name];
   }
 
-  command(pitch, roll, yaw, gear, speed, alpha, brake = 0) {
+  command(pitch, roll, yaw, gear, speed, alpha, brake = 0, flap) {
     const approach = gear * (1 - smoothstep(speed, 100, 158));
     const leading = 25 * clamp(approach * 0.70 + Math.max(0, alpha) * 1.7, 0, 1);
     const trailing = this.config.separateFlaps ? 0 : 18 * approach;
@@ -34,15 +34,15 @@ export class ControlSurfaces {
     this.demand.LeftLEF = this.demand.RightLEF = leading;
     this.demand.LeftFlaperon = trailing + aileron;
     this.demand.RightFlaperon = trailing - aileron;
-    this.demand.LeftStabilator = elevator + roll * 5;
-    this.demand.RightStabilator = elevator - roll * 5;
+    this.demand.LeftStabilator = elevator + roll * (this.config.stabilatorRollMix ?? 5);
+    this.demand.RightStabilator = elevator - roll * (this.config.stabilatorRollMix ?? 5);
     this.demand.Rudder = -yaw * 30;
-    if (this.config.separateFlaps) this.demand.Flap = 35 * approach;
-    if (this.config.speedBrake) this.demand.SpeedBrake = 48 * brake;
+    if (this.config.separateFlaps) this.demand.Flap = flap ?? 35 * approach;
+    if (this.config.speedBrake) this.demand.SpeedBrake = (this.limits.SpeedBrake?.[1] ?? 48) * brake;
   }
 
-  step(dt, pitch, roll, yaw, gear, speed, alpha, authority, brake) {
-    this.command(pitch, roll, yaw, gear, speed, alpha, brake);
+  step(dt, pitch, roll, yaw, gear, speed, alpha, authority, brake, flap) {
+    this.command(pitch, roll, yaw, gear, speed, alpha, brake, flap);
     const response = 1 - Math.exp(-12 * dt);
     for (const name of this.names) {
       const [min, max] = this.limits[name];

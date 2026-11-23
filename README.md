@@ -388,7 +388,7 @@ the appropriate preset. A saved custom loadout takes precedence.
 | C | Enter or exit the pod view |
 | Mouse | Slew the pod while its view is open |
 | + / − / wheel | Select one of three zoom levels |
-| F | Show the pointer for the **+** and **−** buttons. Choose **Resume slew** or press **F** again to recapture. |
+| F | Show the pointer. Right-drag to slew, use the **+** and **−** buttons, or choose **Resume slew** to recapture. |
 | 0 | Cycle Day, White Hot, and Black Hot |
 | Left click / R | Designate under the reticle / cycle observed tracks. Hold **R** to clear. |
 | L | Manually select or clear a point or area track |
@@ -405,3 +405,25 @@ vehicle for acquisition and then follow their own seeker. The RWR reports
 actual radar emissions from launcher sites and missiles. Chaff and flares
 use their existing type-specific effects. Optical gunfire has a separate
 visual cue.
+
+## A-10C Thunderbolt II
+
+Select the A-10C in the hangar for a lower-speed ground attack aircraft with
+independent engines, 11 customizable stations, and the GAU-8/A. The hangar
+and loadout editor use the supplied GLB. During flight the renderer switches
+between its three detail levels using the current camera distance.
+
+The **Gun Run**, **Mixed CAS**, **Precision Support**, and **Clean** presets
+are available in the loadout editor. The A-10C can fly the established CAS
+missions, ground range, battlefield support, convoy interception, and
+short-range air exercises. BVR exercises require an air-search radar.
+
+A runway start begins with takeoff flaps. **7** cycles flap positions on the
+A-10C and **G** still controls the gear. Each loaded station contributes mass
+and drag. Releasing a store from one side can leave a roll bias until the
+load is balanced again. The flight HUD shows independent engine output.
+
+**A-10C Gun and Rocket Qualification** starts on Runway 36 and shows the
+bearing and distance to the training range. Four hostiles must be disabled.
+Friendly-fire damage invalidates the qualification. The debrief counts
+damaging hits, disabled targets, stores and ammunition expended, and time.

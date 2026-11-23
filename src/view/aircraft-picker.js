@@ -46,7 +46,7 @@ export function describeAircraft(spec, card) {
     ['Empty mass', `${locale(spec.emptyMass)} kg`],
     ['Internal fuel', `${locale(spec.fuelCapacity)} kg`],
     ['Weapons', `${spec.cannon.name} · ${spec.cannon.capacity} rounds · ${available}`],
-    ['Sensors', `${spec.radar.label} · ${spec.radar.ranges.at(-1) / 1000} km game scope`],
+    ['Sensors', spec.radarAvailable === false ? 'Visual and targeting pod' : `${spec.radar.label} · ${spec.radar.ranges.at(-1) / 1000} km game scope`],
     ['Roll authority', `${Math.round(T.MathUtils.radToDeg(spec.rollRate))}°/s control-rate limit`],
   ];
   card.querySelector('h3').textContent = spec.name;

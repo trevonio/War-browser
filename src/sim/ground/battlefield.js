@@ -93,7 +93,7 @@ export class GroundBattle {
     this.key = id;
     this.enabled = Boolean(this.mission);
     this.difficulty = groundDifficulty[difficulty] ?? groundDifficulty.regular;
-    this.time = this.hitCount = this.destroyed = this.friendlyFire = 0;
+    this.time = this.hitCount = this.destroyed = this.friendlyFire = this.cannonHits = 0;
     this.controls = { friendly: 0, opposing: 0 };
     this.losses = { friendly: 0, opposing: 0, neutral: 0 };
     this.hits = new Set();
@@ -118,6 +118,7 @@ export class GroundBattle {
     this.targets = [];
     this.spawn(definitions);
     this.transports = this.targets.filter((unit) => unit.objective === 'deliver');
+    this.qualificationTargets = this.targets.filter((unit) => unit.objective === 'qualify');
     this.engagement = new GroundEngagement(this.world, this.targets, this.weapons, () => this.random());
     this.occupied = (owner, x, z, radius) => this.occupiedAt(owner, x, z, radius);
   }
@@ -194,6 +195,7 @@ export class GroundBattle {
       this.hitCount = this.hits.size;
       if (unit.faction === 'opposing' && unit.disabled) this.playerDisabled.add(unit.id);
       if (unit.faction === 'friendly') this.friendlyFire++;
+      if (unit.faction === 'opposing' && hit.kind === 'cannon') this.cannonHits++;
       this.notice = unit.faction === 'friendly' ? 'FRIENDLY FIRE'
         : destroyed ? `${unit.name.toUpperCase()} DISABLED` : `${unit.name.toUpperCase()} HIT`;
       this.noticeUntil = this.time + 2.2;
@@ -209,10 +211,11 @@ export class GroundBattle {
 
   evaluate(dt) {
     if (this.key === 'qualification') {
-      const targets=this.targets.filter(unit=>unit.objective==='qualify');
-      if (targets.every(unit=>unit.disabled)) this.finish('win',
-        this.friendlyFire ? 'Qualification targets disabled; friendly-fire incidents recorded.' : 'All qualification targets disabled. Friendlies protected.');
-      else if(this.time>=this.mission.timeLimit) this.finish('loss','Qualification time limit expired.');
+      if (this.playerDisabled.size === this.qualificationTargets.length) {
+        this.finish(this.friendlyFire ? 'loss' : 'win', this.friendlyFire
+          ? 'Targets disabled. Friendly-fire penalty invalidated the qualification.'
+          : 'All qualification targets disabled. Friendlies protected.');
+      } else if (this.time >= this.mission.timeLimit) this.finish('loss', 'Qualification time limit expired.');
       return;
     }
     if (this.key === 'convoy') {
@@ -252,6 +255,8 @@ export class GroundBattle {
     this.reason = reason;
     this.director?.finish(this, outcome, reason);
   }
+
+  get qualificationDamaged() { return this.qualificationTargets.filter(({ id }) => this.hits.has(id)).length; }
 
   get convoyStopped() { return this.transports.filter((unit) => unit.disabled).length; }
 }

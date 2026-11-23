@@ -58,8 +58,9 @@ export class Flight {
     this.previousOrientation.copy(this.orientation);
     this.grounded = runway;
     this.gearDown = runway;
-    this.gear = Number(runway);
-    this.surfaces.reset(this.gear, speed);
+    this.previousGear = this.gear = Number(runway);
+    this.flapIndex = runway && this.spec.flaps ? 1 : 0;
+    this.surfaces.reset(this.gear, speed, this.spec.flaps?.angles[this.flapIndex]);
     this.wheelSpin = 0;
     this.brake = 0;
     this.stores = true;
@@ -78,6 +79,7 @@ export class Flight {
     this.gWarning = '';
     this.alpha = pitch;
     this.stalled = false;
+    this.flapLift = 0;
     this.blackout = 0;
     this.redout = 0;
     this.stress = 0;
@@ -93,6 +95,10 @@ export class Flight {
     if (this.burnerArmed) this.throttle = 1;
   }
 
+  cycleFlaps() {
+    if (this.spec.flaps) this.flapIndex = (this.flapIndex + 1) % this.spec.flaps.angles.length;
+  }
+
   step(controls, dt = STEP) {
     if (this.failure) return;
     const { spec, damage } = this;
@@ -103,6 +109,7 @@ export class Flight {
 
     this.throttle = clamp(this.throttle + controls.throttle * 0.36 * dt, 0, 1);
     if (this.throttle < 0.97 || !this.totalFuel || !this.engines.canBurn) this.burnerArmed = false;
+    this.previousGear = this.gear;
     const gearMovement = dt / spec.gearTime;
     if (!this.grounded) this.gear = clamp(this.gear + (this.gearDown ? gearMovement : -gearMovement), 0, 1);
     this.brake = clamp(this.brake + (controls.brakes ? dt * 3 : -dt * 3), 0, 1);
@@ -135,13 +142,15 @@ export class Flight {
     const authority = airAuthority * highSpeedControl * stallControl;
     const bank = Math.atan2(this.up.dot(this.angularStep.set(-this.forward.z, 0, this.forward.x).normalize()), this.up.y);
     const liftScale = mass * GRAVITY / Math.max(1, dynamicPressure * spec.wingArea * damage.lift);
-    const liftLimit = 0.95 * (spec.maxG * liftScale - spec.baseLift) / spec.liftSlope;
-    const downLimit = 0.95 * (spec.minG * liftScale - spec.baseLift) / spec.liftSlope;
+    const flapFraction = spec.flaps ? this.surfaces.angles.Flap / spec.flaps.angles.at(-1) : 0;
+    const flapLift = this.flapLift = flapFraction * (spec.flaps?.lift ?? 0);
+    const liftLimit = 0.95 * (spec.maxG * liftScale - spec.baseLift - flapLift) / spec.liftSlope;
+    const downLimit = 0.95 * (spec.minG * liftScale - spec.baseLift - flapLift) / spec.liftSlope;
     const instructor = this.instructor;
     if (controls.assisted) instructor.update(this, controls, speed, authority, liftScale, GRAVITY, dt, sideslip);
 
     const trimG = 1 / Math.max(0.36, Math.cos(bank));
-    const levelAlpha = (trimG * liftScale - spec.baseLift) / spec.liftSlope;
+    const levelAlpha = (trimG * liftScale - spec.baseLift - flapLift) / spec.liftSlope;
     const trim = this.grounded ? 0 : clamp(levelAlpha, -0.03, 0.17);
     const assistedPitch = controls.assisted && Math.abs(controls.pitch) <= 0.01;
     const alphaDemand = assistedPitch ? instructor.alpha : trim + controls.pitch * 0.32;
@@ -157,7 +166,8 @@ export class Flight {
     const yawRate = (-rudder * spec.yawRate * damage.yawAuthority + clamp(sideslip * 1.8 + coordinatedYaw, -0.28, 0.28))
       * (authority + groundSteering) + yawMoment / (mass * (spec.yawInertia ?? 28));
     this.surfaces.step(dt, -pitchRate / spec.pitchRate, rollRate / spec.rollRate,
-      rudder * authority, this.gear, speed, alpha, damage.surfaceAuthority, this.brake);
+      rudder * authority * (spec.surfaces?.rudderDamage ? damage.yawAuthority : 1), this.gear, speed, alpha, damage.surfaceAuthority, this.brake,
+      spec.flaps?.angles[this.flapIndex]);
     if (damage.active) {
       const angles = this.surfaces.angles;
       const effective = damage.surfaceAuthority;
@@ -175,7 +185,13 @@ export class Flight {
           + authority * (wingMoment + (stuckLeft - stuckRight) * 0.018 + (stuckLeftTail - stuckRightTail) * 0.006);
       }
     }
-    const response = 1 - Math.exp(-5.8 * dt);
+    if (!this.grounded && spec.payloadHandling) {
+      let lateralMoment = this.payloadMoment;
+      for (const tank of this.externalTanks) lateralMoment += tank.fuel * (tank.offset?.[0] ?? 0);
+      rollRate -= authority * lateralMoment / mass * spec.payloadHandling.rollBias;
+    }
+    const loaded = spec.payloadHandling ? 1 + this.payloadMass / spec.payloadHandling.responseMass : 1;
+    const response = 1 - Math.exp(-5.8 * dt / loaded);
     this.rates.x = lerp(this.rates.x, pitchRate, response);
     this.rates.y = lerp(this.rates.y, yawRate, response);
     this.rates.z = lerp(this.rates.z, rollRate, response);
@@ -190,13 +206,13 @@ export class Flight {
     // path. Beyond critical alpha the lift curve falls away and separation adds drag.
     const attachedAlpha = clamp(alpha, -spec.stallAngle, spec.stallAngle);
     const separation = smoothstep(Math.abs(alpha), spec.stallAngle, 0.66);
-    const liftCoefficient = damage.lift * (spec.baseLift + spec.liftSlope * attachedAlpha) * (1 - 0.79 * separation)
+    const liftCoefficient = damage.lift * (spec.baseLift + flapLift + spec.liftSlope * attachedAlpha) * (1 - 0.79 * separation)
       * (1 - 0.10 * smoothstep(mach, 0.91, 1.27));
     const speedLimitDrag = spec.maxMach ? 0.24 * smoothstep(mach, spec.maxMach * 0.94, spec.maxMach * 1.08) : 0;
     const waveDrag = spec.waveDrag * smoothstep(mach, 0.76, 1.07) * (1 - 0.37 * smoothstep(mach, 1.10, 1.70));
     const dragCoefficient = spec.baseDrag + spec.inducedDrag * liftCoefficient ** 2 + waveDrag
       + speedLimitDrag + separation * 0.48 + 0.035 * this.gear + 0.088 * this.brake + (this.stores && !this.customStores ? 0.006 : 0)
-      + 0.28 * sideslip ** 2 + damage.drag + this.payloadDrag;
+      + 0.28 * sideslip ** 2 + damage.drag + this.payloadDrag + flapFraction * (spec.flaps?.drag ?? 0);
     this.consumeFuel(burn, damage.leak, dt);
 
     this.airDirection.copy(this.velocity).normalize();
@@ -231,7 +247,7 @@ export class Flight {
     const contact = floor + lerp(0.70, this.spec.gearClearance, this.gear);
     if (this.position.y > contact) return;
     const pitch = Math.asin(clamp(this.forward.y, -1, 1));
-    if (!this.grounded && (this.gear < 0.95 || this.velocity.y < -8.5 || this.up.y < 0.88 ||
+    if (!this.grounded && (this.gear < 0.95 || this.gearDamaged || this.velocity.y < -8.5 || this.up.y < 0.88 ||
       pitch < -0.13 || pitch > 0.30 || !this.world.isRunway(this.position.x, this.position.z))) {
       this.failure = floor <= 0 ? 'Water impact' : 'Ground impact';
     }
@@ -259,8 +275,9 @@ export class Flight {
     this.failure ||= damage.failure;
   }
 
-  setPayload(mass, drag) {
+  setPayload(mass, drag, lateralMoment = 0) {
     this.payloadMass = mass;
+    this.payloadMoment = lateralMoment;
     this.payloadDrag = drag;
   }
 
@@ -289,6 +306,8 @@ export class Flight {
     this.externalFuel = Math.max(0, this.externalFuel);
     this.fuel = Math.max(0, this.fuel - remaining - leak * dt);
   }
+
+  get gearDamaged() { return Boolean(this.spec.gearComponents?.some((part) => this.damage.condition(part) <= .2)); }
 
   get totalFuel() { return this.fuel + this.externalFuel; }
 

@@ -37,7 +37,7 @@
         <button id="start-air" type="button" aria-pressed="true">Air start</button>
         <button id="start-runway" type="button" aria-pressed="false">Runway 36</button>
         <button id="start-practice" type="button" aria-pressed="false">Cannon range</button>
-        <button id="start-qualification" type="button" hidden>A-10C qualification</button>
+        <button id="start-qualification" type="button" hidden>A-10C Gun and Rocket Qualification</button>
         <button id="start-ground-range" type="button" aria-pressed="false">Ground attack range</button>
         <button id="start-battlefield" type="button" aria-pressed="false">Battlefield support</button>
         <button id="start-convoy" type="button" aria-pressed="false">Convoy interdiction</button>
@@ -120,6 +120,7 @@
           <output id="throttle">00</output><span class="unit">%</span>
           <div class="instrument-note" id="engine-state">MIL POWER</div>
           <div class="instrument-note" id="engine-count"></div>
+          <div class="instrument-note" id="engine-balance" title="Independent engine output" hidden></div>
         </div>
         <div class="instrument">
           <div class="instrument-label" id="cannon-label">M61A1 · 20 MM</div>
@@ -215,6 +216,7 @@
             <span>LMB Designate</span>
             <span><kbd id="pod-laser-key">P</kbd> Laser</span>
             <span id="pod-cursor-help"><kbd id="pod-cursor-key">F</kbd> <span id="pod-cursor-action">Cursor</span></span>
+            <span id="pod-drag-help" hidden>Right-drag to slew</span>
 
           </div>
         </div>
@@ -311,6 +313,7 @@
       <div id="flight-actions" class="flight-actions" aria-label="Aircraft systems">
         <button id="toggle-burner" type="button" aria-pressed="false"><kbd id="key-afterburner">B</kbd><span>Afterburner <small id="burner-state">Off</small></span></button>
         <button id="toggle-gear" type="button" aria-pressed="false"><kbd id="key-gear">G</kbd><span>Gear <small id="gear-state">Up</small></span></button>
+        <button id="toggle-flaps" type="button" hidden><kbd id="key-flaps">7</kbd><span>Flaps <small id="flaps-state">Up</small></span></button>
         <button id="toggle-stores" type="button" aria-pressed="true"><kbd id="key-stores">H</kbd><span>Stores <small id="stores-state">On</small></span></button>
         <button id="toggle-airbrake" type="button" aria-pressed="false"><kbd id="key-airbrake">/</kbd><span>Airbrake <small id="brake-state">Off</small></span></button>
         <button id="toggle-camera" type="button"><kbd id="key-camera">V</kbd><span>Camera <small id="camera-state">Chase</small></span></button>
@@ -347,8 +350,8 @@
             <p class="aircraft-role"></p>
             <h3></h3>
             <p class="aircraft-description"></p>
-            <dl></dl>
             <button class="primary-button aircraft-select" type="button"></button>
+            <dl></dl>
           </div>
         </article>
       </template>

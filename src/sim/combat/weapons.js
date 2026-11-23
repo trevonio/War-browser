@@ -68,15 +68,18 @@ export class WeaponRack {
   syncPayload() {
     let mass = 0;
     let drag = 0;
+    let lateralMoment = 0;
     const tanks = [];
     for (const station of this.payloadStations) {
       station.attached = attached(station, this.flight.damage);
       if (!station.attached) continue;
-      mass += station.payload.mass + (station.roundMass ?? 0) * station.remaining;
+      const weight = station.payload.mass + (station.roundMass ?? 0) * station.remaining;
+      mass += weight;
+      lateralMoment += weight * (station.offset?.[0] ?? 0);
       if (station.fuelCapacity) tanks.push(station);
       drag += station.payload.drag;
     }
-    this.flight.setPayload(mass, drag);
+    this.flight.setPayload(mass, drag, lateralMoment);
     this.flight.setExternalTanks(tanks);
   }
 

@@ -10,16 +10,16 @@ export const aircraftRegistry = {
       return { create: createF16Visual, clone: createOpponentVisual };
     },
   },
-  [a10.id]: {
-    spec: a10,
-    loadModel: async () => (await import('./a10-visual.js')).loadA10Visual(),
-  },
   [f15.id]: {
     spec: f15,
     loadModel: async () => {
       const { createF15Visual, cloneF15Visual } = await import('./f15-visual.js');
       return { create: createF15Visual, clone: cloneF15Visual };
     },
+  },
+  [a10.id]: {
+    spec: a10,
+    loadModel: async () => (await import('./a10-visual.js')).loadA10Visual(),
   },
 };
 export const defaultAircraft = f16.id;

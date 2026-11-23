@@ -13,7 +13,7 @@ export class AircraftHangar {
       const promise = definition.loadModel().then((adapter) => {
         const own = adapter.create();
         const enemy = adapter.clone(own, true);
-        return { adapter, own, enemy, distant: silhouette(definition.spec) };
+        return { adapter, own, enemy, distant: adapter.hasLOD ? null : silhouette(definition.spec) };
       }).catch((error) => {
         this.cache.delete(id);
         throw error;
@@ -26,6 +26,10 @@ export class AircraftHangar {
   instantiate(assets, hostile = false) {
     const aircraft = assets.adapter.clone(hostile ? assets.enemy : assets.own, false);
     if (hostile) {
+      if (!assets.distant) {
+        aircraft.hasLOD = true;
+        return aircraft;
+      }
       const low = assets.distant.clone();
       aircraft.root.add(low);
       low.visible = false;
@@ -43,7 +47,7 @@ export class AircraftHangar {
     for (const result of results) {
       if (result.status === 'fulfilled') {
         const { own, enemy, distant } = result.value;
-        disposeObjects(own.root, enemy.root, distant);
+        disposeObjects(...[own.root, enemy.root, distant].filter(Boolean));
       }
     }
   }
