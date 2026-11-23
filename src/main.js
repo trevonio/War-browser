@@ -53,7 +53,7 @@ const debug = import.meta.env.DEV && new URLSearchParams(location.search).has('d
 const flightLabels = {
   air: 'FREE FLIGHT', runway: 'FREE FLIGHT', practice: 'CANNON RANGE', dogfight: 'DOGFIGHT',
   cas: 'CLOSE AIR SUPPORT', battlefield: 'BATTLEFIELD SUPPORT', convoy: 'CONVOY INTERDICTION',
-  groundRange: 'GROUND ATTACK RANGE', short: 'MISSILE DOGFIGHT', intercept: 'BVR INTERCEPT', outnumbered: 'OUTNUMBERED',
+  qualification: 'A-10C QUALIFICATION', groundRange: 'GROUND ATTACK RANGE', short: 'MISSILE DOGFIGHT', intercept: 'BVR INTERCEPT', outnumbered: 'OUTNUMBERED',
 };
 
 requestAnimationFrame(async () => {
@@ -448,7 +448,8 @@ async function boot() {
     if (ground.enabled && !groundView) groundView = new GroundRangeView(scene, ground.targets);
     ordnance.clear();
     const saved = loadoutBook.entry(flight.spec).active;
-    const assignment = saved ?? (groundSortie() && readyAircraft() ? availablePresets(flight.spec)[director?.plan.loadout ?? 'Ground Attack'] : null);
+    const assignment = saved ?? (groundSortie() && readyAircraft()
+      ? availablePresets(flight.spec)[startingPosition === 'qualification' ? 'Mixed CAS' : director?.plan.loadout ?? 'Ground Attack'] : null);
     activeLoadout = assignment && missionLoadout(flight.spec, assignment, startingPosition);
     const rack = combat.player.rack;
     if (activeLoadout) {
@@ -518,8 +519,10 @@ async function boot() {
     text('aircraft-current', spec.shortName);
     for (const id of ['start-ground-range', 'start-battlefield', 'start-convoy']) {
       ui[id].disabled = !spec.weaponDomains.includes('ground');
-      ui[id].title = ui[id].disabled ? 'Requires the F-16C' : '';
+      ui[id].title = ui[id].disabled ? 'Requires an air-to-ground-capable aircraft' : '';
     }
+    ui['start-qualification'].hidden = spec.id !== 'a10c';
+    ui['toggle-burner'].hidden = !(spec.afterburnerThrust > 0);
     text('aircraft-briefing-description', spec.description);
   }
 
@@ -648,6 +651,7 @@ async function boot() {
   }
 
   function selectStart(next) {
+    if (next === 'qualification' && flight.spec.id !== 'a10c') next = 'air';
     startingPosition = next;
     const isCas = next === 'cas';
     ui.briefing.dataset.cas = String(isCas);
@@ -1061,6 +1065,7 @@ async function boot() {
   ui['start-runway'].addEventListener('click', () => selectStart('runway'));
   ui['start-practice'].addEventListener('click', () => selectStart('practice'));
   ui['start-ground-range'].addEventListener('click', () => selectStart('groundRange'));
+  ui['start-qualification'].addEventListener('click', () => selectStart('qualification'))
   for (const key of Object.keys(groundMissions)) ui[`start-${key}`].addEventListener('click', () => selectStart(key));
   const editor = new LoadoutEditor(ui, hangar, preview, modelStores, loadoutBook, () => selectStart(startingPosition), signal);
   ui['open-loadouts'].addEventListener('click', () => editor.open(flight.spec), { signal });
@@ -1226,7 +1231,7 @@ async function boot() {
     if (flight.externalCapacity) text('fuel-external', `${Math.floor(flight.externalFuel)} KG EXT`);
     text('g-force', flight.g.toFixed(1));
     text('gear-state', gearMoving ? 'In transit' : flight.gear > 0.98 ? 'Down' : 'Up');
-    text('burner-state', flight.afterburner ? 'On' : flight.burnerArmed ? 'Spooling' : 'Off');
+    text('burner-state', flight.spec.afterburnerThrust <= 0 ? 'Not installed' : flight.afterburner ? 'On' : flight.burnerArmed ? 'Spooling' : 'Off');
     text('stores-state', flight.stores ? 'On' : 'Off');
     text('brake-state', brake ? 'On' : 'Off');
     text('camera-state', view.mode === 'hud' ? 'HUD' : 'Chase');

@@ -38,13 +38,15 @@ export class AircraftPreview {
 
 export function describeAircraft(spec, card) {
   const locale = (value) => value.toLocaleString('en-US');
+  const burn = spec.afterburnerThrust > 0;
+  const available = spec.weaponDomains.includes('ground') ? 'Cannon, air-to-ground stores and self-defense missiles' : 'Cannon and air-to-air missiles';
   const facts = [
     ['Manufacturer', spec.manufacturer],
-    ['Engines', `${spec.engines.length} · ${Math.round(spec.afterburnerThrust / 1000)} kN total with afterburner`],
+    ['Engines', `${spec.engines.length} · ${Math.round(spec.militaryThrust / 1000)} kN dry total${burn ? ' · afterburner available' : ''}`],
     ['Empty mass', `${locale(spec.emptyMass)} kg`],
     ['Internal fuel', `${locale(spec.fuelCapacity)} kg`],
-    ['Weapons', `${spec.cannon.name} · ${spec.cannon.capacity} rounds · IR and radar missiles`],
-    ['Radar', `${spec.radar.label} · ${spec.radar.ranges.at(-1) / 1000} km game scope`],
+    ['Weapons', `${spec.cannon.name} · ${spec.cannon.capacity} rounds · ${available}`],
+    ['Sensors', `${spec.radar.label} · ${spec.radar.ranges.at(-1) / 1000} km game scope`],
     ['Roll authority', `${Math.round(T.MathUtils.radToDeg(spec.rollRate))}°/s control-rate limit`],
   ];
   card.querySelector('h3').textContent = spec.name;

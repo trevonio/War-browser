@@ -18,6 +18,11 @@ export const groundMissions = {
     label: 'Battlefield Support', briefing: 'Help the friendly column secure Relay crossing. Both forces advance and fight on their own.',
     timeLimit: 145, objective: relay,
   },
+  qualification: {
+    label:'A-10C Gun and Rocket Qualification',
+    briefing:'Identify friendly vehicles and disable the marked stationary and moving hostile targets.',
+    timeLimit:260,objective:{x:-225,z:-1650,radius:125,label:'Qualification range'},
+  },
   convoy: {
     label: 'Convoy Interdiction', briefing: 'Stop all three designated transports before they reach the end of the road.',
     timeLimit: 170, objective: { x: -179, z: -793, radius: 31, label: 'Convoy exit' },
@@ -44,6 +49,23 @@ function supportVehicles(friendlyAdvance) {
   return units;
 }
 
+function qualificationVehicles() {
+  const staticTargets=[
+    {id:'qual-static-tank',type:'tank',faction:'opposing',x:-225,z:-1675,yaw:Math.PI,route:[],objective:'qualify'},
+    {id:'qual-static-ifv',type:'ifv',faction:'opposing',x:-295,z:-1640,yaw:Math.PI,route:[],objective:'qualify'},
+  ];
+  const movers=[
+    {id:'qual-moving-truck',type:'truck',faction:'opposing',x:-270,z:-2650,yaw:0,
+      route:[[-270,-2370],[-277,-1900],[-226,-1570]],formation:'convoy',objective:'qualify'},
+    {id:'qual-moving-apc',type:'apc',faction:'opposing',x:-270,z:-2700,yaw:0,
+      route:[[-270,-2370],[-277,-1900],[-226,-1570]],formation:'convoy',objective:'qualify'},
+  ];
+  const friendlies=[
+    {id:'qual-friendly-ifv',type:'ifv',faction:'friendly',x:-115,z:-1700,yaw:0,route:[],objective:'identify'},
+    {id:'qual-friendly-truck',type:'truck',faction:'friendly',x:-115,z:-1600,yaw:0,route:[],objective:'identify'},
+  ];
+  return [...staticTargets,...movers,...friendlies];
+}
 function convoyVehicles(roads) {
   const road = roads.route('inbound', 'exit').slice(1).map((node) => roads.points[node]);
   return ['ifv', 'truck', 'apc', 'truck', 'truck', 'ifv'].map((type, index) => ({
@@ -82,7 +104,7 @@ export class GroundBattle {
     this.noticeUntil = 0;
     this.randomState = seed;
     this.weapons.clear();
-    let definitions = director?.plan.definitions ?? (id === 'convoy' ? convoyVehicles(this.roads) : id === 'battlefield' ? supportVehicles((seed % 266 + 266) % 266 - 103) : []);
+    let definitions = director?.plan.definitions ?? (id === 'qualification' ? qualificationVehicles() : id === 'convoy' ? convoyVehicles(this.roads) : id === 'battlefield' ? supportVehicles((seed % 266 + 266) % 266 - 103) : []);
     if (limit !== undefined) {
       const template = id === 'battlefield' && limit < definitions.length
         ? definitions.map((_, index) => definitions[Math.floor(index / 2) + index % 2 * (definitions.length / 2)])
@@ -186,6 +208,13 @@ export class GroundBattle {
   }
 
   evaluate(dt) {
+    if (this.key === 'qualification') {
+      const targets=this.targets.filter(unit=>unit.objective==='qualify');
+      if (targets.every(unit=>unit.disabled)) this.finish('win',
+        this.friendlyFire ? 'Qualification targets disabled; friendly-fire incidents recorded.' : 'All qualification targets disabled. Friendlies protected.');
+      else if(this.time>=this.mission.timeLimit) this.finish('loss','Qualification time limit expired.');
+      return;
+    }
     if (this.key === 'convoy') {
       if (this.transports.some((unit) => unit.arrived)) this.finish('loss', 'A designated transport reached the exit.');
       else if (this.transports.length && this.transports.every((unit) => unit.disabled)) this.finish('win', 'Every designated transport was stopped.');
