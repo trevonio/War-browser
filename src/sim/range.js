@@ -5,7 +5,7 @@ const airStart = { x: -1170, y: 900, z: -5950, speed: 192, pitch: 0.052, throttl
 export const scenarios = {
   air: airStart,
   practice: { ...airStart },
-  qualification: { ...airStart, x:-270,y:480,z:-3500,speed:115,pitch:.035,throttle:.72 },
+  qualification: { x:0,y:runway.elevation+2.1,z:runway.start+170,speed:0,pitch:0,throttle:.12,runway:true },
   groundRange: { ...airStart, x: -910, y: 380, z: -3500, speed: 148, pitch: 0.035, throttle: 0.46 },
   battlefield: { ...airStart, x: -235, y: 430, z: -3530, speed: 151, pitch: 0.063, throttle: 0.42 },
   convoy: { ...airStart, x: -258, y: 355, z: -3820, speed: 149, pitch: 0.053, throttle: 0.43 },

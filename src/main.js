@@ -691,6 +691,7 @@ async function boot() {
     ui['ground-release-options'].hidden = !activeLoadout?.stations.some(({ type }) => groundWeapon(type));
     text('start-detail', (next === 'runway' ? 'GROUND START · GEAR DOWN'
       : next === 'practice' ? `3 AERIAL DRONES · ${flight.spec.cannon.capacity} ROUNDS`
+      : next === 'qualification' ? 'TAKE OFF · DISABLE FOUR HOSTILE TARGETS · IDENTIFY FRIENDLIES'
       : next === 'groundRange' ? 'DISABLE FIVE MARKED RANGE TARGETS · REARM AVAILABLE'
       : groundMissions[next] ? groundMissions[next].briefing
       : next === 'dogfight' ? `One ${aircraftRegistry[enemyId].spec.shortName} · Guns only · ${opponentModes[ui['opponent-mode'].value].briefing}`
@@ -1065,7 +1066,7 @@ async function boot() {
   ui['start-runway'].addEventListener('click', () => selectStart('runway'));
   ui['start-practice'].addEventListener('click', () => selectStart('practice'));
   ui['start-ground-range'].addEventListener('click', () => selectStart('groundRange'));
-  ui['start-qualification'].addEventListener('click', () => selectStart('qualification'))
+  ui['start-qualification'].addEventListener('click', () => selectStart('qualification'));
   for (const key of Object.keys(groundMissions)) ui[`start-${key}`].addEventListener('click', () => selectStart(key));
   const editor = new LoadoutEditor(ui, hangar, preview, modelStores, loadoutBook, () => selectStart(startingPosition), signal);
   ui['open-loadouts'].addEventListener('click', () => editor.open(flight.spec), { signal });

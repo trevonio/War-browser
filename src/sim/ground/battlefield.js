@@ -179,7 +179,7 @@ export class GroundBattle {
       const detail = distance < 950 ** 2 || unit.lineOfSight ? 2 : distance < 3100 ** 2 ? 1 : 0;
       unit.detail = detail;
       const profile = unit.faction === 'opposing' ? this.difficulty : groundDifficulty.regular;
-      this.engagement.step(unit, this.time, dt, profile, detail);
+      if (this.key !== 'qualification') this.engagement.step(unit, this.time, dt, profile, detail);
       moveVehicle(unit, dt, this.time, detail === 2 ? .045 : detail === 1 ? .08 : .125, this.occupied);
     }
     this.weapons.step(dt);
