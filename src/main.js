@@ -459,8 +459,8 @@ async function boot() {
     const assignment = qualificationPhase ? qualificationAssignment(flight.spec, saved)
       : saved ?? (groundSortie() && readyAircraft()
         ? presets[startingPosition === 'qualification' ? 'Mixed CAS' : director?.plan.loadout ?? 'Ground Attack']
-        : !exercise && presets[flight.spec.defaultLoadout]);
-    activeLoadout = assignment && missionLoadout(flight.spec, assignment, startingPosition);
+        : exercise ? null : presets[flight.spec.defaultLoadout]);
+    activeLoadout = assignment ? missionLoadout(flight.spec, assignment, startingPosition) : null;
     const rack = combat.player.rack;
     if (activeLoadout) {
       const firstGuided = activeLoadout.stations.find(({ type }) => guidedWeapon(type))?.type;
@@ -595,12 +595,16 @@ async function boot() {
     let inspected = aircraftId;
     let angle = 0.71;
     let rotateFrame = 0;
+    let previewSession = 0;
     let previewMounts, previewOwner;
     const detachStores = () => {
       previewMounts?.dispose();
       previewOwner = null;
     };
-    dialog.addEventListener('close', detachStores, { signal });
+    dialog.addEventListener('close', () => {
+      previewSession++;
+      detachStores();
+    }, { signal });
     signal.addEventListener('abort', detachStores, { once: true });
     const draw = () => {
       rotateFrame = 0;
@@ -664,15 +668,18 @@ async function boot() {
       text('aircraft-status', '');
       for (const [id, { choose }] of cards) choose.setAttribute('aria-pressed', String(id === aircraftId));
       dialog.showModal();
+      const session = ++previewSession;
       for (const [id, { inspect }] of cards) {
+        if (!dialog.open || session !== previewSession) return;
         if (assetsById.has(id)) continue;
         try {
           const assets = await hangar.load(id);
+          if (!dialog.open || session !== previewSession) return;
           assetsById.set(id, assets);
           inspect.querySelector('img').src = preview.draw(assets, 0.71, 240, 118, aircraftRegistry[id].spec.previewDistance);
           if (id === inspected) draw();
         } catch {
-          text('aircraft-status', 'An aircraft preview could not be loaded.');
+          if (dialog.open && session === previewSession) text('aircraft-status', 'An aircraft preview could not be loaded.');
         }
       }
       draw();

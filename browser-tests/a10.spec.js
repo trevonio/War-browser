@@ -29,7 +29,8 @@ test('loads the supplied A-10C and both LODs, rotates the hangar preview and sta
   const glbs = new Set();
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('response', (response) => {
-    if (response.ok() && response.url().endsWith('.glb')) glbs.add(response.url().split('/').at(-1));
+    const file = new URL(response.url()).pathname.split('/').at(-1);
+    if (response.ok() && /^A10C(?:_LOD[12])?\.glb$/.test(file)) glbs.add(file);
   });
   await page.goto('/');
   await expect(page.locator('body')).toHaveAttribute('data-screen', 'ready', hangarReady);

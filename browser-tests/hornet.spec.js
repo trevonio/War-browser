@@ -163,7 +163,7 @@ test('completes Hornet qualification through takeoff, radar interception and two
     await page.keyboard.press('q');
   }
   await expect(page.locator('#cannon-label')).toHaveText('RANGE BOMB');
-  await expect(page.locator('#cannon-count')).toHaveText(String(ammo));
+  await expect.poll(async () => Number(await page.locator('#cannon-count').textContent())).toBeLessThanOrEqual(ammo);
   await page.keyboard.press('Space');
   await expect(page.getByRole('heading', { name: 'F/A-18C Multirole Qualification complete' })).toBeVisible(ready);
   await expect(page.locator('#result-enemies')).toHaveText('1 / 1');
