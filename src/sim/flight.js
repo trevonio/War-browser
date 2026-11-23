@@ -138,7 +138,9 @@ export class Flight {
 
     const airAuthority = clamp(Math.sqrt(dynamicPressure / (0.5 * 1.225 * spec.controlSpeed ** 2)), 0, 1);
     const highSpeedControl = 1 - 0.41 * smoothstep(mach, 0.83, 1.26);
-    const stallControl = 1 - 0.64 * smoothstep(Math.abs(alpha), spec.stallAngle, 0.67);
+    const highAlpha = spec.highAlpha;
+    const stallControl = 1 - (highAlpha?.controlLoss ?? 0.64)
+      * smoothstep(Math.abs(alpha), spec.stallAngle, highAlpha?.separationEnd ?? 0.67);
     const authority = airAuthority * highSpeedControl * stallControl;
     const bank = Math.atan2(this.up.dot(this.angularStep.set(-this.forward.z, 0, this.forward.x).normalize()), this.up.y);
     const liftScale = mass * GRAVITY / Math.max(1, dynamicPressure * spec.wingArea * damage.lift);
@@ -153,8 +155,8 @@ export class Flight {
     const levelAlpha = (trimG * liftScale - spec.baseLift - flapLift) / spec.liftSlope;
     const trim = this.grounded ? 0 : clamp(levelAlpha, -0.03, 0.17);
     const assistedPitch = controls.assisted && Math.abs(controls.pitch) <= 0.01;
-    const alphaDemand = assistedPitch ? instructor.alpha : trim + controls.pitch * 0.32;
-    const desiredAlpha = clamp(alphaDemand, Math.max(-0.23, downLimit), Math.min(0.34, liftLimit));
+    const alphaDemand = assistedPitch ? instructor.alpha : trim + controls.pitch * (highAlpha?.manual ?? 0.32);
+    const desiredAlpha = clamp(alphaDemand, Math.max(-0.23, downLimit), Math.min(highAlpha?.commanded ?? 0.34, liftLimit));
     const pitchCommand = assistedPitch ? instructor.pitchRate(alpha, desiredAlpha) : (alpha - desiredAlpha) * 5.6;
     let pitchRate = clamp(pitchCommand, -spec.pitchRate, spec.pitchRate) * authority;
 
@@ -205,12 +207,13 @@ export class Flight {
     // Standard force magnitudes use qS. Lift remains perpendicular to the flight
     // path. Beyond critical alpha the lift curve falls away and separation adds drag.
     const attachedAlpha = clamp(alpha, -spec.stallAngle, spec.stallAngle);
-    const separation = smoothstep(Math.abs(alpha), spec.stallAngle, 0.66);
+    const separation = smoothstep(Math.abs(alpha), spec.stallAngle, highAlpha?.separationEnd ?? 0.66);
     const liftCoefficient = damage.lift * (spec.baseLift + flapLift + spec.liftSlope * attachedAlpha) * (1 - 0.79 * separation)
       * (1 - 0.10 * smoothstep(mach, 0.91, 1.27));
     const speedLimitDrag = spec.maxMach ? 0.24 * smoothstep(mach, spec.maxMach * 0.94, spec.maxMach * 1.08) : 0;
     const waveDrag = spec.waveDrag * smoothstep(mach, 0.76, 1.07) * (1 - 0.37 * smoothstep(mach, 1.10, 1.70));
-    const dragCoefficient = spec.baseDrag + spec.inducedDrag * liftCoefficient ** 2 + waveDrag
+    const maneuverDrag = highAlpha ? highAlpha.maneuverDrag * smoothstep(Math.abs(alpha), .16, .50) : 0;
+    const dragCoefficient = spec.baseDrag + spec.inducedDrag * liftCoefficient ** 2 + waveDrag + maneuverDrag
       + speedLimitDrag + separation * 0.48 + 0.035 * this.gear + 0.088 * this.brake + (this.stores && !this.customStores ? 0.006 : 0)
       + 0.28 * sideslip ** 2 + damage.drag + this.payloadDrag + flapFraction * (spec.flaps?.drag ?? 0);
     this.consumeFuel(burn, damage.leak, dt);

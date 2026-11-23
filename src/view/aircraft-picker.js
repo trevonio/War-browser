@@ -1,8 +1,9 @@
 import * as T from 'three';
 
 export class AircraftPreview {
-  constructor(renderer) {
+  constructor(renderer, environment) {
     this.renderer = renderer;
+    this.environment = environment;
     this.scene = new T.Scene();
     this.scene.background = new T.Color(0x182a36);
     this.camera = new T.PerspectiveCamera(35, 1, 0.5, 160);
@@ -22,6 +23,8 @@ export class AircraftPreview {
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
     const root = assets.own.root;
+    this.scene.environment = root.userData.reflectiveMaterial ? this.environment : null;
+    this.scene.environmentIntensity = 1.85;
     this.scene.add(root);
     try {
       renderer.setPixelRatio(1);
@@ -61,5 +64,16 @@ export function describeAircraft(spec, card) {
     detail.textContent = value;
     row.append(term, detail);
     list.append(row);
+  }
+  if (spec.modelCredit) {
+    const credit = document.createElement('p');
+    credit.className = 'aircraft-description';
+    const source = document.createElement('a');
+    source.href = spec.modelCredit.source;
+    source.textContent = 'Model by ' + spec.modelCredit.author.split(' (')[0];
+    source.target = '_blank';
+    source.rel = 'noopener noreferrer';
+    credit.append(source, ' · ' + spec.modelCredit.license.split(' (')[0]);
+    list.after(credit);
   }
 }

@@ -7,6 +7,10 @@ import { ThreatReceiver } from './warnings.js';
 import { WeaponRack, weapons } from './weapons.js';
 
 export const combatExercises = {
+  hornetQualification: {
+    label: 'F/A-18C Multirole Qualification', initialWeapon: 'radar', opponentMode: 'defensive', radarRange: 2,
+    opponent: { x: -320, y: 1060, z: 9300, speed: 161, heading: Math.PI + .034, exercise: 'short' },
+  },
   short: {
     label: 'Missile dogfight',
     initialWeapon: 'infrared', opponent: { x: 108, y: 15, z: 2110, speed: 186, heading: Math.PI - 0.051 },
@@ -73,15 +77,16 @@ export class CombatExercise {
     this.shotTargets = [...this.structures, ...this.enemies.flatMap((side) => side.hull.colliders)];
     this.player.rack.reset((this.loadouts ?? this.player.flight.spec.loadouts)?.[exercise], setup?.initialWeapon);
     const bvr = exercise === 'intercept' || exercise === 'outnumbered';
-    this.player.radar.reset(false, bvr ? 2 : 0);
+    this.player.radar.reset(false, setup?.radarRange ?? (bvr ? 2 : 0));
     this.player.warning.reset();
     this.profile = profiles[difficulty] ?? profiles.regular;
     for (const [index, side] of this.allEnemies.entries()) {
       const spec = side.flight.spec;
-      const preset = (index === 0 ? setup?.opponent : setup?.wingman)?.loadoutPreset;
+      const spawn = index === 0 ? setup?.opponent : setup?.wingman;
+      const preset = spawn?.loadoutPreset;
       const assignment = preset && availablePresets(spec)[preset];
       const loadout = assignment && missionLoadout(spec, assignment, exercise);
-      side.rack.reset(loadout || (this.loadouts ?? spec.loadouts)?.[exercise], setup?.initialWeapon);
+      side.rack.reset(loadout || (this.loadouts ?? spec.loadouts)?.[spawn?.exercise ?? exercise], setup?.initialWeapon);
       side.radar.reset(bvr && this.enemies.includes(side), 2);
       side.warning.reset();
       side.emitters = [this.player.radar];
@@ -212,7 +217,7 @@ export class CombatExercise {
     rack.select(weapon);
     const inFlight = this.missiles.pool.some((missile) => missile.active && missile.owner === flight);
     if (time >= side.nextLaunch && !inFlight && weapon !== 'cannon' && this.launch(side, this.player)) {
-      side.nextLaunch = time + this.profile.followUp;
+      side.nextLaunch = time + this.profile.followUp * (flight.spec.tactics?.missileFollowUp ?? 1);
     }
   }
 

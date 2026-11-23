@@ -1,8 +1,9 @@
-# War Browser · Fighting Falcon
+# War Browser
 
-A single-player, desktop browser flight simulator. Fly the F-16C or F-15C,
-practice on the coastal range, or take on AI opponents. The F-16C can also
-support a moving ground battle and intercept a convoy.
+A single-player desktop browser flight simulator. Choose the F-16C Fighting
+Falcon, F-15C Eagle, A-10C Thunderbolt II, or F/A-18C Hornet in the hangar.
+Practice on the coastal range, engage AI aircraft, or support a ground
+operation in a compatible aircraft.
 
 ## Run locally
 
@@ -427,3 +428,19 @@ load is balanced again. The flight HUD shows independent engine output.
 bearing and distance to the training range. Four hostiles must be disabled.
 Friendly-fire damage invalidates the qualification. The debrief counts
 damaging hits, disabled targets, stores and ammunition expended, and time.
+
+
+## F/A-18C Hornet
+
+The Hornet combines twin afterburning engines, approach flaps, and a game-tuned
+high-angle-of-attack flight envelope. Pick **F/A-18C Multirole Qualification**
+to take off from Runway 36, intercept an aircraft, and return to the ground
+range for a strike with the same ammunition and stores.
+
+The hangar offers **Air Superiority**, **Dogfight**, **Precision Strike**,
+**Multirole**, and **Clean**, plus presets for existing CAS missions.
+Qualification uses the Multirole preset when your active loadout lacks a
+suitable mix of stores. The saved loadout stays available in the editor.
+
+See the [Hornet integration notes](docs/aircraft-import/hornet-flight.md) for
+the aircraft systems, the imported rig, and model attribution.

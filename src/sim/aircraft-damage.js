@@ -50,9 +50,13 @@ export class AircraftDamage extends ComponentHealth {
       + (2 - this.condition('leftFlaperon') - this.condition('rightFlaperon')) * 0.009;
     this.loadLimit = 0.47 + 0.53 * Math.min(left, right, this.condition('fuselage'));
     this.enginePower = this.engines.reduce((power, engine) => power + this.enginePowerFor(engine.component) * engine.share, 0);
-    this.yawAuthority = (controlAuthority(this.condition('leftFin')) + controlAuthority(this.condition('rightFin'))) * 0.5;
+    const leftRudder = controlAuthority(Math.min(this.condition('leftFin'), this.condition('leftRudder')));
+    const rightRudder = controlAuthority(Math.min(this.condition('rightFin'), this.condition('rightRudder')));
+    this.yawAuthority = (leftRudder + rightRudder) * 0.5;
     this.leak = Math.max(0, 0.84 - this.condition('fuel')) ** 1.4 * 46;
     const surfaces = this.surfaceAuthority;
+    surfaces.LeftRudder = leftRudder;
+    surfaces.RightRudder = rightRudder;
     surfaces.LeftLEF = controlAuthority(left);
     surfaces.RightLEF = controlAuthority(right);
     surfaces.LeftFlaperon = left > 0 ? controlAuthority(this.condition('leftFlaperon')) : 0;

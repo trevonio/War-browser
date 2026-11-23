@@ -19,9 +19,14 @@ export const groundMissions = {
     timeLimit: 145, objective: relay,
   },
   qualification: {
-    label:'A-10C Gun and Rocket Qualification',
+    label:'A-10C Gun and Rocket Qualification', requiredAircraft: 'a10c', trainingTargets: true,
     briefing:'Identify friendly vehicles and disable the marked stationary and moving hostile targets.',
     timeLimit:260,objective:{x:-225,z:-1650,radius:125,label:'Qualification range'},
+  },
+  hornetQualification: {
+    label: 'F/A-18C Multirole Qualification', requiredAircraft: 'fa18c', trainingTargets: true,
+    briefing: 'Take off, intercept the designated aircraft, then disable two hostile vehicles and protect the friendly observers.',
+    timeLimit: 240, objective: { x: -255, z: -1826, radius: 145, label: 'Qualification range' },
   },
   convoy: {
     label: 'Convoy Interdiction', briefing: 'Stop all three designated transports before they reach the end of the road.',
@@ -66,6 +71,15 @@ function qualificationVehicles() {
   ];
   return [...staticTargets,...movers,...friendlies];
 }
+function multiroleTargets() {
+  return [
+    { id: 'hornet-qual-ifv', type: 'ifv', faction: 'opposing', x: -290, z: -1885, yaw: 0, route: [], objective: 'qualify' },
+    { id: 'hornet-qual-apc', type: 'apc', faction: 'opposing', x: -224, z: -1767, yaw: 0, route: [], objective: 'qualify' },
+    { id: 'hornet-qual-observers', type: 'truck', faction: 'friendly', x: -101, z: -1714, yaw: 0, route: [], objective: 'identify' },
+    { id: 'hornet-qual-security', type: 'ifv', faction: 'friendly', x: -108, z: -1914, yaw: 0, route: [], objective: 'identify' },
+  ];
+}
+
 function convoyVehicles(roads) {
   const road = roads.route('inbound', 'exit').slice(1).map((node) => roads.points[node]);
   return ['ifv', 'truck', 'apc', 'truck', 'truck', 'ifv'].map((type, index) => ({
@@ -104,7 +118,7 @@ export class GroundBattle {
     this.noticeUntil = 0;
     this.randomState = seed;
     this.weapons.clear();
-    let definitions = director?.plan.definitions ?? (id === 'qualification' ? qualificationVehicles() : id === 'convoy' ? convoyVehicles(this.roads) : id === 'battlefield' ? supportVehicles((seed % 266 + 266) % 266 - 103) : []);
+    let definitions = director?.plan.definitions ?? (id === 'qualification' ? qualificationVehicles() : id === 'hornetQualification' ? multiroleTargets() : id === 'convoy' ? convoyVehicles(this.roads) : id === 'battlefield' ? supportVehicles((seed % 266 + 266) % 266 - 103) : []);
     if (limit !== undefined) {
       const template = id === 'battlefield' && limit < definitions.length
         ? definitions.map((_, index) => definitions[Math.floor(index / 2) + index % 2 * (definitions.length / 2)])
@@ -180,7 +194,7 @@ export class GroundBattle {
       const detail = distance < 950 ** 2 || unit.lineOfSight ? 2 : distance < 3100 ** 2 ? 1 : 0;
       unit.detail = detail;
       const profile = unit.faction === 'opposing' ? this.difficulty : groundDifficulty.regular;
-      if (this.key !== 'qualification') this.engagement.step(unit, this.time, dt, profile, detail);
+      if (!this.mission.trainingTargets) this.engagement.step(unit, this.time, dt, profile, detail);
       moveVehicle(unit, dt, this.time, detail === 2 ? .045 : detail === 1 ? .08 : .125, this.occupied);
     }
     this.weapons.step(dt);
@@ -210,8 +224,8 @@ export class GroundBattle {
   }
 
   evaluate(dt) {
-    if (this.key === 'qualification') {
-      if (this.playerDisabled.size === this.qualificationTargets.length) {
+    if (this.mission.trainingTargets) {
+      if (this.qualificationTargets.every(({ id }) => this.playerDisabled.has(id))) {
         this.finish(this.friendlyFire ? 'loss' : 'win', this.friendlyFire
           ? 'Targets disabled. Friendly-fire penalty invalidated the qualification.'
           : 'All qualification targets disabled. Friendlies protected.');

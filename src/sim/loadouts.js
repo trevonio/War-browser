@@ -96,7 +96,7 @@ export function resolveLoadout(spec, assignment) {
     mass += weight;
     drag += store.drag;
   }
-  if (assignment.center === 'tank' && tankCount > (spec.storeStations?.tankLimit ?? Infinity)) errors.push('The center tank conflicts with a full pair of wing tanks.');
+  if (stations.some(({ id, offset }) => id === 'tank' && offset[0] === 0) && tankCount > (spec.storeStations?.tankLimit ?? Infinity)) errors.push('The center tank conflicts with a full pair of wing tanks.');
   return { errors, stations, mass, drag, physical: true };
 }
 

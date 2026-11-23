@@ -94,7 +94,7 @@ export class Dogfight {
     const { x, y, z, speed, heading } = opponentStart ?? spawns[mode];
     const scenario = {
       ...start, x: start.x + x, y: start.y + y, z: start.z + z,
-      heading, speed: speed * this.pilot.speedScale,
+      heading, speed: speed * this.pilot.speedScale, runway: false,
     };
     this.opponent.reset(scenario);
     this.opponentHull.reset(true);

@@ -1,6 +1,7 @@
 import { f16 } from './f16.js';
 import { f15 } from './f15.js';
 import { a10 } from './a10.js';
+import { hornet } from './hornet.js';
 
 export const aircraftRegistry = {
   [f16.id]: {
@@ -20,6 +21,10 @@ export const aircraftRegistry = {
   [a10.id]: {
     spec: a10,
     loadModel: async () => (await import('./a10-visual.js')).loadA10Visual(),
+  },
+  [hornet.id]: {
+    spec: hornet,
+    loadModel: async () => (await import('./hornet-visual.js')).loadHornetVisual(),
   },
 };
 export const defaultAircraft = f16.id;

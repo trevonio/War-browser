@@ -1,9 +1,8 @@
 import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { bindImportedHinge, importedGearAngle, setImportedHinge } from '../../src/aircraft/imported-rig.js';
 
-const parentFrame = new T.Quaternion();
 const clamp = T.MathUtils.clamp;
-const radians = T.MathUtils.degToRad;
 
 export const controlLabels = {
   roll: 'Ailerons',
@@ -12,17 +11,6 @@ export const controlLabels = {
   flaps: 'Flaps',
   leadingEdge: 'Leading edge',
 };
-
-function gearAngle(animation, retraction) {
-  // Gear clears the still-open doors before they close. Deployment reverses
-  // the same sequence, including when a user interrupts the movement.
-  const { rest, end, clearanceOpen = 0 } = animation;
-  const smooth = T.MathUtils.smoothstep;
-  return animation.control === 'gear'
-    ? T.MathUtils.lerp(rest, end, smooth(retraction, .12, .78))
-    : rest + clearanceOpen * smooth(retraction, 0, .12) +
-      (end - rest - clearanceOpen) * smooth(retraction, .78, 1);
-}
 
 export async function loadAircraftModel(manifest, sourceUrl) {
   if (manifest.schema !== 1 || typeof manifest.root !== 'string' ||
@@ -58,12 +46,10 @@ export async function loadAircraftModel(manifest, sourceUrl) {
           }
         }
         if (node.userData.aircraftAnimation) {
-          const animation = JSON.parse(node.userData.aircraftAnimation);
           let meshCount = 0;
           node.traverse((child) => { if (child.isMesh) meshCount++; });
           if (!meshCount) throw new Error(`${node.name} has a hinge but is missing its geometry.`);
-          const axis = new T.Vector3().fromArray(animation.axis).normalize();
-          hinges.push({ node, animation, axis, base: node.quaternion.clone() });
+          hinges.push(bindImportedHinge(node));
         }
       });
       if (triangles < 1 || (Number.isInteger(manifest.levels[index].triangles) && triangles !== manifest.levels[index].triangles)) {
@@ -118,17 +104,18 @@ export async function loadAircraftModel(manifest, sourceUrl) {
     },
     pose(controls, retraction) {
       for (const { hinges } of rigs) {
-        for (const { node, animation: a, axis, base } of hinges) {
+        for (const hinge of hinges) {
+          const { animation: a } = hinge;
           const input = controls[a.control] ?? 0;
           let angle;
           if (a.control === 'gear' || a.control === 'gearDoor') {
-            angle = gearAngle(a, retraction);
+            angle = importedGearAngle(a, retraction);
           } else {
             const normalized = clamp(input * (a.sense ?? 1), -1, 1);
             angle = normalized * (normalized < 0 ? Math.abs(a.min) : Math.abs(a.max));
             angle = clamp(angle, a.min, a.max);
           }
-          node.quaternion.copy(base).multiply(parentFrame.setFromAxisAngle(axis, radians(angle)));
+          setImportedHinge(hinge, angle);
         }
       }
     },

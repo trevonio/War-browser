@@ -27,7 +27,7 @@ export class ControlSurfaces {
 
   command(pitch, roll, yaw, gear, speed, alpha, brake = 0, flap) {
     const approach = gear * (1 - smoothstep(speed, 100, 158));
-    const leading = 25 * clamp(approach * 0.70 + Math.max(0, alpha) * 1.7, 0, 1);
+    const leading = (this.config.limitLEF ?? 25) * clamp(approach * 0.70 + Math.max(0, alpha) * 1.7, 0, 1);
     const trailing = this.config.separateFlaps ? 0 : 18 * approach;
     const elevator = pitch * 21;
     const aileron = roll * 20;
@@ -37,6 +37,11 @@ export class ControlSurfaces {
     this.demand.LeftStabilator = elevator + roll * (this.config.stabilatorRollMix ?? 5);
     this.demand.RightStabilator = elevator - roll * (this.config.stabilatorRollMix ?? 5);
     this.demand.Rudder = -yaw * 30;
+    if (this.config.separateRudders) {
+      const toeIn = approach * 2.5;
+      this.demand.LeftRudder = this.demand.Rudder + toeIn;
+      this.demand.RightRudder = this.demand.Rudder - toeIn;
+    }
     if (this.config.separateFlaps) this.demand.Flap = flap ?? 35 * approach;
     if (this.config.speedBrake) this.demand.SpeedBrake = (this.limits.SpeedBrake?.[1] ?? 48) * brake;
   }

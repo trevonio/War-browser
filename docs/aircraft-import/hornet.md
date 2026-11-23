@@ -14,7 +14,7 @@ The supplied Sketchfab GLB embeds the title **F/A-18 Hornet Low Poly** and credi
 
 The gear wheels and doors both move and the wheels tuck away in the endpoint pose. The mesh uses shallow bay openings and simplified links. The 10% sweep still identifies main-gear contacts with the fuselage and doors in transit. The canopy, surface limits, rudder roots, and thin wing cuts are visible in the viewer. The thin cut edges and bay openings can show seams in close-up. For flight-ready gear, revise the bay lining and main strut linkage and repeat the clearance sweep.
 
-The cannon, exhaust, and store sockets are visual attachment estimates fitted to the source mesh. No F/A-18 spec has been added to the aircraft registry. The existing F-16C, F-15C, A-10C, flight model, controls, and missions use their existing assets and code.
+The cannon, exhaust, and store sockets are visual attachment estimates fitted to the source mesh. Stage 3.2 uses these sockets in the [playable Hornet](hornet-flight.md).
 
 ## Size and rendering
 
