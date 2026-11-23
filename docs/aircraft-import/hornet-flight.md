@@ -65,3 +65,19 @@ engine failures, high-incidence energy loss, the mouse instructor, visual
 rig synchronization and damage, and phase scoring. Browser tests exercise
 the production hangar, saved loadouts, CAS pod tracking, and qualification
 with controlled flight paths and real weapon impacts.
+
+A production-build smoke run measured 2.3-second warmed samples with the
+Low preset at 960 × 600 on Chromium software WebGL.
+
+| Scenario | FPS | 95th-percentile frame time |
+| --- | ---: | ---: |
+| Hornet free flight | 8.0 | 166.7 ms |
+| Hornet vs F-16C | 7.8 | 150.0 ms |
+| Hornet vs F-15C | 9.7 | 133.4 ms |
+| Outnumbered vs F-15C and AI Hornet | 6.3 | 216.7 ms |
+| Active CAS battlefield | 6.9 | 183.3 ms |
+| CAS thermal pod with guided ordnance in flight | 47.4 | 33.4 ms |
+
+These samples characterize SwiftShader in the test environment. The renderer
+uses a lower resolution and simpler terrain presentation for the thermal view.
+Hardware-accelerated frame rates have not been measured.

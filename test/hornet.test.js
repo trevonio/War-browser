@@ -220,3 +220,45 @@ test('the Hornet qualification starts airborne opposition safely and requires cr
     assert.equal(battle.outcome, friendlyHit ? 'loss' : 'win');
   }
 });
+
+test('the Hornet spends an infrared store and receives radar and missile warnings through shared avionics', () => {
+  const start = { ...scenarios.short, y: 2200 };
+  const flight = new Flight(hornet, range);
+  const enemy = new Dogfight(flight, aircraftRegistry.f15c.spec, range, { shot() {}, impact() {} });
+  let launches = 0;
+  const combat = new CombatExercise(enemy, range, { launch() { launches++; }, burst() {} });
+  flight.reset(start);
+  enemy.reset('defensive', start, { x: 0, y: 0, z: 1050, speed: 180, heading: Math.PI });
+  combat.reset('short');
+  const { rack, warning } = combat.player;
+  const radar = combat.enemy.radar;
+  radar.togglePower();
+  radar.update(0, [flight], combat.decoys);
+  warning.update(0, [radar], combat.missiles.pool);
+  assert.equal(warning.state, 'SEARCH');
+  radar.selectNext();
+  assert.equal(radar.toggleLock(), true);
+  radar.update(.23, [flight], combat.decoys);
+  warning.update(.23, [radar], combat.missiles.pool);
+  assert.equal(warning.state, 'TRACK');
+
+  rack.requestInfrared();
+  rack.update(0, [enemy.opponent]);
+  rack.update(.4, [enemy.opponent]);
+  assert.equal(rack.launchState('infrared', .4), 'CLEARED');
+  assert.ok(combat.launch(combat.player, combat.enemy, 'infrared'));
+  assert.equal(launches, 1);
+  assert.equal(rack.count('infrared'), 1);
+  assert.equal(combat.missiles.pool.find(({ active }) => active).station, 'HP_01');
+
+  const missile = combat.missiles.launchSurface({}, enemy.opponent.position, flight, combat.player.hull);
+  assert.ok(missile?.active);
+  warning.update(.44, [radar], combat.missiles.pool);
+  assert.equal(warning.state, 'ACTIVE SEEKER');
+  const chaff = rack.chaff;
+  const flare = rack.flare;
+  assert.ok(rack.deploy('chaff', .44, combat.decoys));
+  assert.ok(rack.deploy('flare', .44, combat.decoys));
+  assert.equal(rack.chaff, chaff - 1);
+  assert.equal(rack.flare, flare - 1);
+});
